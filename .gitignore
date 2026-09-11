@@ -1,7 +1,6 @@
 # Dependencias
 node_modules/
 package-lock.json
-pnpm-lock.yaml
 
 # Entregables generados localmente (opcional ignorar por defecto o versionar en workspace)
 *.log
