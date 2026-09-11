@@ -92,12 +92,12 @@ const STEP_ACTIONS = [
   {
     stepId: '3.summary',
     name: 'Confirmación de Fase 3',
-    triggerPattern: /(avanzar a la fase 4|información de la fase 3.*correcta|pasar a la fase 4.*validación|compilar.*showcase.*design system)/i,
+    triggerPattern: /(avanzar a la fase 4|información de la fase 3.*correcta|pasar a la fase 4.*validación|compilar.*showcase.*design system|cimientos visuales.*avanzar a la fase 4)/i,
     type: 'chips',
-    title: '¿Confirmar Fase 3 y avanzar a la Fase 4?',
+    title: '¿Confirmar y avanzar a la Fase 4 (Validación)?',
     options: [
-      { label: 'Sí, generar Showcase (Fase 4)', value: 'Componentes confirmados. Proceder a la Fase 4 para compilar el Showcase HTML y Design System.', icon: 'check' },
-      { label: 'Ajustar componentes', value: 'Deseo revisar los componentes antes de avanzar.', icon: 'edit' }
+      { label: 'Sí, generar Showcase (Fase 4)', value: 'Confirmado. Proceder a la Fase 4 para compilar el Showcase HTML y la especificación del Design System.', icon: 'check' },
+      { label: 'Ajustar detalles', value: 'Deseo revisar los tokens o detalles antes de avanzar.', icon: 'edit' }
     ]
   },
 
@@ -157,21 +157,21 @@ const STEP_ACTIONS = [
     options: [
       {
         label: 'Fidelidad Total (Fast-Track)',
-        value: '1. [Fidelidad Arquitectónica Total] Replicación Fiel de Estructura y Estética (Recomendado — Modo Fast-Track)',
+        value: '1. Fidelidad Arquitectónica Total: Replicación Fiel de Estructura y Estética (Recomendado — Modo Fast-Track)',
         description: 'Bloqueo inmutable de arquitectura, paleta real y grilla. Salta Fases 2 y 3 directamente a Validación.',
         badge: 'Recomendado',
         icon: 'zap'
       },
       {
         label: 'Inspiración Conceptual',
-        value: '2. [Inspiración Conceptual / Vibe]',
+        value: '2. Inspiración Conceptual / Vibe',
         description: 'Extrae atmósfera y tipografía pero avanza por el flujo completo de Fases 2 a 5.',
         badge: 'Ruta B',
         icon: 'palette'
       },
       {
         label: 'Quirúrgica / Personalizada',
-        value: '3. [Personalizada / Quirúrgica]',
+        value: '3. Personalizada / Quirúrgica',
         description: 'Especificar manualmente qué dimensiones calcar y cuáles diseñar a medida.',
         badge: 'Avanzado',
         icon: 'tool'
@@ -179,11 +179,11 @@ const STEP_ACTIONS = [
     ]
   },
 
-  // Compuerta de Aprobación 1 (Fase 4 - Showcase Validado)
+  // Compuerta de Aprobación 1 (Fase 4 - Showcase Validado para avanzar a Fase 5)
   {
     stepId: 'gate-1',
     name: 'Compuerta 1: Validación de Design System',
-    triggerPattern: /(compuerta.*1|apruebas el design system|proceder.*fase 5|validación.*showcase)/i,
+    triggerPattern: /(compuerta.*1|showcase.*listo.*apruebas|apruebas.*(?:el\s+)?design system.*(?:para|y)?.*(?:proceder|avanzar|construir).*(?:fase 5|prototipo)|proceder.*(?:a la\s+)?fase 5|avanzar.*(?:a la\s+)?fase 5|construir.*prototipo.*fase 5)/i,
     type: 'gate',
     title: 'Compuerta 1: Aprobación del Design System',
     description: 'El Showcase HTML del Design System está listo para revisión en la pestaña "Showcase".',

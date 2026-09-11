@@ -25,13 +25,13 @@ PASO 3: Generar Design System
 
 > "Tengo los datos base de tu marca. Para definir la personalidad visual de forma rápida, puedes elegir un **Arquetipo de Diseño (1 clic)** o calibrar manualmente los 14 ejes si prefieres un ajuste milimétrico:
 >
-> 1. `[Tech Minimalist]` **Tech Minimalist** (Limpio, preciso, esquinas rectangulares 2-4px, tipografía sans-serif nítida)
-> 2. `[Bold & Vibrant]` **Bold & Vibrant** (Colores saturados, tipografía ExtraBold gigante 800, botones de 56px, alto contraste)
-> 3. `[Corporate & Trust]` **Corporate & Trust** (Estructura sobria, simetría estricta, tonos neutros serios, confiable)
-> 4. `[Organic & Warm]` **Organic & Warm** (Esquinas redondeadas 16-28px, tonos cálidos tintados, espaciado cómodo)
-> 5. `[Cyber & Futuristic]` **Cyber & Futuristic** (Fondo oscuro/nocturno, acentos neón, resplandores tintados, ciber-digital)
-> 6. `[Editorial & Premium]` **Editorial & Premium** (Tipografía Display refinada, espaciado amplio, grillas elegantes, lujo)
-> 7. `[Calibración Manual]` **Calibración Manual por Ejes (Avanzado)**
+> 1. `Tech Minimalist` **Tech Minimalist** (Limpio, preciso, esquinas rectangulares 2-4px, tipografía sans-serif nítida)
+> 2. `Bold & Vibrant` **Bold & Vibrant** (Colores saturados, tipografía ExtraBold gigante 800, botones de 56px, alto contraste)
+> 3. `Corporate & Trust` **Corporate & Trust** (Estructura sobria, simetría estricta, tonos neutros serios, confiable)
+> 4. `Organic & Warm` **Organic & Warm** (Esquinas redondeadas 16-28px, tonos cálidos tintados, espaciado cómodo)
+> 5. `Cyber & Futuristic` **Cyber & Futuristic** (Fondo oscuro/nocturno, acentos neón, resplandores tintados, ciber-digital)
+> 6. `Editorial & Premium` **Editorial & Premium** (Tipografía Display refinada, espaciado amplio, grillas elegantes, lujo)
+> 7. `Calibración Manual` **Calibración Manual por Ejes (Avanzado)**
 > 8. `[Defaults]` **Usar Valores por Defecto del tipo de sitio**"
 
 ---
@@ -61,7 +61,7 @@ Cuando el cliente selecciona un Arquetipo, se aplican automáticamente los sigui
 
 ## Auto-Calibración desde Referencias Visuales (Fidelidad Total)
 
-Cuando el cliente selecciona `[Fidelidad Arquitectónica Total]` en el Paso 1.5, el agente calcula automáticamente los valores de los 14 ejes a partir de la deconstrucción visual sin forzar al usuario a elegir un preset genérico:
+Cuando el cliente selecciona `Fidelidad Arquitectónica Total` en el Paso 1.5, el agente calcula automáticamente los valores de los 14 ejes a partir de la deconstrucción visual sin forzar al usuario a elegir un preset genérico:
 
 * **Eje 1 (Sofisticación):** Se calibra según la elegancia tipográfica y los espaciados del menú de navegación (1 = refinado/multinivel, 5 = casual/simplificado).
 * **Eje 2 (Audacia):** Se calibra según el tamaño, peso y contraste de los CTAs (1 = botones XL 56px de alto contraste, 5 = botones sutiles o ghost).

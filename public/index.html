@@ -140,6 +140,20 @@
         </button>
       </div>
 
+      <!-- SEGUIMIENTO REACTIVO DE ENTREGABLES EN DISCO -->
+      <div id="deliverablesTrackerBar" class="deliverables-tracker-bar" style="display: none;">
+        <div class="tracker-header">
+          <span class="tracker-title">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+            </svg>
+            Archivos del Proyecto en Disco
+          </span>
+          <span class="tracker-badge" id="trackerCount">0/4</span>
+        </div>
+        <div class="tracker-pills" id="trackerPills"></div>
+      </div>
+
       <!-- 2. FLUJO DE MENSAJES -->
       <div class="chat-messages" id="chatMessages" role="log" aria-live="polite"
         aria-label="Historial de mensajes de la conversación">
@@ -514,8 +528,8 @@
           </div>
           <div class="console-box" id="consoleOutput" role="log" aria-live="polite"
             aria-label="Logs y consola del sistema">
-            <div class="log-line info">[System] Homium Site Builder inicializado.</div>
-            <div class="log-line info">[System] Motor listo para recibir instrucciones.</div>
+            <div class="log-line info">System · Homium Site Builder inicializado.</div>
+            <div class="log-line info">System · Motor listo para recibir instrucciones.</div>
           </div>
         </div>
       </div>

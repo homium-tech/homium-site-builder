@@ -190,18 +190,21 @@
       z-index: 0;
     }
 
-    /* Layout Shell — el rail izquierdo es position:fixed; .app-layout reserva su ancho
-       con padding-left (no con una columna de grid, porque un item fixed no ocupa celda). */
+    /* Layout Shell — rail izquierdo fixed permanente y .app-layout con margin-left exacto.
+       Garantiza que la barra lateral permanezca fija y visible en todo el scroll de la página,
+       sin desplazarse hacia arriba ni solaparse con el contenido. */
     .app-layout {
       min-height: 100vh;
-      padding-left: 270px;
+      margin-left: 260px;
+      width: calc(100% - 260px);
+      max-width: calc(100% - 260px);
       position: relative;
+      box-sizing: border-box;
       z-index: 1;
     }
 
     /* Anti-desbordamiento: los items de grid/flex no deben crecer por su contenido
-       (tablas anchas, bloques de código, texto sin cortar). Sin esto, una tabla ancha estira toda
-       la columna 1fr y el layout desborda el viewport (móvil incluido). */
+       (tablas anchas, bloques de código, texto sin cortar). */
     .app-layout > *, .main-viewport, .doc-section, .ds-gaps,
     .grid-2 > *, .grid-3 > *, .grid-4 > *, .card-stack > *,
     .homium-card, .ds-block, .ds-stage, .table-wrap,
@@ -211,24 +214,24 @@
     .table-wrap { max-width: 100%; }
 
     /* LEFT-RAIL SIDEBAR
-       position: fixed — persistente en todo el scroll, inmune a overflow de ancestros
-       (sticky se rompe si un ancestro como <html> tiene overflow != visible). La columna
-       de 270px de .app-layout reserva el espacio; el aside fijo la cubre exactamente. */
+       position: fixed — 100% permanente en pantalla durante todo el scroll.
+       Permanece visible en todo momento y no se desplaza con la página. */
     .left-rail-sidebar {
       position: fixed;
       top: 0;
       left: 0;
-      width: 270px;
+      width: 260px;
       height: 100vh;
       height: 100dvh;
       background: var(--bg-sunken);
       border-right: 1px solid var(--border);
-      padding: 1.75rem 1.25rem 1.5rem 1.25rem;
+      padding: 1.5rem 1rem 1.25rem 1rem;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
       overflow-y: auto;
       z-index: 100;
+      flex-shrink: 0;
     }
 
     .rail-brand-block {
@@ -311,7 +314,7 @@
       font-family: var(--font-mono);
       font-size: 10px;
       color: var(--fg-subtle);
-      min-width: 14px;
+      min-width: 22px;
     }
 
     .rail-dot {
@@ -443,11 +446,13 @@
 
     /* Main Viewport Content */
     .main-viewport {
-      padding: 3.5rem 5rem 6rem 5rem;
-      max-width: 1360px;
       width: 100%;
+      max-width: 1360px;
       margin: 0 auto;
+      padding: 2.5rem clamp(1.25rem, 3.5vw, 3.5rem) 5rem clamp(1.25rem, 3.5vw, 3.5rem);
       position: relative;
+      box-sizing: border-box;
+      overflow-x: hidden;
     }
 
     /* Client Pill Badge (Top of Hero from Screenshot) */
@@ -504,8 +509,8 @@
     }
 
     .bracket { color: var(--accent); font-weight: 400; }
-    .bracket::before { content: '[ '; }
-    .bracket::after  { content: ' ]'; }
+    .bracket::before { content: ''; }
+    .bracket::after  { content: ''; }
 
     /* Section Headers (From Live Platform) */
     .doc-section {
@@ -551,19 +556,39 @@
       background: var(--surface-card);
       border: 1px solid var(--border);
       border-radius: var(--radius-lg);
-      padding: 2.2rem;
+      padding: 1.6rem;
       box-shadow: var(--shadow-card);
       transition: border-color var(--dur-med) var(--ease-out), transform var(--dur-med) var(--ease-out);
       backdrop-filter: blur(12px);
+      box-sizing: border-box;
+      width: 100%;
     }
     .homium-card:hover {
       border-color: var(--accent);
       transform: translateY(-2px);
     }
 
-    .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.5rem; }
-    .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.5rem; }
-    .grid-4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.25rem; }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1.5rem;
+      align-items: stretch;
+      width: 100%;
+    }
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1.25rem;
+      align-items: stretch;
+      width: 100%;
+    }
+    .grid-4 {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 1rem;
+      align-items: stretch;
+      width: 100%;
+    }
 
     /* Swatches */
     .swatch-card {
@@ -1209,9 +1234,17 @@
        RESPONSIVE — Tablet & Mobile
        ========================================================================== */
     @media (max-width: 1023px) {
-      .app-layout { padding-left: 0; }
+      .app-layout {
+        display: block;
+        margin-left: 0;
+        width: 100%;
+        max-width: 100%;
+        padding-left: 0;
+      }
       .left-rail-sidebar { display: none; }
-      .main-viewport { padding: 1.5rem 1.25rem 2rem; max-width: 100%; }
+      .main-viewport { padding: 1.5rem 1rem 2rem; max-width: 100%; }
+      .grid-3 { grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); }
+      .grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 
       .mobile-nav {
         display: flex; align-items: center; gap: 0.6rem;
@@ -1437,7 +1470,7 @@
 
       <!-- 1. DISCOVERY & PROPÓSITO -->
       <section id="sec-discovery" class="doc-section">
-        <div class="section-eyebrow"><span class="eyebrow-num">01</span> DISCOVERY & PROPÓSITO</div>
+        <div class="section-eyebrow"><span class="eyebrow-num">1.1</span> DISCOVERY & PROPÓSITO</div>
         <h2 class="section-title">Contexto del Producto.</h2>
         <p class="section-desc">Definición de modelo de negocio, misión y requerimientos técnicos del cliente.</p>
 
@@ -1459,7 +1492,7 @@
 
       <!-- 2. ECUALIZADOR DE MARCA (14 EJES) -->
       <section id="sec-equalizer" class="doc-section">
-        <div class="section-eyebrow"><span class="eyebrow-num">02</span> CALIBRACIÓN VISUAL</div>
+        <div class="section-eyebrow"><span class="eyebrow-num">1.2</span> CALIBRACIÓN VISUAL</div>
         <h2 class="section-title">Ecualizador de Marca — 14 Ejes.</h2>
         <p class="section-desc">Personalidad cuantificada y traducida a tokens de interfaz para {{BRAND_NAME}}.</p>
 
@@ -1479,7 +1512,7 @@
 
       <!-- 3. DECONSTRUCCIÓN VISUAL & BLUEPRINT -->
       <section id="sec-visual-dna" class="doc-section">
-        <div class="section-eyebrow"><span class="eyebrow-num">03</span> BLUEPRINT FORENSE</div>
+        <div class="section-eyebrow"><span class="eyebrow-num">1.3</span> BLUEPRINT FORENSE</div>
         <h2 class="section-title">Deconstrucción Arquitectónica 6D.</h2>
         <p class="section-desc">Wireflow de módulos y desglose forense sin plantillas genéricas.</p>
 
@@ -1520,7 +1553,7 @@
 
       <!-- 5. GRID & SPACING -->
       <section id="sec-spacing" class="doc-section">
-        <div class="section-eyebrow"><span class="eyebrow-num">04</span> ESCALA ESPACIAL</div>
+        <div class="section-eyebrow"><span class="eyebrow-num">2.1</span> ESCALA ESPACIAL</div>
         <h2 class="section-title">Grilla, Espaciado & Densidad.</h2>
         <p class="section-desc">Escala base {{SPACING_BASE}}px, contenedores fluidos y modo de densidad calibrados para {{BRAND_NAME}}.</p>
 
@@ -1572,7 +1605,7 @@
 
       <!-- 6. COLORES & RAMPAS HCT -->
       <section id="sec-colors" class="doc-section">
-        <div class="section-eyebrow"><span class="eyebrow-num">05</span> TOKENS CROMÁTICOS</div>
+        <div class="section-eyebrow"><span class="eyebrow-num">2.2</span> TOKENS CROMÁTICOS</div>
         <h2 class="section-title">Paleta de Colores & Rampas Tonales HCT.</h2>
         <p class="section-desc">Paleta del proyecto deconstruida y calibrada para {{BRAND_NAME}} con accesibilidad WCAG AAA.</p>
 
@@ -1624,7 +1657,7 @@
 
       <!-- 7. TIPOGRAFÍA -->
       <section id="sec-typography" class="doc-section">
-        <div class="section-eyebrow"><span class="eyebrow-num">06</span> SISTEMA TIPOGRÁFICO</div>
+        <div class="section-eyebrow"><span class="eyebrow-num">2.3</span> SISTEMA TIPOGRÁFICO</div>
         <h2 class="section-title">Estrategia Tipográfica & Escala Modular.</h2>
         <p class="section-desc">Arquitectura tipográfica dual de alta fidelidad, escala armónica {{MODULAR_SCALE_NAME}} (Ratio: {{MODULAR_SCALE_RATIO}}) y ritmo vertical calibrado para {{BRAND_NAME}}.</p>
 
@@ -1710,7 +1743,7 @@
             <div class="mono" style="font-size: 0.72rem; color: var(--sample-accent); margin-bottom: 0.75rem;">{{FONT_MONO_META}}</div>
             <p style="font-size: 0.85rem; color: var(--fg-muted); margin-bottom: 1rem;">Valores de tokens, bloques de código, métricas tabulares y timestamps precisos.</p>
             <div class="type-charset mono">
-              0123456789 :root {<br>&nbsp;&nbsp;--token: {{PRIMARY_COLOR}};<br>} [0xDEADBEEF]
+              0123456789 :root {<br>&nbsp;&nbsp;--token: {{PRIMARY_COLOR}};<br>} 0xDEADBEEF
             </div>
           </div>
         </div>
@@ -1725,7 +1758,7 @@
             <span class="chip chip-neutral">Escala tipográfica</span>
           </div>
 
-          <div style="overflow-x: auto;">
+          <div class="table-wrap">
             <table class="type-scale-table">
               <thead>
                 <tr>
@@ -1770,7 +1803,7 @@
           </div>
 
           <!-- Composición Editorial en Vivo -->
-          <div class="homium-card" style="padding: 1.75rem; background: var(--bg-sunken);">
+          <div class="homium-card" style="padding: 1.5rem;">
             <div class="section-eyebrow" style="margin-bottom: 0.5rem;"><span class="eyebrow-num">Párrafo</span> COMPOSICIÓN EDITORIAL</div>
             <!-- EDITORIAL_COMPOSITION: muestra tipográfica en contexto con COPY REAL DE LA MARCA
                  (nada de "propósito estratégico" ni cita de Eames):
@@ -1832,7 +1865,7 @@
 
       <!-- 8. GEOMETRÍA & SOMBRAS -->
       <section id="sec-geometry" class="doc-section">
-        <div class="section-eyebrow"><span class="eyebrow-num">07</span> MORFOLOGÍA & SUPERFICIES</div>
+        <div class="section-eyebrow"><span class="eyebrow-num">2.4</span> MORFOLOGÍA & SUPERFICIES</div>
         <h2 class="section-title">Radios, Sombras & Elevación Tintada.</h2>
         <p class="section-desc">Escala geométrica y de elevación calibrada para {{BRAND_NAME}} (valores del Master MD §2.5).</p>
 
@@ -1867,7 +1900,7 @@
 
       <!-- 9. ICONOGRAFÍA OFICIAL -->
       <section id="sec-icons" class="doc-section">
-        <div class="section-eyebrow"><span class="eyebrow-num">08</span> ICONOGRAFÍA</div>
+        <div class="section-eyebrow"><span class="eyebrow-num">2.5</span> ICONOGRAFÍA</div>
         <h2 class="section-title">Iconografía Oficial & Motivos Vectoriales.</h2>
         <!-- ICON_STYLE_SUMMARY: 1 frase real: {icons.library} · trazo {stroke}px · {estilo de unión}
              (o la sustitución señalada si la marca no entregó set). -->
@@ -1900,7 +1933,7 @@
 
       <!-- 10. MOTION TOKENS & PLAYGROUND -->
       <section id="sec-motion" class="doc-section">
-        <div class="section-eyebrow"><span class="eyebrow-num">09</span> MOTION ENGINE</div>
+        <div class="section-eyebrow"><span class="eyebrow-num">2.6</span> MOTION ENGINE</div>
         <h2 class="section-title">Tokens de Movimiento & Playground de Easing.</h2>
         <p class="section-desc">Duraciones y curvas del Master MD §3.0, más un playground de easing (demostración GSAP).</p>
 
@@ -1951,7 +1984,7 @@
 
       <!-- 11. CATÁLOGO ATÓMICO (6 ESTADOS) -->
       <section id="sec-atoms" class="doc-section">
-        <div class="section-eyebrow"><span class="eyebrow-num">10</span> ATOMIC DESIGN</div>
+        <div class="section-eyebrow"><span class="eyebrow-num">3.1</span> ATOMIC DESIGN</div>
         <h2 class="section-title">Catálogo Atómico — Componentes Vivos.</h2>
         <p class="section-desc">Un <strong>Component Block</strong> vivo por átomo (universales + los del tipo de sitio "{{SITE_TYPE}}"). Los estados se demuestran con CSS real: pasa el cursor, navega con <kbd>Tab</kbd> y mantén pulsado.</p>
 
@@ -1986,7 +2019,7 @@
 
       <!-- 12. MOLÉCULAS UI -->
       <section id="sec-molecules" class="doc-section">
-        <div class="section-eyebrow"><span class="eyebrow-num">11</span> MOLÉCULAS</div>
+        <div class="section-eyebrow"><span class="eyebrow-num">3.2</span> MOLÉCULAS</div>
         <h2 class="section-title">Moléculas UI & Campos de Entrada.</h2>
         <p class="section-desc">Un Component Block vivo por molécula (universales + las del tipo de sitio "{{SITE_TYPE}}"): search bar, chips de filtro con estado, quantity stepper, toast, avatar, breadcrumb…</p>
 
@@ -1998,7 +2031,7 @@
 
       <!-- 13. ORGANISMOS & BENTO -->
       <section id="sec-organisms" class="doc-section">
-        <div class="section-eyebrow"><span class="eyebrow-num">12</span> ORGANISMOS</div>
+        <div class="section-eyebrow"><span class="eyebrow-num">3.3</span> ORGANISMOS</div>
         <h2 class="section-title">Organismos & Composiciones.</h2>
         <p class="section-desc">Un Component Block vivo por organismo (universales + los del tipo de sitio "{{SITE_TYPE}}"): navbar, footer, hero, modal, y los específicos (p. ej. Product Card con hover-zoom, Cart Drawer con focus trap).</p>
 
@@ -2016,7 +2049,7 @@
 
       <!-- 14. AUDITORÍA WCAG 2.2 AAA -->
       <section id="sec-wcag" class="doc-section">
-        <div class="section-eyebrow"><span class="eyebrow-num">13</span> ACCESIBILIDAD TOTAL</div>
+        <div class="section-eyebrow"><span class="eyebrow-num">4.1</span> ACCESIBILIDAD TOTAL</div>
         <h2 class="section-title">Auditoría de Accesibilidad WCAG 2.2 AAA.</h2>
         <p class="section-desc">Verificación matemática de ratios de contraste (≥ 7:1 en texto base) para {{BRAND_NAME}}.</p>
 
@@ -2048,7 +2081,7 @@
 
       <!-- 15. HANDOFF DE CÓDIGO -->
       <section id="sec-code" class="doc-section">
-        <div class="section-eyebrow"><span class="eyebrow-num">14</span> INTEGRACIÓN</div>
+        <div class="section-eyebrow"><span class="eyebrow-num">5.1</span> INTEGRACIÓN</div>
         <h2 class="section-title">Handoff de Código & Exportación de Tokens.</h2>
         <p class="section-desc">Variables CSS listas para producción — tokens primitivos, semánticos y de componentes.</p>
 
@@ -2181,9 +2214,10 @@
       if (!sel) return;
       const groups = document.querySelectorAll('#rail-nav .rail-group');
       groups.forEach(group => {
-        const headerLabel = group.querySelector('.rail-group-header span:nth-child(2)')?.textContent.trim() || '';
+        const groupNum = group.querySelector('.rail-group-num')?.textContent.trim() || '';
+        const groupName = group.querySelector('.rail-group-header span:nth-child(2)')?.textContent.trim() || '';
         const opt_group = document.createElement('optgroup');
-        opt_group.label = headerLabel;
+        opt_group.label = groupNum ? (groupNum + ' — ' + groupName) : groupName;
         group.querySelectorAll('.rail-nav-item a').forEach(a => {
           const href = a.getAttribute('href');
           const label = a.textContent.replace(/\s+/g, ' ').trim();

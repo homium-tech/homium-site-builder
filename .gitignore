@@ -10,3 +10,8 @@ Thumbs.db
 # Entorno
 .env
 .env.local
+
+# Agentes y Skills locales
+.agents/
+.claude/
+skills-lock.json

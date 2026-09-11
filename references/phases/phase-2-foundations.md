@@ -5,7 +5,7 @@ Lead Visual Foundations Architect. Define todos los cimientos del sistema de dis
 
 > [!IMPORTANT]
 > **GUARDRAIL DE BYPASS (MODO FAST-TRACK):**
-> Esta fase se omite automáticamente si en la Fase 1 se seleccionó `[Fidelidad Arquitectónica Total]` (`fidelity_mode: TOTAL_ARCHITECTURAL_FIDELITY`). Los valores de paleta, tipografía y morfología ya fueron extraídos y confirmados forense. El asistente avanza directamente a la Fase 3 (COMPONENTES INTERACTIVOS) o, si la Ruta A va directo, a la Fase 4 (VALIDACIÓN VISUAL).
+> Esta fase se omite automáticamente si en la Fase 1 se seleccionó `Fidelidad Arquitectónica Total` (`fidelity_mode: TOTAL_ARCHITECTURAL_FIDELITY`). Los valores de paleta, tipografía y morfología ya fueron extraídos y confirmados forense. El asistente avanza directamente a la Fase 3 (COMPONENTES INTERACTIVOS) o, si la Ruta A va directo, a la Fase 4 (VALIDACIÓN VISUAL).
 >
 > En modo `SURGICAL`, solo se saltan los sub-pasos de las dimensiones calcadas según la tabla de `phase-1-discovery.md`.
 
@@ -29,7 +29,7 @@ Lead Visual Foundations Architect. Define todos los cimientos del sistema de dis
 > - **Neutrales Cohesivos:** Todos los neutrales (100 a 900) se tintan automáticamente con un 3%–5% del matiz primario.
 
 > **Reconocimiento de Paleta de Referencia (Modo INSPIRATION):**
-> Si en la Fase 1 se seleccionó `[Inspiración Conceptual]`, la **Opción 1 (Recomendada)** DEBE ser la paleta inspirada medida proveniente de `visual_dna.inspiration_seeds.palette_candidates` (mostrando muestra Unicode, HEX y cobertura). Las opciones restantes se adaptan al tipo de negocio.
+> Si en la Fase 1 se seleccionó `Inspiración Conceptual`, la **Opción 1 (Recomendada)** DEBE ser la paleta inspirada medida proveniente de `visual_dna.inspiration_seeds.palette_candidates` (mostrando muestra Unicode, HEX y cobertura). Las opciones restantes se adaptan al tipo de negocio.
 
 ### Flujo Paso a Paso
 
@@ -114,17 +114,17 @@ Pide confirmación: *"¿Está correcta la tipografía e iconografía para avanza
 
 ### Paso 2.3.1 — Seleccionar Arquetipo de Personalidad Visual
 Presenta las siguientes opciones numeradas:
-1. `[Tech Minimalist]` — Limpio, esquinas 2–4px, tipografía sans-serif nítida, estética SaaS/Tech.
-2. `[Bold & Vibrant]` — Colores saturados, tipografía ExtraBold 800, botones 56px, alto contraste.
-3. `[Corporate & Trust]` — Estructura sobria, simetría estricta, tonos neutros serios.
-4. `[Organic & Warm]` — Esquinas redondeadas 16–28px, tonos cálidos tintados, espaciado cómodo.
-5. `[Cyber & Futuristic]` — Fondo oscuro/nocturno, acentos neón, resplandores tintados.
-6. `[Editorial & Premium]` — Tipografía Display refinada, espaciado amplio, acabado de lujo.
-7. `[Calibración Manual]` — Calibración granular de los 14 ejes (ver `references/brand-equalizer.md`).
+1. `Tech Minimalist` — Limpio, esquinas 2–4px, tipografía sans-serif nítida, estética SaaS/Tech.
+2. `Bold & Vibrant` — Colores saturados, tipografía ExtraBold 800, botones 56px, alto contraste.
+3. `Corporate & Trust` — Estructura sobria, simetría estricta, tonos neutros serios.
+4. `Organic & Warm` — Esquinas redondeadas 16–28px, tonos cálidos tintados, espaciado cómodo.
+5. `Cyber & Futuristic` — Fondo oscuro/nocturno, acentos neón, resplandores tintados.
+6. `Editorial & Premium` — Tipografía Display refinada, espaciado amplio, acabado de lujo.
+7. `Calibración Manual` — Calibración granular de los 14 ejes (ver `references/brand-equalizer.md`).
 8. `[Defaults]` — Valores por defecto optimizados para el modelo de negocio.
 
 > [!IMPORTANT]
-> **Instrucción de Carga Determinista:** Si el usuario elige `[Calibración Manual]`, el asistente DEBE leer de inmediato `references/brand-equalizer.md` mediante `view_file` y presentar los 14 ejes en 3 Bloques Temáticos:
+> **Instrucción de Carga Determinista:** Si el usuario elige `Calibración Manual`, el asistente DEBE leer de inmediato `references/brand-equalizer.md` mediante `view_file` y presentar los 14 ejes en 3 Bloques Temáticos:
 > - **Bloque A (Ejes 1–5):** Geometría, Superficies y Bordes.
 > - **Bloque B (Ejes 6–10):** Atmósfera, Color y Tipografía.
 > - **Bloque C (Ejes 11–14):** Tono, Dinamismo e Innovación.
@@ -169,7 +169,7 @@ Presenta el sistema de radios derivado del Ecualizador (arquetipo seleccionado e
 | `--radius-lg` | 16px | Cards, paneles, modales |
 | `--radius-full` | 9999px | Botones pill, avatares circulares |
 
-- **Coherencia morfológica:** los radios DEBEN ser coherentes con el arquetipo visual. Un sistema `[Tech Minimalist]` tendrá `--radius-sm: 2px`, `--radius-md: 4px`; un `[Organic & Warm]` tendrá `--radius-sm: 12px`, `--radius-md: 20px`.
+- **Coherencia morfológica:** los radios DEBEN ser coherentes con el arquetipo visual. Un sistema `Tech Minimalist` tendrá `--radius-sm: 2px`, `--radius-md: 4px`; un `Organic & Warm` tendrá `--radius-sm: 12px`, `--radius-md: 20px`.
 - En Ruta A (Fast-Track), estos valores vienen de `component_dna` medido y ya están confirmados — NO preguntar de nuevo.
 
 Pregunta si el usuario desea ajustar algún valor de radio específico.

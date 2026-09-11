@@ -9,6 +9,15 @@ const Workspace = require('./lib/workspace');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Enriquecer PATH en Windows con directorios locales estándar (ej. Antigravity CLI)
+if (process.platform === 'win32') {
+  const localAppData = process.env.LOCALAPPDATA || path.join(require('os').homedir(), 'AppData', 'Local');
+  const agyBin = path.join(localAppData, 'agy', 'bin');
+  if (fs.existsSync(agyBin) && !(process.env.PATH || '').includes(agyBin)) {
+    process.env.PATH = `${agyBin};${process.env.PATH || ''}`;
+  }
+}
+
 // Módulo profundo de gestión del espacio de trabajo físico (Workspace Sandbox)
 const workspace = new Workspace();
 

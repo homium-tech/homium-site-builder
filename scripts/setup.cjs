@@ -38,6 +38,11 @@ function printHeader() {
 function checkCommandInPath(cmd) {
   try {
     const isWin = process.platform === 'win32';
+    if (isWin && cmd === 'agy') {
+      const localAppData = process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local');
+      const agyBin = path.join(localAppData, 'agy', 'bin', 'agy.exe');
+      if (fs.existsSync(agyBin)) return true;
+    }
     const checkCmd = isWin ? `where ${cmd}` : `command -v ${cmd} || which ${cmd}`;
     execSync(checkCmd, { stdio: 'pipe', encoding: 'utf-8' });
     return true;

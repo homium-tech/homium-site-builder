@@ -56,7 +56,7 @@ Pregunta si el cliente cuenta con referencias visuales:
 Una vez que el usuario proporciona sus referencias (o si indica que cuenta con ellas), el asistente presenta esta pregunta **ANTES de ejecutar cualquier inspección técnica o extracción de datos**. Anúnciala explícitamente como *"Paso 1.5.b de 3"*:
 
 > *"¿Qué nivel de fidelidad deseas aplicar respecto a la(s) referencia(s) proporcionada(s)?"*
-> 1. `[Fidelidad Arquitectónica Total]` **Replicación Fiel de Estructura y Estética (Recomendado — Modo Fast-Track)**: Bloqueo inmutable del 100% de la arquitectura visual extraída (paleta real medida, tipografía real, grilla espacial, secuencia de secciones 1 a N y signature asset sin plantillas genéricas).
+> 1. `Fidelidad Arquitectónica Total` **Replicación Fiel de Estructura y Estética (Recomendado — Modo Fast-Track)**: Bloqueo inmutable del 100% de la arquitectura visual extraída (paleta real medida, tipografía real, grilla espacial, secuencia de secciones 1 a N y signature asset sin plantillas genéricas).
 > 2. `[Inspiración Conceptual / Vibe]`: Extrae atmósfera y tono tipográfico pero avanza por el flujo tradicional de preguntas.
 > 3. `[Personalizada / Quirúrgica]`: El usuario especifica cuáles de las 6 dimensiones calcar y cuáles personalizar.
 
@@ -66,7 +66,7 @@ Una vez que el usuario proporciona sus referencias (o si indica que cuenta con e
 **LA INSPECCIÓN TÉCNICA SE REALIZA EXCLUSIVAMENTE DESPUÉS DE QUE EL USUARIO ESCOGE SU OPCIÓN EN EL PASO 1.5.b.**
 Cuando el usuario responde y escoge su opción, el asistente ejecuta de inmediato el análisis forense respectivo adaptado a dicha elección:
 
-##### Caso 1: El usuario escogió `[Fidelidad Arquitectónica Total]` (Ruta A — Fast-Track)
+##### Caso 1: El usuario escogió `Fidelidad Arquitectónica Total` (Ruta A — Fast-Track)
 El asistente ejecuta de inmediato la inspección técnica forense exhaustiva y obligatoria:
 
 > [!CRITICAL_RULE]
@@ -133,7 +133,7 @@ El asistente ejecuta la inspección técnica forense únicamente sobre las dimen
 
 ## Bifurcación de Flujo: Resumen y Persistencia
 
-### Si el usuario seleccionó `[Fidelidad Arquitectónica Total]` (Ruta A — Fast-Track):
+### Si el usuario seleccionó `Fidelidad Arquitectónica Total` (Ruta A — Fast-Track):
 
 #### Paso A — Presentación de la Ficha Técnica Forense con Evidencia (Compuerta de Paleta)
 El asistente presenta la **Ficha Técnica Forense Completa Consolidada** usando los datos REALES del JSON del extractor (sin reinterpretación libre):
@@ -187,7 +187,7 @@ Guarda inmediatamente el estado completo en `design-system-state.json` (incluyen
 
 ---
 
-### Si el usuario seleccionó `[Inspiración Conceptual]` (Caso 2 — Ruta B con semillas medidas):
+### Si el usuario seleccionó `Inspiración Conceptual` (Caso 2 — Ruta B con semillas medidas):
 1. **Persistencia de Semillas de Inspiración:** Guarda en `design-system-state.json` bajo `visual_dna.inspiration_seeds` los candidatos cromáticos (`semantic_candidates`) y tipográficos medidos, junto con `"fidelity_mode": "INSPIRATION"`.
 2. **Avance Secuencial:** Continúa a la **Fase 2 (DEFINICIÓN DE FOUNDATIONS)** por la Ruta B.
 3. **Compromiso de Fase 2:** Al llegar a la Fase 2, la Opción 1 recomendada para paleta DEBE ser la paleta inspirada medida (`inspiration_seeds.palette_candidates`); la Opción 1 para tipografía DEBE ser la fuente análoga a la tipografía medida. Las opciones restantes siguen siendo sugerencias adaptadas al tipo de negocio.

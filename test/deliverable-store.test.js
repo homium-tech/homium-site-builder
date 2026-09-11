@@ -162,6 +162,15 @@ async function runSuite() {
     assert.strictEqual(recovered.state.brand.name, 'Recuperado');
     assert.strictEqual(recovered.stateError, null);
 
+    // Test tolerancia a UTF-8 BOM
+    const bomBuffer = Buffer.concat([Buffer.from([0xEF, 0xBB, 0xBF]), Buffer.from(JSON.stringify({ brand: { name: 'BOM Tolerant' } }))]);
+    fs.writeFileSync(stateFilePath, bomBuffer);
+    store.refresh({ emitChange: false });
+
+    const bomSnap = store.getSnapshot();
+    assert.strictEqual(bomSnap.stateError, null, 'Should not throw SyntaxError on UTF-8 BOM');
+    assert.strictEqual(bomSnap.state.brand.name, 'BOM Tolerant');
+
     store.close();
   });
 

@@ -233,13 +233,20 @@ function formatText(text) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
 
+  // Swatches visuales automáticos para códigos HEX (#RRGGBB o #RGB)
+  safe = safe.replace(/`?#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b`?/g, (match, hex) => {
+    const fullHex = '#' + hex;
+    return `<span class="hex-swatch-pill"><span class="hex-dot" style="background-color:${fullHex};"></span>${fullHex}</span>`;
+  });
+
   // 1. Enlaces a archivos en disco [text](file:///...) -> chips interactivos con icono
   safe = safe.replace(/\[(.*?)\]\(file:\/\/\/(.*?)\)/g, (match, label, filePath) => {
     const cleanPath = decodeURIComponent(filePath);
     const fileName = cleanPath.split('/').pop();
+    const cleanLabel = label.replace(/[\[\]]/g, '').trim();
     return `<button type="button" class="inline-file-chip" data-file="${fileName}" data-path="/${cleanPath}" title="Archivo persistido en disco: /${cleanPath}\n(Clic para ver en Blueprint o copiar ruta)">
       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:2px;" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
-      <span>${label}</span>
+      <span>${cleanLabel}</span>
     </button>`;
   });
 
@@ -261,6 +268,7 @@ function formatText(text) {
 
   // 6. Eliminar corchetes sobrantes tipo [Fase 1]
   safe = safe.replace(/\[(.*?)\]/g, '<span style="color:var(--homium-cyan);">$1</span>');
+  safe = safe.replace(/[\[\]]/g, '');
 
   // 7. Saltos de línea
   safe = safe.replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br>');
@@ -404,7 +412,7 @@ chatForm.addEventListener('submit', async (e) => {
       }
     }
   } catch (err) {
-    agentBody.innerHTML = `<p style="color:#ff5555;">[Error de conexión: ${err.message}]</p>`;
+    agentBody.innerHTML = `<p style="color:#ff5555;">Error de conexión: ${err.message}</p>`;
     appendLog('[Error] ' + err.message, 'error');
   } finally {
     btnSend.disabled = false;
@@ -456,13 +464,80 @@ function loadGoogleFont(fontName) {
 
 function renderBlueprint(s) {
   if (!s) return;
-  const brand = s.brand || {};
-  const palette = s.palette || {};
-  const typo = s.typography || {};
+  const brandName = typeof s.brand === 'string' ? s.brand : (s.brand?.name || s.brand_name || s.completed_steps?.['1.1']?.name || '');
+  const brandPurpose = s.mission || s.purpose || s.completed_steps?.['1.2']?.mission || s.completed_steps?.['1.2']?.purpose || (typeof s.brand === 'object' ? s.brand?.purpose : '') || '';
+  const brand = { name: brandName, purpose: brandPurpose };
+  const f = s.foundations || {};
+  const palette = s.palette || f.palette || {};
+  const step21 = s.completed_steps?.['2.1'] || {};
+  const step22 = s.completed_steps?.['2.2'] || {};
+  const typoRaw = s.typography || f.typography || {};
+  const typo = {
+    font_display: typoRaw.font_display || typoRaw.display || step22.typography_display || step22.display || '',
+    font_ui: typoRaw.font_ui || typoRaw.body || typoRaw.font_body || step22.typography_ui || step22.ui || step22.body || '',
+    font_body: typoRaw.font_body || typoRaw.body || typoRaw.font_ui || step22.typography_ui || step22.body || '',
+    h1_size_px: typoRaw.h1_size_px || 64
+  };
   const sitemap = s.sitemap || {};
   const modularScale = s.modular_scale || {};
   const densityMode = s.density_mode || {};
-  const allowedHexes = palette.allowed_hexes || [];
+
+  // Extraer allowedHexes (soporta array plano, rampas de objetos o completed_steps)
+  let allowedHexes = palette.allowed_hexes || [];
+  if (allowedHexes.length === 0) {
+    const hexSet = new Set();
+    Object.entries(palette).forEach(([k, val]) => {
+      if (typeof val === 'object' && val !== null) {
+        Object.values(val).forEach(h => {
+          if (typeof h === 'string' && /^#[0-9a-fA-F]{3,6}$/.test(h)) hexSet.add(h);
+        });
+      } else if (typeof val === 'string' && /^#[0-9a-fA-F]{3,6}$/.test(val)) {
+        hexSet.add(val);
+      }
+    });
+    if (step21) {
+      Object.values(step21).forEach(val => {
+        if (typeof val === 'string' && /^#[0-9a-fA-F]{3,6}$/.test(val)) hexSet.add(val);
+      });
+    }
+    allowedHexes = Array.from(hexSet);
+  }
+
+  // Resolver roles cromáticos semánticos con soporte para completed_steps
+  const mapping = f.semantic_color_mapping || {};
+  let primaryHex = palette.primary_hex || palette.primary || step21.primary || '';
+  let secondaryHex = palette.secondary_hex || palette.secondary || step21.secondary || '';
+  let accentHex = palette.accent_hex || palette.accent || step21.accent || '';
+  let bgBase = palette.bg_base || palette.background || step21.background || '';
+  let surfaceCard = palette.surface_card || palette.surface || step21.surface || '';
+  let surfaceCardHover = palette.surface_card_hover || step21.surface_hover || '';
+  let textPrimary = palette.text_primary || palette.text || step21.text || '';
+  let textSecondary = palette.text_secondary || step21.text_secondary || '';
+
+  if (!primaryHex && mapping.primary && palette[mapping.primary]) {
+    primaryHex = palette[mapping.primary]['500'] || palette[mapping.primary]['600'] || '';
+  }
+  if (!accentHex && mapping.accent && palette[mapping.accent]) {
+    accentHex = palette[mapping.accent]['500'] || palette[mapping.accent]['400'] || '';
+  }
+  if (!bgBase && mapping.neutral_surface && palette[mapping.neutral_surface]) {
+    bgBase = palette[mapping.neutral_surface]['950'] || palette[mapping.neutral_surface]['900'] || '#101313';
+    surfaceCard = palette[mapping.neutral_surface]['900'] || palette[mapping.neutral_surface]['800'] || '#171b1c';
+    surfaceCardHover = palette[mapping.neutral_surface]['800'] || '#2f3637';
+    textPrimary = palette[mapping.neutral_surface]['50'] || '#f1f3f3';
+    textSecondary = palette[mapping.neutral_surface]['300'] || '#acb7b9';
+  }
+  if (!secondaryHex && mapping.neutral_warm && palette[mapping.neutral_warm]) {
+    secondaryHex = palette[mapping.neutral_warm]['500'] || '#8f8270';
+  }
+
+  if (!primaryHex && allowedHexes.length > 0) primaryHex = allowedHexes[0];
+  if (!secondaryHex && allowedHexes.length > 1) secondaryHex = allowedHexes[1];
+  if (!accentHex && allowedHexes.length > 2) accentHex = allowedHexes[2];
+  if (!bgBase) bgBase = '#101313';
+  if (!surfaceCard) surfaceCard = '#171b1c';
+  if (!textPrimary) textPrimary = '#f1f3f3';
+  if (!textSecondary) textSecondary = '#acb7b9';
 
   const metaBrand = document.getElementById('metaBrandValue');
   if (metaBrand && brand.name) {
@@ -490,14 +565,14 @@ function renderBlueprint(s) {
 
   // 2. Roles cromáticos semánticos
   const roles = [
-    { label: 'Primario', val: palette.primary_hex },
-    { label: 'Secundario', val: palette.secondary_hex },
-    { label: 'Acento', val: palette.accent_hex },
-    { label: 'Fondo Base', val: palette.bg_base },
-    { label: 'Superficie', val: palette.surface_card },
-    { label: 'Hover Tarjeta', val: palette.surface_card_hover },
-    { label: 'Texto Primario', val: palette.text_primary },
-    { label: 'Texto Secundario', val: palette.text_secondary }
+    { label: 'Primario', val: primaryHex },
+    { label: 'Secundario', val: secondaryHex },
+    { label: 'Acento', val: accentHex },
+    { label: 'Fondo Base', val: bgBase },
+    { label: 'Superficie', val: surfaceCard },
+    { label: 'Hover Tarjeta', val: surfaceCardHover },
+    { label: 'Texto Primario', val: textPrimary },
+    { label: 'Texto Secundario', val: textSecondary }
   ].filter(r => Boolean(r.val));
 
   let rolesHtml = '';
@@ -514,16 +589,9 @@ function renderBlueprint(s) {
   }
 
   // 3. Mini Canvas de UI en Vivo (Visual Preview de la identidad)
-  const bgBase = palette.bg_base || '#121113';
-  const surfaceCard = palette.surface_card || '#1C1A1D';
-  const primaryHex = palette.primary_hex || '#C84630';
-  const secondaryHex = palette.secondary_hex || '#5DA271';
-  const accentHex = palette.accent_hex || '#D4A0A7';
-  const textPrimary = palette.text_primary || '#E3E3E3';
-  const textSecondary = palette.text_secondary || '#898989';
   const borderSubtle = palette.border_subtle || 'rgba(255, 255, 255, 0.12)';
 
-  const liveSpecimenHtml = (palette.primary_hex || allowedHexes.length > 0) ? `
+  const liveSpecimenHtml = (primaryHex || allowedHexes.length > 0) ? `
     <div class="blueprint-card">
       <span class="category-eyebrow">Demostración en Vivo · Tokens Aplicados</span>
       <h4>
@@ -778,8 +846,97 @@ function renderBlueprint(s) {
   }
 }
 
+function updateDeliverablesTracker(snapshot) {
+  const trackerBar = document.getElementById('deliverablesTrackerBar');
+  const trackerCount = document.getElementById('trackerCount');
+  const trackerPills = document.getElementById('trackerPills');
+  if (!trackerBar || !trackerCount || !trackerPills) return;
+
+  const data = (snapshot && snapshot.status) || {};
+
+  const items = [
+    {
+      id: 'token',
+      label: 'Tokens JSON',
+      ready: !!data.stateExists,
+      hint: 'design-system-state.json'
+    },
+    {
+      id: 'spec',
+      label: data.specFile || 'Espec. Markdown',
+      ready: !!data.specExists,
+      hint: data.specFile || '*_Design_System.md'
+    },
+    {
+      id: 'showcase',
+      label: data.showcaseFile || 'Showcase HTML',
+      ready: !!data.showcaseExists,
+      hint: data.showcaseFile || '*_Design_System.html'
+    },
+    {
+      id: 'proto',
+      label: data.prototypeExists
+        ? `Prototipo (${(data.prototypeFiles && data.prototypeFiles.length) ? data.prototypeFiles.length + 'p' : '3p'})`
+        : 'Prototipo (3p)',
+      ready: !!data.prototypeExists,
+      hint: 'prototype/*.html'
+    }
+  ];
+
+  const readyCount = items.filter(i => i.ready).length;
+  trackerCount.textContent = `${readyCount}/4`;
+
+  if (data.stateExists || data.specExists || data.showcaseExists || data.prototypeExists) {
+    trackerBar.style.display = 'flex';
+  }
+
+  trackerPills.innerHTML = items.map(item => {
+    if (item.ready) {
+      return `
+        <span class="tracker-pill pill-ready" title="${item.hint}: Creado en disco">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+          <span>${item.label}</span>
+        </span>
+      `;
+    } else {
+      return `
+        <span class="tracker-pill pill-pending" title="${item.hint}: Pendiente de creación">
+          <span class="tracker-pending-dot"></span>
+          <span>${item.label}</span>
+        </span>
+      `;
+    }
+  }).join('');
+}
+
+function updatePhasePipeline(snapshot) {
+  const state = snapshot?.state || {};
+  let currentPhase = Number(state.phase) || 1;
+  const isFinalized = state.status === 'PROYECTO_FINALIZADO';
+
+  for (let i = 1; i <= 5; i++) {
+    const pill = document.getElementById(`phase-${i}`);
+    if (!pill) continue;
+
+    pill.classList.remove('active', 'completed');
+
+    if (isFinalized) {
+      pill.classList.add('completed');
+    } else if (i < currentPhase) {
+      pill.classList.add('completed');
+    } else if (i === currentPhase) {
+      pill.classList.add('active');
+    }
+  }
+}
+
 function applyDeliverableSnapshot(snapshot) {
   if (!snapshot || !snapshot.status) return;
+
+  updateDeliverablesTracker(snapshot);
+  updatePhasePipeline(snapshot);
 
   const data = snapshot.status;
   const badgeProto = document.getElementById('badgePrototype');
@@ -911,39 +1068,38 @@ async function loadStepDescriptors() {
 async function evaluateInteractiveActions(text, serverAction = null) {
   const dynamicActionTray = document.getElementById('dynamicActionTray');
   const approvalGateContainer = document.getElementById('approvalGateContainer');
-  if (!dynamicActionTray || !approvalGateContainer) return;
+  if (dynamicActionTray) {
+    dynamicActionTray.style.display = 'none';
+    dynamicActionTray.innerHTML = '';
+  }
+  if (approvalGateContainer) {
+    approvalGateContainer.style.display = 'none';
+    approvalGateContainer.innerHTML = '';
+  }
 
-  let matchedStep = serverAction;
-  if (!matchedStep && text && text.trim()) {
+  let action = serverAction;
+  if (!action && text) {
     try {
       const res = await fetch('/api/pipeline/evaluate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text })
       });
-      const data = await res.json();
-      matchedStep = data.action;
-    } catch (e) {
-      console.warn('[Pipeline] Error al evaluar acción en servidor:', e);
-    }
+      if (res.ok) {
+        const data = await res.json();
+        action = data.action;
+      }
+    } catch (e) {}
   }
 
-  if (!matchedStep) {
-    dynamicActionTray.style.display = 'none';
-    dynamicActionTray.innerHTML = '';
-    approvalGateContainer.style.display = 'none';
-    return;
-  }
+  if (!action) return;
 
-  if (matchedStep.type === 'gate') {
-    renderApprovalGate(matchedStep);
-    dynamicActionTray.style.display = 'none';
-  } else if (matchedStep.type === 'cards') {
-    renderActionCards(matchedStep);
-    approvalGateContainer.style.display = 'none';
-  } else {
-    renderActionChips(matchedStep);
-    approvalGateContainer.style.display = 'none';
+  if (action.type === 'gate') {
+    renderApprovalGate(action);
+  } else if (action.type === 'cards') {
+    renderActionCards(action);
+  } else if (action.type === 'chips') {
+    renderActionChips(action);
   }
 }
 

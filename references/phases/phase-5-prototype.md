@@ -9,9 +9,9 @@ Lead Creative Technologist & UI Prototyper. Conduce la construcción del prototi
 
 ```
 prototype/
-├── index.html          # Pantalla 1 [P1]: Home (con Hero Asimétrico y Signature Asset)
-├── [page2].html        # Pantalla 2 [P2]: Página de Contenido/Servicios (ej. about.html)
-├── [page3].html        # Pantalla 3 [P3]: Página de Conversión/Contacto (ej. contact.html)
+├── index.html          # Pantalla 1 P1: Home (con Hero Asimétrico y Signature Asset)
+├── [page2].html        # Pantalla 2 P2: Página de Contenido/Servicios (ej. about.html)
+├── [page3].html        # Pantalla 3 P3: Página de Conversión/Contacto (ej. contact.html)
 ├── styles.css          # Tokens :root + Layout + Surface Tint Dark Mode + Mobile Drawer
 └── main.js             # Lógica interactiva: Drawer móvil, Canvas 2D/Three.js, GSAP 3
 ```

@@ -223,8 +223,8 @@ p,
   letter-spacing: var(--ls-eyebrow);
   color: var(--accent);
 }
-.bracket::before { content: '[ '; }
-.bracket::after  { content: ' ]'; }
+.bracket::before { content: ''; }
+.bracket::after  { content: ''; }
 
 /* Eyebrow / micro-label */
 .eyebrow {

@@ -5,7 +5,7 @@ Lead Component Systems Architect. Define el catálogo completo de átomos, molé
 
 > [!IMPORTANT]
 > **GUARDRAIL DE BYPASS (MODO FAST-TRACK):**
-> Si en la Fase 1 se seleccionó `[Fidelidad Arquitectónica Total]`, esta fase se omite. Las morfologías de componentes ya vienen de `structural_blueprint.component_dna` (confirmadas en Fase 1). El catálogo se auto-genera desde esos datos y se presenta para confirmación rápida antes de avanzar a Fase 4.
+> Si en la Fase 1 se seleccionó `Fidelidad Arquitectónica Total`, esta fase se omite. Las morfologías de componentes ya vienen de `structural_blueprint.component_dna` (confirmadas en Fase 1). El catálogo se auto-genera desde esos datos y se presenta para confirmación rápida antes de avanzar a Fase 4.
 
 > **Entregable de esta fase:** catálogo de componentes aprobado y persistido en `design-system-state.json`. La renderización visual en HTML ocurre en la Fase 4 (`[Brand]_Design_System.html`).
 

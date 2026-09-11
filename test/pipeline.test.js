@@ -157,6 +157,13 @@ it('should detect Phase 2 and Phase 3 confirmations', () => {
   const a3 = pipeline.detectAction(phase3Text);
   assert(a3 !== null);
   assert.strictEqual(a3.stepId, '3.summary');
+
+  // Caso real reportado: transición a Fase 4 no debe disparar Gate 1
+  const screenshotText = '¿Confirmas estos cimientos visuales de la Fase 3 para avanzar a la Fase 4: Validación Visual (Generación desacoplada: Spec Markdown Maestro + Showcase HTML), o deseas ajustar algún detalle?';
+  const aScreenshot = pipeline.detectAction(screenshotText);
+  assert(aScreenshot !== null);
+  assert.strictEqual(aScreenshot.stepId, '3.summary');
+  assert.notStrictEqual(aScreenshot.stepId, 'gate-1');
 });
 
 it('should return null when text contains no structured triggers', () => {
