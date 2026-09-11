@@ -1,0 +1,13 @@
+# Dependencias
+node_modules/
+package-lock.json
+pnpm-lock.yaml
+
+# Entregables generados localmente (opcional ignorar por defecto o versionar en workspace)
+*.log
+.DS_Store
+Thumbs.db
+
+# Entorno
+.env
+.env.local

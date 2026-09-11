@@ -1,0 +1,179 @@
+/* =============================================================
+   HOMIUM DESIGN SYSTEM — TAILWIND CSS v4 CSS-FIRST CONFIGURATION
+   Tokens, Semantic Mapping, Component Variants & Motion
+   "Tecnología sin complicaciones."
+   ============================================================= */
+
+@import url('./fonts/fonts.css');
+
+@theme {
+  /* ----- BRAND COLORS (60 / 20 / 20 Usage Rule) ----- */
+  --color-homium-purple: #290640;
+  --color-homium-cyan: #00ffff;
+  --color-homium-green: #5aeaa2;
+  --color-homium-white: #ffffff;
+  --color-homium-black: #000000;
+
+  /* ----- PURPLE FUNCTIONAL MATRIX (Tables, Charts, Panels) ----- */
+  --color-purple-50:  #f1e9f7;
+  --color-purple-100: #d8c2ea;
+  --color-purple-200: #b48cd6;
+  --color-purple-300: #8e57bf;
+  --color-purple-400: #6a2a9c;
+  --color-purple-500: #4a1170;
+  --color-purple-600: #380a55;
+  --color-purple-700: #290640;
+  --color-purple-800: #240537;
+  --color-purple-900: #1d042d;
+  --color-purple-950: #150220;
+
+  /* ----- CYAN SHADES (Interactive, CTA, Highlights) ----- */
+  --color-cyan-200: #c4ffff;
+  --color-cyan-300: #9bffff;
+  --color-cyan-400: #5cffff;
+  --color-cyan-500: #00ffff;
+  --color-cyan-600: #00d6d6;
+  --color-cyan-700: #00b8b8;
+
+  /* ----- GREEN SHADES (Tags, Status, Validation) ----- */
+  --color-green-200: #d8fbe6;
+  --color-green-300: #b5f6d2;
+  --color-green-400: #8af1bb;
+  --color-green-500: #5aeaa2;
+  --color-green-600: #3fcc8d;
+  --color-green-700: #2bb077;
+
+  /* ----- HIGHLIGHT ACCENT ----- */
+  --color-magenta-500: #ff3bd4;
+
+  /* ----- SEMANTIC TOKENS (Dark Theme by Default) ----- */
+  --color-background: #150220;
+  --color-foreground: #ffffff;
+  --color-surface: #290640;
+  --color-surface-elevated: #380a55;
+  --color-surface-sunken: #1d042d;
+  --color-surface-glass: rgba(41, 6, 64, 0.72);
+
+  --color-primary: #00ffff;
+  --color-primary-foreground: #150220;
+  --color-primary-hover: #5cffff;
+
+  --color-secondary: #5aeaa2;
+  --color-secondary-foreground: #150220;
+  --color-secondary-hover: #8af1bb;
+
+  --color-muted: #380a55;
+  --color-muted-foreground: rgba(255, 255, 255, 0.72);
+  --color-subtle-foreground: rgba(255, 255, 255, 0.50);
+
+  --color-accent: #00ffff;
+  --color-accent-foreground: #150220;
+
+  --color-card: rgba(29, 4, 45, 0.85);
+  --color-card-foreground: #ffffff;
+  --color-card-border: rgba(255, 255, 255, 0.12);
+
+  --color-destructive: #ff5555;
+  --color-destructive-foreground: #ffffff;
+
+  --color-border: rgba(255, 255, 255, 0.14);
+  --color-border-strong: rgba(255, 255, 255, 0.28);
+  --color-border-cyan: #00ffff;
+
+  --color-ring: #00ffff;
+  --color-ring-offset: #150220;
+
+  /* ----- TYPOGRAPHY ----- */
+  --font-sans: 'Rubik', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-display: 'Rubik', system-ui, sans-serif;
+  --font-mono: 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  /* ----- RADII TOKENS ----- */
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+  --radius-pill: 9999px;
+
+  /* ----- SHADOWS & NEON GLOWS ----- */
+  --shadow-card: 0 8px 32px rgba(0, 0, 0, 0.35);
+  --shadow-lift: 0 18px 48px rgba(0, 0, 0, 0.45);
+  --shadow-glow-cyan: 0 0 24px rgba(0, 255, 255, 0.40);
+  --shadow-glow-green: 0 0 24px rgba(90, 234, 162, 0.35);
+  --shadow-glow-purple: 0 40px 120px -20px rgba(90, 40, 180, 0.55);
+
+  /* ----- ANIMATIONS & KEYFRAMES ----- */
+  --animate-fade-in: fadeIn 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+  --animate-fade-out: fadeOut 0.2s cubic-bezier(0.65, 0, 0.35, 1);
+  --animate-slide-up: slideUp 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+  --animate-pulse-glow: pulseGlow 2.5s infinite;
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes fadeOut {
+    from { opacity: 1; }
+    to { opacity: 0; }
+  }
+
+  @keyframes slideUp {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes pulseGlow {
+    0%, 100% {
+      opacity: 0.85;
+      box-shadow: 0 0 8px rgba(0, 255, 255, 0.3);
+    }
+    50% {
+      opacity: 1;
+      box-shadow: 0 0 20px rgba(0, 255, 255, 0.6);
+    }
+  }
+}
+
+/* Custom Variant para modo oscuro class-based */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Soporte de variables estándar para navegadores y runtime CSS */
+:root {
+  --color-homium-purple: #290640;
+  --color-homium-cyan: #00ffff;
+  --color-homium-green: #5aeaa2;
+  --color-homium-white: #ffffff;
+  --color-purple-950: #150220;
+  --color-purple-900: #1d042d;
+  --color-purple-800: #240537;
+  --color-purple-700: #290640;
+  --color-purple-600: #380a55;
+  --color-purple-500: #4a1170;
+  --color-purple-400: #6a2a9c;
+  --color-purple-300: #8e57bf;
+  --color-purple-200: #b48cd6;
+  --color-purple-100: #d8c2ea;
+  --color-purple-50:  #f1e9f7;
+  --color-cyan-700: #00b8b8;
+  --color-cyan-600: #00d6d6;
+  --color-cyan-500: #00ffff;
+  --color-cyan-400: #5cffff;
+  --color-cyan-300: #9bffff;
+  --color-cyan-200: #c4ffff;
+  --color-green-700: #2bb077;
+  --color-green-600: #3fcc8d;
+  --color-green-500: #5aeaa2;
+  --color-green-400: #8af1bb;
+  --color-green-300: #b5f6d2;
+  --color-green-200: #d8fbe6;
+  --color-ring: #00ffff;
+  --color-ring-offset: #150220;
+}

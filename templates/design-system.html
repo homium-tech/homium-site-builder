@@ -1,0 +1,2366 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>{{BRAND_NAME}} — Design System</title>
+  
+  <!-- Fuentes del cliente + Fira Code como fallback mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family={{FONT_DISPLAY_URL}}&family={{FONT_UI_URL}}&family={{FONT_MONO_URL}}&display=swap" rel="stylesheet">
+  <!-- FONT_MONO_URL: fragmento GF de la fuente monospace real de la referencia
+       (typography.font_mono / code_font_family), p. ej. "JetBrains+Mono:wght@400;500;600".
+       Debe ser SIEMPRE un fragmento válido (nunca vacío): si la mono real no está en
+       GF, usar "Fira+Code:wght@400;500;600" (duplicado inofensivo) y documentar la
+       aproximación en Vacíos Conocidos. -->
+  
+  <!-- GSAP 3 for Interactive Motion Demonstrations -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+
+  <style>
+    /* ==========================================================================
+       DESIGN SYSTEM SHOWCASE — TEMA DINÁMICO DEL CLIENTE
+       Los {{PLACEHOLDERS}} se reemplazan con valores reales de palette.allowed_hexes
+       al generar [Brand]_Design_System.html en la Fase 4.
+       ========================================================================== */
+    :root {
+      /* ========== SHOWCASE CHROME — PALETA DEL CLIENTE ========== */
+
+      /* Fondos y superficies */
+      --bg:              {{BG_PRIMARY_HEX}};
+      --bg-elevated:     {{BG_ELEVATED_HEX}};
+      --bg-sunken:       {{BG_SUNKEN_HEX}};
+      --surface-card:    rgba({{BG_ELEVATED_RGB}}, 0.65);
+      --surface-overlay: rgba({{PRIMARY_RGB}}, 0.04);
+
+      /* Foreground */
+      --fg:         {{TEXT_PRIMARY_HEX}};
+      --fg-muted:   rgba({{TEXT_PRIMARY_RGB}}, 0.72);
+      --fg-subtle:  rgba({{TEXT_PRIMARY_RGB}}, 0.45);
+      --fg-on-accent: {{ON_PRIMARY_HEX}};
+
+      /* Severity (estándar universal) */
+      --sev-critico: #e02547;
+      --sev-alto:    #d97516;
+      --sev-medio:   #b8860b;
+      --sev-bajo:    #2bb077;
+
+      /* Acento del chrome (nav activo, eyebrows, dots, hover states) */
+      --accent:          {{PRIMARY_HEX}};
+      --accent-2:        {{SECONDARY_HEX}};
+      --accent-display:  {{PRIMARY_HEX}};
+
+      /* Links */
+      --link:            {{PRIMARY_HEX}};
+      --link-hover:      {{PRIMARY_LIGHTER_HEX}};
+
+      /* Bordes */
+      --border:          rgba({{TEXT_PRIMARY_RGB}}, 0.10);
+      --border-strong:   rgba({{TEXT_PRIMARY_RGB}}, 0.22);
+      --border-accent:   {{PRIMARY_HEX}};
+      --focus-ring:      {{PRIMARY_HEX}};
+
+      /* Radios del showcase (invariantes) */
+      --radius-xs:  4px;
+      --radius-sm:  8px;
+      --radius-md:  14px;
+      --radius-lg:  20px;
+      --radius-xl:  28px;
+      --radius-pill: 999px;
+
+      /* Espaciado (invariante) */
+      --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 24px;
+      --sp-6: 32px; --sp-7: 48px; --sp-8: 64px; --sp-9: 96px; --sp-10: 128px;
+
+      /* Sombras y glows derivados del cliente */
+      --shadow-card:    0 8px 32px rgba({{SHADOW_RGB}}, 0.20);
+      --shadow-lift:    0 18px 48px rgba({{SHADOW_RGB}}, 0.30);
+      --glow-primary:   0 0 24px rgba({{PRIMARY_RGB}}, 0.40);
+      --glow-secondary: 0 0 24px rgba({{SECONDARY_RGB}}, 0.35);
+
+      /* Easing / Duration del showcase (invariante) */
+      --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+      --dur-fast: 140ms;
+      --dur-med:  260ms;
+
+      /* Typography del showcase — fuentes del cliente */
+      --font-sans:    '{{FONT_UI}}', system-ui, -apple-system, sans-serif;
+      --font-display: '{{FONT_DISPLAY}}', system-ui, sans-serif;
+      --font-mono:    '{{FONT_MONO}}', 'Fira Code', ui-monospace, monospace;
+
+      /* ========== TOKENS CLIENTE ========== */
+      --client-primary:          {{PRIMARY_HEX}};
+      --client-secondary:        {{SECONDARY_HEX}};
+      --client-accent:           {{ACCENT_HEX}};
+      --client-bg:               {{BG_BASE}};
+      --client-surface:          {{SURFACE_CARD}};
+      --client-text:             {{TEXT_PRIMARY}};
+      --client-font-display:     '{{FONT_DISPLAY}}', var(--font-sans);
+      --client-font-ui:          '{{FONT_UI}}', var(--font-sans);
+      --client-radius-sm:        {{RADIUS_SM}};
+      --client-radius-md:        {{RADIUS_MD}};
+      --client-radius-lg:        {{RADIUS_LG}};
+      --client-radius-full:      {{RADIUS_FULL}};
+      --client-border-emphasis:  {{BORDER_WIDTH_EMPHASIS}};
+      --border-width-emphasis:   var(--client-border-emphasis, 2px);
+      --client-scale-ratio:      {{MODULAR_SCALE_RATIO}};
+
+      /* Acento para muestras de componentes del cliente */
+      --sample-accent: var(--client-accent, var(--client-primary, var(--accent)));
+    }
+
+    /* Tema claro — versiones claras de la paleta del cliente */
+    html[data-theme="light"],
+    body.theme-light {
+      --bg:              {{BG_LIGHT_HEX}};
+      --bg-elevated:     {{BG_LIGHT_ELEVATED_HEX}};
+      --bg-sunken:       {{BG_LIGHT_SUNKEN_HEX}};
+      --surface-card:    {{SURFACE_LIGHT_HEX}};
+      --surface-overlay: rgba({{PRIMARY_RGB}}, 0.04);
+
+      --fg:         {{TEXT_DARK_HEX}};
+      --fg-muted:   rgba({{TEXT_DARK_RGB}}, 0.78);
+      --fg-subtle:  rgba({{TEXT_DARK_RGB}}, 0.55);
+
+      --accent:          {{PRIMARY_DARK_HEX}};
+      --accent-2:        {{SECONDARY_DARK_HEX}};
+      --accent-display:  {{PRIMARY_DARK_HEX}};
+
+      --link:            {{PRIMARY_DARK_HEX}};
+      --link-hover:      {{PRIMARY_HEX}};
+
+      --border:          rgba({{TEXT_DARK_RGB}}, 0.14);
+      --border-strong:   rgba({{TEXT_DARK_RGB}}, 0.28);
+      --border-accent:   {{PRIMARY_DARK_HEX}};
+      --focus-ring:      {{PRIMARY_DARK_HEX}};
+
+      --shadow-card:     0 8px 32px rgba({{SHADOW_LIGHT_RGB}}, 0.08);
+      --shadow-lift:     0 18px 48px rgba({{SHADOW_LIGHT_RGB}}, 0.14);
+      --glow-primary:    0 0 24px rgba({{PRIMARY_RGB}}, 0.25);
+    }
+
+    /* Base Reset */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; font-size: 16px; overflow-x: hidden; }
+    body {
+      font-family: var(--font-sans);
+      font-size: 1rem;
+      line-height: 1.55;
+      color: var(--fg);
+      background: var(--bg);
+      transition: background-color var(--dur-med) var(--ease-out), color var(--dur-med) var(--ease-out);
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    ::selection { background: var(--accent); color: var(--bg); }
+
+    /* ==========================================================================
+       SCROLLBARS — finas y con la paleta (Firefox + WebKit/Blink)
+       ========================================================================== */
+    * { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+    ::-webkit-scrollbar { width: 10px; height: 10px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb {
+      background: var(--border-strong);
+      border-radius: var(--radius-pill);
+      border: 2px solid transparent;
+      background-clip: content-box;
+    }
+    ::-webkit-scrollbar-thumb:hover { background: var(--fg-subtle); background-clip: content-box; }
+    ::-webkit-scrollbar-corner { background: transparent; }
+    /* Las tablas anchas llevan una pista visible para indicar que hay scroll horizontal */
+    .table-wrap { scrollbar-color: var(--fg-subtle) var(--bg-sunken); }
+    .table-wrap::-webkit-scrollbar { height: 8px; }
+    .table-wrap::-webkit-scrollbar-track { background: var(--bg-sunken); border-radius: var(--radius-pill); }
+    .table-wrap::-webkit-scrollbar-thumb { background: var(--fg-subtle); }
+
+    /* Atmospheric glow — color derivado del acento primario del cliente */
+    .glow-blob {
+      position: absolute;
+      top: -120px;
+      right: -100px;
+      width: 750px;
+      height: 750px;
+      background: radial-gradient(closest-side, rgba({{PRIMARY_RGB}}, 0.18), rgba({{PRIMARY_RGB}}, 0) 70%);
+      filter: blur(40px);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Layout Shell — el rail izquierdo es position:fixed; .app-layout reserva su ancho
+       con padding-left (no con una columna de grid, porque un item fixed no ocupa celda). */
+    .app-layout {
+      min-height: 100vh;
+      padding-left: 270px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Anti-desbordamiento: los items de grid/flex no deben crecer por su contenido
+       (tablas anchas, bloques de código, texto sin cortar). Sin esto, una tabla ancha estira toda
+       la columna 1fr y el layout desborda el viewport (móvil incluido). */
+    .app-layout > *, .main-viewport, .doc-section, .ds-gaps,
+    .grid-2 > *, .grid-3 > *, .grid-4 > *, .card-stack > *,
+    .homium-card, .ds-block, .ds-stage, .table-wrap,
+    .type-tester-box, .type-scale-table td, .type-preview-cell {
+      min-width: 0;
+    }
+    .table-wrap { max-width: 100%; }
+
+    /* LEFT-RAIL SIDEBAR
+       position: fixed — persistente en todo el scroll, inmune a overflow de ancestros
+       (sticky se rompe si un ancestro como <html> tiene overflow != visible). La columna
+       de 270px de .app-layout reserva el espacio; el aside fijo la cubre exactamente. */
+    .left-rail-sidebar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 270px;
+      height: 100vh;
+      height: 100dvh;
+      background: var(--bg-sunken);
+      border-right: 1px solid var(--border);
+      padding: 1.75rem 1.25rem 1.5rem 1.25rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      overflow-y: auto;
+      z-index: 100;
+    }
+
+    .rail-brand-block {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      padding-bottom: 1.25rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .homium-logo-link {
+      display: inline-block;
+      width: 140px;
+      color: #ffffff;
+      text-decoration: none;
+      transition: opacity var(--dur-fast);
+    }
+    .homium-logo-link:hover { opacity: 0.85; }
+    .homium-logo-svg { width: 100%; height: auto; display: block; }
+    .logo-letter { fill: #ffffff; transition: fill var(--dur-med) var(--ease-out); }
+    html[data-theme="light"] .logo-letter,
+    body.theme-light .logo-letter { fill: #2e1a47; }
+    .logo-bolt-green { fill: #5aeaa2; }
+    .logo-bolt-cyan { fill: #00ffff; }
+
+    .brand-subtitle {
+      font-size: 8.5px;
+      font-weight: 500;
+      color: rgba(255, 255, 255, 0.45);
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      margin-top: 2px;
+    }
+    html[data-theme="light"] .brand-subtitle { color: rgba(74, 17, 112, 0.6); }
+
+    /* Metadata Table (From Live Platform) */
+    .rail-meta-table {
+      margin-top: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      font-size: 11px;
+    }
+    .meta-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .meta-label { color: var(--fg-subtle); }
+    .meta-val { color: var(--fg); font-weight: 500; font-family: var(--font-mono); font-size: 10.5px; }
+
+    /* Navigation List */
+    .rail-nav-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin: 1.25rem 0;
+      padding: 0;
+      flex-grow: 1;
+      overflow-y: auto;
+    }
+
+    .rail-nav-item a {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 10px;
+      font-size: 11.5px;
+      font-weight: 400;
+      color: var(--fg-subtle);
+      border-radius: var(--radius-pill);
+      text-decoration: none;
+      transition: all var(--dur-fast) var(--ease-out);
+      background: transparent;
+      border: 1px solid transparent;
+    }
+
+    .rail-num {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--fg-subtle);
+      min-width: 14px;
+    }
+
+    .rail-dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.2);
+      transition: all var(--dur-fast) var(--ease-out);
+      flex-shrink: 0;
+    }
+
+    .rail-nav-item a:hover {
+      color: var(--accent);
+    }
+    .rail-nav-item a:hover .rail-dot {
+      background: var(--accent);
+      opacity: 0.7;
+    }
+
+    .rail-nav-item a.active {
+      color: var(--accent);
+      font-weight: 500;
+      background: rgba({{PRIMARY_RGB}}, 0.08);
+      border: 1px solid rgba({{PRIMARY_RGB}}, 0.22);
+    }
+    .rail-nav-item a.active .rail-dot {
+      background: var(--accent);
+      opacity: 1;
+      box-shadow: 0 0 10px var(--accent);
+    }
+    .rail-nav-item a.active .rail-num {
+      color: var(--accent);
+    }
+
+    .rail-nav-item a.done {
+      color: var(--fg-muted);
+    }
+    .rail-nav-item a.done .rail-dot {
+      background: var(--accent);
+      opacity: 0.5;
+    }
+
+    /* Grouped nav */
+    .rail-group { margin-bottom: 2px; }
+    .rail-group-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      cursor: pointer;
+      border-radius: var(--radius-sm);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      color: var(--fg-subtle);
+      user-select: none;
+      transition: color var(--dur-fast), background var(--dur-fast);
+    }
+    .rail-group-header:hover { color: var(--fg); background: rgba({{TEXT_PRIMARY_RGB}}, 0.04); }
+    .rail-group.open .rail-group-header { color: var(--accent); }
+    .rail-group-num {
+      font-family: var(--font-mono);
+      font-size: 9.5px;
+      color: var(--accent);
+      opacity: 0.7;
+    }
+    .rail-group.open .rail-group-num { opacity: 1; }
+    .rail-group-chevron {
+      margin-left: auto;
+      transition: transform var(--dur-fast) var(--ease-out);
+      flex-shrink: 0;
+    }
+    .rail-group.open .rail-group-chevron { transform: rotate(180deg); }
+    .rail-group-items {
+      list-style: none;
+      padding: 0 0 0 8px;
+      margin: 0;
+      overflow: hidden;
+      max-height: 0;
+      transition: max-height var(--dur-med) var(--ease-out);
+    }
+    .rail-group.open .rail-group-items { max-height: 600px; }
+
+    /* Sidebar Footer Action Buttons */
+    .rail-footer {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border);
+    }
+
+    .btn-rail-primary {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      width: 100%;
+      height: 40px;
+      border-radius: var(--radius-pill);
+      background: var(--accent);
+      color: var(--fg-on-accent);
+      font-size: 12px;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+      transition: all var(--dur-fast);
+    }
+    .btn-rail-primary:hover {
+      transform: scale(1.02);
+      box-shadow: var(--glow-primary);
+    }
+
+    .btn-theme-minimal {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.4rem;
+      background: transparent;
+      border: none;
+      color: var(--fg-subtle);
+      font-size: 11px;
+      cursor: pointer;
+      transition: color var(--dur-fast);
+      padding: 4px 0;
+    }
+    .btn-theme-minimal:hover { color: var(--fg); }
+
+    /* Main Viewport Content */
+    .main-viewport {
+      padding: 3.5rem 5rem 6rem 5rem;
+      max-width: 1360px;
+      width: 100%;
+      margin: 0 auto;
+      position: relative;
+    }
+
+    /* Client Pill Badge (Top of Hero from Screenshot) */
+    /* Cabecera de especificación viva — no un pill genérico: barra de acento a la izquierda,
+       pulso "live", etiqueta LIVE en mono y metadatos monoespaciados con separadores finos. */
+    .client-status-pill {
+      display: inline-flex;
+      align-items: center;
+      flex-wrap: wrap;
+      max-width: 100%;
+      gap: 0.6rem;
+      padding: 0.15rem 0 0.15rem 0.9rem;
+      border-left: 2px solid var(--accent);
+      background: none;
+      border-radius: 0;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      letter-spacing: 0.02em;
+      color: var(--fg-subtle);
+      margin-bottom: 1.6rem;
+    }
+    .client-status-pill .cs-live {
+      color: var(--accent); font-weight: 600; text-transform: uppercase; letter-spacing: 0.14em;
+    }
+    .client-status-pill .cs-brand {
+      font-family: var(--client-font-display, var(--font-display));
+      font-size: 12px; font-weight: 600; letter-spacing: 0.04em;
+      color: var(--fg); text-transform: uppercase;
+    }
+    .client-status-pill .cs-sep { color: var(--border-strong); }
+    .client-status-pill .cs-meta { color: var(--fg-subtle); }
+
+    /* Hero Headline */
+    .hero-headline {
+      font-size: clamp(2.6rem, 4.5vw, 4.2rem);
+      font-weight: 300;
+      line-height: 1.08;
+      letter-spacing: -0.02em;
+      margin-bottom: 1.25rem;
+      max-width: 22ch;
+    }
+    .hero-desc {
+      font-size: 1.1rem;
+      color: var(--fg-muted);
+      line-height: 1.6;
+      max-width: 70ch;
+      margin-bottom: 3.5rem;
+    }
+
+    .display-italic, .accent-italic {
+      font-style: italic;
+      font-weight: 300;
+      color: var(--accent-display);
+    }
+
+    .bracket { color: var(--accent); font-weight: 400; }
+    .bracket::before { content: '[ '; }
+    .bracket::after  { content: ' ]'; }
+
+    /* Section Headers (From Live Platform) */
+    .doc-section {
+      padding-top: 3.5rem;
+      margin-bottom: 4.5rem;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 4rem;
+    }
+
+    .section-eyebrow {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--accent);
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      margin-bottom: 0.6rem;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .eyebrow-num {
+      font-family: var(--font-mono);
+      color: var(--accent);
+    }
+
+    .section-title {
+      font-size: clamp(1.8rem, 2.8vw, 2.6rem);
+      font-weight: 300;
+      letter-spacing: -0.015em;
+      line-height: 1.15;
+      margin-bottom: 1rem;
+    }
+
+    .section-desc {
+      font-size: 1.05rem;
+      color: var(--fg-muted);
+      max-width: 75ch;
+      margin-bottom: 2rem;
+    }
+
+    /* Cards & Containers */
+    .homium-card {
+      background: var(--surface-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 2.2rem;
+      box-shadow: var(--shadow-card);
+      transition: border-color var(--dur-med) var(--ease-out), transform var(--dur-med) var(--ease-out);
+      backdrop-filter: blur(12px);
+    }
+    .homium-card:hover {
+      border-color: var(--accent);
+      transform: translateY(-2px);
+    }
+
+    .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.5rem; }
+    .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.5rem; }
+    .grid-4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.25rem; }
+
+    /* Swatches */
+    .swatch-card {
+      background: var(--bg-sunken);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      cursor: pointer;
+      transition: all var(--dur-fast);
+    }
+    .swatch-card:hover { border-color: var(--accent); transform: scale(1.02); }
+
+    /* Stacked full-width cards & inline color chips */
+    .card-stack { display: grid; gap: 1.5rem; }
+    .color-dot {
+      display: inline-block;
+      width: 22px;
+      height: 22px;
+      border-radius: 6px;
+      vertical-align: middle;
+      margin-right: 0.5rem;
+      border: 1px solid var(--border-strong);
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.28);
+      flex-shrink: 0;
+    }
+    /* Variante compacta para celdas densas (matriz de estados, tablas inline) */
+    .color-dot--inline {
+      width: 13px;
+      height: 13px;
+      border-radius: 3px;
+      margin-right: 0.3rem;
+      box-shadow: none;
+    }
+    .swatch-preview { height: 90px; width: 100%; position: relative; }
+    .swatch-meta { padding: 0.85rem 1rem; }
+    .swatch-name { font-size: 0.85rem; font-weight: 600; color: var(--fg); }
+    .swatch-hex { font-family: var(--font-mono); font-size: 0.78rem; color: var(--accent); }
+
+    /* Tech Tables */
+    .tech-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1.5rem 0;
+      font-size: 0.9rem;
+    }
+    .tech-table th {
+      text-align: left;
+      padding: 0.85rem 1rem;
+      background: var(--bg-elevated);
+      color: var(--accent);
+      font-weight: 500;
+      font-size: 11.5px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      border-bottom: 1px solid var(--border-strong);
+    }
+    .tech-table td {
+      padding: 0.85rem 1rem;
+      border-bottom: 1px solid var(--border);
+      color: var(--fg-muted);
+    }
+    .tech-table tr:hover td { background: var(--surface-overlay); color: var(--fg); }
+
+    /* Badges & Chips */
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.25rem 0.75rem;
+      border-radius: var(--radius-pill);
+      font-size: 0.75rem;
+      font-weight: 500;
+    }
+    .chip-cyan { background: rgba({{PRIMARY_RGB}}, 0.10); color: var(--accent); border: 1px solid rgba({{PRIMARY_RGB}}, 0.25); }
+    .chip-green { background: rgba({{SECONDARY_RGB}}, 0.10); color: var(--accent-2); border: 1px solid rgba({{SECONDARY_RGB}}, 0.25); }
+    .chip-purple { background: var(--surface-overlay); color: var(--fg-muted); border: 1px solid var(--border-strong); }
+    /* Chip neutro: para etiquetar contenido/muestras del cliente */
+    .chip-neutral { background: var(--surface-overlay); color: var(--fg-muted); border: 1px solid var(--border-strong); }
+    .chip-accent  { background: var(--dsc-accent-tint, transparent); color: var(--sample-accent); border: 1px solid var(--sample-accent); }
+
+    /* Typography Showcase Dedicated Styles */
+    .type-glyph-hero {
+      font-size: 3.5rem;
+      line-height: 1;
+      font-weight: 400;
+      color: var(--sample-accent);
+      margin-bottom: 0.5rem;
+    }
+    .type-charset {
+      font-size: 0.82rem;
+      letter-spacing: 0.04em;
+      color: var(--fg-muted);
+      word-break: break-all;
+      line-height: 1.6;
+      background: var(--bg-sunken);
+      padding: 0.75rem 1rem;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+    }
+    .type-scale-table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      border: 1px solid var(--border);
+      background: var(--bg-sunken);
+    }
+    .type-scale-table th {
+      padding: 0.85rem 1.2rem;
+      background: var(--bg-elevated);
+      font-size: 11.5px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--accent);
+      font-weight: 600;
+      border-bottom: 1px solid var(--border-strong);
+    }
+    .type-scale-table td {
+      padding: 1rem 1.2rem;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+    .type-scale-table tr:last-child td {
+      border-bottom: none;
+    }
+    .type-scale-table tr:hover td {
+      background: var(--surface-overlay);
+    }
+    .type-meta-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+      min-width: 170px;
+    }
+    .type-token-tag {
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      color: var(--accent);
+      font-weight: 600;
+    }
+    .type-spec-details {
+      font-size: 0.75rem;
+      color: var(--fg-subtle);
+    }
+    .type-preview-cell {
+      color: var(--fg);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .type-weight-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.55rem 0.9rem;
+      background: var(--bg-sunken);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 0.85rem;
+    }
+    .type-tester-box {
+      background: var(--bg-sunken);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 1.5rem;
+    }
+    .type-tester-controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      align-items: center;
+      padding-bottom: 1.25rem;
+      margin-bottom: 1.25rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .type-tester-input {
+      width: 100%;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 0.75rem 1rem;
+      color: var(--fg);
+      font-size: 0.95rem;
+      outline: none;
+      transition: border-color var(--dur-fast);
+    }
+    .type-tester-input:focus {
+      border-color: var(--accent);
+    }
+    .type-tester-output {
+      min-height: 90px;
+      padding: 1.25rem;
+      background: rgba(0,0,0,0.2);
+      border-radius: var(--radius-sm);
+      border: 1px dashed var(--border);
+      display: flex;
+      align-items: center;
+      overflow-x: auto;
+      word-break: break-word;
+      transition: all var(--dur-fast);
+    }
+
+    /* Bullet Lists (Middle Dot Marker) */
+    .homium-bullet-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+    .homium-bullet-list li {
+      display: flex;
+      align-items: baseline;
+      gap: 0.75rem;
+      font-size: 0.92rem;
+      color: var(--fg-muted);
+      line-height: 1.55;
+    }
+    .homium-bullet-list li::before {
+      content: '·';
+      color: var(--accent);
+      font-size: 1.4rem;
+      font-weight: 700;
+      line-height: 0;
+      align-self: center;
+      display: inline-block;
+    }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      padding: 0.75rem 1.6rem;
+      min-height: 48px;
+      border-radius: var(--radius-pill);
+      font-family: var(--font-sans);
+      font-weight: 500;
+      font-size: 0.9rem;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all var(--dur-fast) var(--ease-out);
+      border: 1px solid transparent;
+      user-select: none;
+    }
+    .btn-primary {
+      background: var(--accent);
+      color: var(--fg-on-accent);
+      font-weight: 600;
+    }
+    .btn-primary:hover {
+      transform: scale(1.02);
+      box-shadow: var(--glow-primary);
+    }
+    .btn-secondary {
+      background: transparent;
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .btn-secondary:hover {
+      background: var(--accent);
+      color: var(--fg-on-accent);
+      box-shadow: var(--glow-primary);
+    }
+
+    /* Client Demo Buttons (for Atomic Catalog in sec-atoms) */
+    .btn-client-primary {
+      background: var(--client-primary);
+      color: var(--client-bg, #ffffff);
+      font-weight: 600;
+      border-radius: var(--client-radius-md);
+      font-family: var(--client-font-ui);
+    }
+    .btn-client-primary:hover {
+      transform: scale(1.02);
+      filter: brightness(1.15);
+    }
+    .btn-client-secondary {
+      background: transparent;
+      border: 1px solid var(--client-primary);
+      color: var(--client-primary);
+      border-radius: var(--client-radius-md);
+      font-family: var(--client-font-ui);
+    }
+    .btn-client-secondary:hover {
+      background: var(--client-primary);
+      color: var(--client-bg, #ffffff);
+    }
+
+    /* CLOSING CALLOUT BANNER & EXECUTIVE FOOTER (From Live Screenshot) */
+    .homium-callout-banner {
+      background: var(--bg-sunken);
+      border-left: 2px solid var(--accent);
+      border-radius: 0 14px 14px 0;
+      padding: 1.5rem 2rem;
+      margin-top: 3.5rem;
+      margin-bottom: 3.5rem;
+      backdrop-filter: blur(12px);
+    }
+    .homium-callout-banner p {
+      font-family: var(--font-sans);
+      font-size: 1.05rem;
+      font-style: italic;
+      font-weight: 300;
+      color: var(--fg);
+      line-height: 1.55;
+    }
+    .homium-callout-banner p em {
+      color: var(--accent-display);
+      font-style: normal;
+    }
+
+    .homium-executive-footer {
+      margin-top: 2rem;
+      padding-top: 2rem;
+      padding-bottom: 3rem;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      font-size: 11.5px;
+      color: var(--fg-subtle);
+    }
+    .footer-left {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+    .footer-logo {
+      margin-bottom: 0.35rem;
+    }
+    .footer-right {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      text-align: right;
+    }
+    .footer-line {
+      color: var(--fg-subtle);
+      line-height: 1.45;
+    }
+
+    /* Modal Interactive Demo — MUESTRA de organismo del cliente (morfología de la referencia) */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: var(--scrim, rgba(15, 2, 25, 0.85));
+      backdrop-filter: blur(8px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+    .modal-overlay.active { display: flex; }
+    .modal-box {
+      background: var(--bg-elevated);
+      border: var(--border-width-emphasis, 1px) solid var(--sample-accent);
+      border-radius: var(--client-radius-lg);
+      padding: 2.5rem;
+      max-width: 540px;
+      width: 90%;
+      box-shadow: var(--shadow-lift);
+      font-family: var(--client-font-ui, var(--font-sans));
+    }
+
+    /* ==========================================================================
+       LIVING COMPONENT LIBRARY — Patrón "Component Block" (§9, §11, §12, §13)
+       Instancias vivas de los componentes-cliente con estados REALES de CSS
+       (:hover / :focus-visible / :active / [disabled] / [aria-busy]).
+       Superficies tipo .homium-card, acento del cliente, radios --client-*.
+       ========================================================================== */
+
+    .ds-block { margin-bottom: 2rem; }
+    .ds-block:last-child { margin-bottom: 0; }
+    .ds-block-head {
+      display: flex; align-items: baseline; gap: 0.75rem; flex-wrap: wrap;
+      margin-bottom: 0.35rem;
+    }
+    .ds-block-head h3 {
+      font-size: 1.15rem; font-weight: 500; color: var(--fg);
+      font-family: var(--client-font-display, var(--font-display));
+    }
+    .ds-block-head .ds-cat {
+      font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.06em;
+      text-transform: uppercase; color: var(--fg-subtle);
+    }
+    .ds-use {
+      font-size: 0.92rem; color: var(--fg-muted); max-width: 70ch;
+      margin-bottom: 0.85rem; line-height: 1.55;
+    }
+    .ds-stage {
+      background: var(--surface-card); border: 1px solid var(--border);
+      border-radius: var(--radius-lg); padding: 1.75rem;
+      box-shadow: var(--shadow-card); backdrop-filter: blur(12px);
+      display: flex; flex-wrap: wrap; align-items: center; gap: 1rem;
+    }
+    .ds-stage--grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      align-items: start;
+    }
+    .ds-tokens {
+      margin-top: 0.75rem; font-family: var(--font-mono); font-size: 0.72rem;
+      color: var(--fg-subtle); overflow-wrap: anywhere; word-break: break-word;
+    }
+    .ds-tokens b { color: var(--accent); font-weight: 500; }
+
+    /* Do / Don't pairs (guía de uso por componente) */
+    .ds-dodont {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 1rem; margin-top: 1.25rem;
+    }
+    .ds-do, .ds-dont {
+      border-radius: var(--client-radius-md, var(--radius-md));
+      padding: 1rem 1.25rem; font-size: 0.9rem; line-height: 1.5;
+      color: var(--fg); border: 1px solid;
+    }
+    .ds-do   { background: rgba(90, 234, 162, 0.08); border-color: rgba(90, 234, 162, 0.35); }
+    .ds-dont { background: rgba(224, 37, 71, 0.08);  border-color: rgba(224, 37, 71, 0.35); }
+    .ds-do b, .ds-dont b {
+      display: block; font-size: 0.72rem; letter-spacing: 0.09em;
+      text-transform: uppercase; margin-bottom: 0.35rem;
+    }
+    .ds-do b   { color: var(--accent-2); }
+    .ds-dont b { color: var(--sev-critico); }
+
+    /* Vacíos conocidos */
+    .ds-gaps { padding-top: 2rem; margin-bottom: 3.5rem; }
+
+    /* --------------------------------------------------------------------------
+       Componentes-cliente vivos (.dsc-*) — TODO su cromatismo de acento, sus radios
+       y sus fuentes salen de la REFERENCIA (--client-* / --sample-accent), nunca del
+       pill del cliente. --dsc-focus es el anillo de foco derivado del acento del
+       cliente (accesibilidad WCAG: interactive-states.md).
+       -------------------------------------------------------------------------- */
+    @keyframes dsc-spin { to { transform: rotate(360deg); } }
+    :root {
+      --dsc-focus: 0 0 0 4px color-mix(in srgb, var(--sample-accent) 40%, transparent);
+      --dsc-accent-tint: color-mix(in srgb, var(--sample-accent) 12%, transparent);
+    }
+
+    .dsc-btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+      min-height: 48px; padding: 0.75rem 1.5rem;
+      border-radius: var(--client-radius-md, var(--radius-md));
+      font-family: var(--client-font-ui, var(--font-sans));
+      font-weight: 600; font-size: 0.9rem; line-height: 1; cursor: pointer;
+      border: 1px solid transparent;
+      background: var(--client-primary); color: var(--client-bg, #ffffff);
+      transition: transform var(--dur-fast) var(--ease-out),
+                  filter var(--dur-fast) var(--ease-out),
+                  box-shadow var(--dur-fast) var(--ease-out);
+      user-select: none;
+    }
+    .dsc-btn:hover         { filter: brightness(1.12); transform: translateY(-2px); }
+    .dsc-btn:active        { transform: scale(0.98); filter: brightness(0.95); }
+    .dsc-btn:focus-visible { outline: 2px solid var(--sample-accent); outline-offset: 2px; box-shadow: var(--dsc-focus); }
+    .dsc-btn[disabled], .dsc-btn[aria-disabled="true"] { opacity: 0.4; cursor: not-allowed; filter: none; transform: none; }
+    .dsc-btn[aria-busy="true"] { pointer-events: none; color: transparent; position: relative; }
+    .dsc-btn[aria-busy="true"]::after {
+      content: ""; position: absolute; width: 16px; height: 16px;
+      border: 2px solid var(--client-bg, #ffffff); border-top-color: transparent;
+      border-radius: 50%; animation: dsc-spin 0.7s linear infinite;
+    }
+    .dsc-btn--secondary { background: var(--client-secondary); color: var(--client-on-secondary, #ffffff); }
+    .dsc-btn--ghost { background: transparent; border-color: var(--client-primary); color: var(--client-primary); }
+    .dsc-btn--ghost:hover { background: var(--dsc-accent-tint); filter: none; }
+    .dsc-btn--sm { min-height: 40px; padding: 0.5rem 1rem; font-size: 0.82rem; }
+    .dsc-btn--lg { min-height: 56px; padding: 1rem 2rem; font-size: 1rem; }
+
+    .dsc-icon-btn {
+      width: 48px; height: 48px; flex-shrink: 0;
+      display: inline-flex; align-items: center; justify-content: center;
+      border-radius: var(--client-radius-full, var(--radius-pill)); border: 1px solid var(--border-strong);
+      background: var(--surface-overlay); color: var(--fg); cursor: pointer;
+      transition: all var(--dur-fast) var(--ease-out);
+    }
+    .dsc-icon-btn:hover { border-color: var(--sample-accent); color: var(--sample-accent); }
+    .dsc-icon-btn:focus-visible { outline: 2px solid var(--sample-accent); outline-offset: 2px; box-shadow: var(--dsc-focus); }
+    .dsc-icon-btn--primary { background: var(--client-primary); color: var(--client-bg, #ffffff); border-color: transparent; }
+    .dsc-icon-btn[aria-pressed="true"] { border-color: var(--sample-accent); color: var(--sample-accent); background: var(--dsc-accent-tint); }
+    .dsc-icon-btn svg { width: 20px; height: 20px; flex-shrink: 0; }
+
+    .dsc-field { display: flex; flex-direction: column; gap: 0.4rem; min-width: 220px; }
+    .dsc-field > label { font-size: 0.8rem; color: var(--fg-muted); font-weight: 500; }
+    .dsc-input {
+      min-height: 48px; padding: 0.65rem 0.9rem;
+      border-radius: var(--client-radius-sm, var(--radius-sm));
+      border: 1px solid var(--border-strong); background: var(--bg-sunken);
+      color: var(--fg); font-family: var(--client-font-ui, var(--font-sans));
+      font-size: 0.95rem; outline: none;
+      transition: border-color var(--dur-fast), box-shadow var(--dur-fast);
+    }
+    .dsc-input:hover { border-color: var(--fg-subtle); }
+    .dsc-input:focus-visible { border-color: var(--sample-accent); box-shadow: var(--dsc-focus); }
+    .dsc-input[disabled] { opacity: 0.45; cursor: not-allowed; }
+    .dsc-input[aria-invalid="true"] { border-color: var(--sev-critico); }
+    .dsc-help  { font-size: 0.78rem; color: var(--fg-subtle); }
+    .dsc-error { font-size: 0.78rem; color: var(--sev-critico); display: flex; align-items: center; gap: 0.35rem; }
+
+    .dsc-badge {
+      display: inline-flex; align-items: center; gap: 0.35rem;
+      padding: 0.25rem 0.7rem; border-radius: var(--client-radius-sm, var(--radius-sm));
+      font-size: 0.75rem; font-weight: 600;
+      background: var(--surface-overlay); color: var(--fg); border: 1px solid var(--border);
+    }
+    .dsc-badge--promo   { background: color-mix(in srgb, var(--client-secondary) 16%, transparent); color: var(--client-secondary); border-color: color-mix(in srgb, var(--client-secondary) 40%, transparent); }
+    .dsc-badge--primary { background: var(--dsc-accent-tint); color: var(--sample-accent); border-color: color-mix(in srgb, var(--sample-accent) 30%, transparent); }
+    .dsc-badge--success { background: rgba(43, 176, 119, 0.14); color: var(--sev-bajo); border-color: rgba(43, 176, 119, 0.35); }
+    .dsc-badge--warning { background: rgba(217, 117, 22, 0.12); color: var(--sev-alto); border-color: rgba(217, 117, 22, 0.35); }
+    .dsc-badge--error   { background: rgba(224, 37, 71, 0.10); color: var(--sev-critico); border-color: rgba(224, 37, 71, 0.35); }
+
+    .dsc-spinner {
+      width: 24px; height: 24px; border-radius: 50%;
+      border: 2px solid var(--border-strong); border-top-color: var(--sample-accent);
+      animation: dsc-spin 0.7s linear infinite; flex-shrink: 0;
+    }
+
+    .dsc-tooltip { position: relative; display: inline-flex; }
+    .dsc-tooltip > .dsc-tip {
+      position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%);
+      background: var(--bg-elevated); color: var(--fg); border: 1px solid var(--border-strong);
+      padding: 0.4rem 0.65rem; border-radius: var(--radius-sm); font-size: 0.75rem;
+      white-space: nowrap; box-shadow: var(--shadow-card);
+    }
+
+    .dsc-chip {
+      display: inline-flex; align-items: center; gap: 0.4rem;
+      min-height: 40px; padding: 0 0.9rem;
+      border-radius: var(--client-radius-full, var(--radius-pill));
+      border: 1px solid var(--border-strong); background: transparent; color: var(--fg-muted);
+      font-family: var(--client-font-ui, var(--font-sans));
+      font-size: 0.82rem; font-weight: 500; cursor: pointer;
+      transition: all var(--dur-fast) var(--ease-out);
+    }
+    .dsc-chip:hover { color: var(--fg); border-color: var(--fg-subtle); }
+    .dsc-chip:focus-visible { outline: 2px solid var(--sample-accent); outline-offset: 2px; box-shadow: var(--dsc-focus); }
+    .dsc-chip[aria-pressed="true"] {
+      border-color: var(--sample-accent); border-width: 2px; color: var(--sample-accent);
+      background: var(--dsc-accent-tint);
+    }
+    .dsc-chip .dsc-chip-count { font-family: var(--font-mono); font-size: 0.75rem; color: var(--fg-subtle); }
+    .dsc-chip[aria-pressed="true"] .dsc-chip-count { color: var(--sample-accent); }
+
+    .dsc-stepper {
+      display: inline-flex; align-items: center; border: 1px solid var(--border-strong);
+      border-radius: var(--client-radius-full, var(--radius-pill)); overflow: hidden;
+    }
+    .dsc-stepper button {
+      width: 44px; height: 44px; border: none; background: transparent; color: var(--fg);
+      font-size: 1.1rem; cursor: pointer; transition: background var(--dur-fast);
+    }
+    .dsc-stepper button:hover { background: var(--surface-overlay); }
+    .dsc-stepper button:focus-visible { outline: 2px solid var(--sample-accent); outline-offset: -2px; }
+    .dsc-stepper output { min-width: 40px; text-align: center; font-family: var(--font-mono); font-size: 0.9rem; }
+
+    .dsc-product {
+      display: flex; flex-direction: column; width: 100%;
+      border-radius: var(--client-radius-lg, var(--radius-lg));
+      border: 1px solid var(--border); background: var(--bg-sunken); overflow: hidden;
+      transition: transform var(--dur-med) var(--ease-out),
+                  border-color var(--dur-med) var(--ease-out),
+                  box-shadow var(--dur-med) var(--ease-out);
+    }
+    .dsc-product:hover { transform: translateY(-4px); border-color: var(--sample-accent); box-shadow: var(--shadow-lift); }
+    .dsc-product-media {
+      aspect-ratio: 1 / 1; overflow: hidden; position: relative;
+      background: color-mix(in srgb, var(--sample-accent) 14%, var(--bg-elevated));
+      display: flex; align-items: center; justify-content: center;
+    }
+    .dsc-product-media img { width: 100%; height: 100%; object-fit: cover; transition: transform var(--dur-med) var(--ease-out); }
+    .dsc-product:hover .dsc-product-media img { transform: scale(1.03); }
+    .dsc-product-media .dsc-ph { font-family: var(--font-mono); font-size: 0.7rem; color: var(--fg-subtle); }
+    .dsc-product-badge { position: absolute; top: 0.75rem; left: 0.75rem; }
+    .dsc-product-fav   { position: absolute; top: 0.6rem; right: 0.6rem; }
+    .dsc-product-body  { padding: 0.9rem 1rem 1.1rem; display: flex; flex-direction: column; gap: 0.5rem; }
+    .dsc-product-title { font-size: 0.95rem; font-weight: 600; color: var(--fg); }
+    .dsc-product-price { display: flex; align-items: baseline; gap: 0.5rem; font-family: var(--font-mono); }
+    .dsc-product-price .now { font-size: 1rem; color: var(--fg); font-weight: 600; }
+    .dsc-product-price .was { font-size: 0.8rem; color: var(--fg-subtle); text-decoration: line-through; }
+
+    .dsc-drawer-overlay {
+      position: fixed; inset: 0; background: rgba(15, 2, 25, 0.8); backdrop-filter: blur(6px);
+      display: none; justify-content: flex-end; z-index: 1200;
+    }
+    .dsc-drawer-overlay.active { display: flex; }
+    .dsc-drawer {
+      width: min(420px, 92vw); height: 100%; background: var(--bg-elevated);
+      border-left: var(--border-width-emphasis, 2px) solid var(--sample-accent);
+      display: flex; flex-direction: column;
+      box-shadow: var(--shadow-lift);
+      font-family: var(--client-font-ui, var(--font-sans));
+    }
+    .dsc-drawer-head { padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+    .dsc-drawer-body { flex: 1; overflow-y: auto; padding: 1rem 1.5rem; display: flex; flex-direction: column; gap: 1rem; }
+    .dsc-drawer-foot { padding: 1.25rem 1.5rem; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 0.75rem; }
+    .dsc-drawer-line { display: flex; justify-content: space-between; font-size: 0.9rem; color: var(--fg-muted); }
+
+    .dsc-navbar, .dsc-footer {
+      width: 100%; border: 1px solid var(--border);
+      border-radius: var(--client-radius-md, var(--radius-md)); background: var(--bg-sunken);
+      padding: 0.85rem 1.25rem; display: flex; align-items: center; gap: 1rem;
+    }
+    .dsc-navbar { justify-content: space-between; }
+    .dsc-navbar nav { display: flex; gap: 1.25rem; font-size: 0.85rem; color: var(--fg-muted); flex-wrap: wrap; }
+    .dsc-footer { justify-content: space-between; font-size: 0.8rem; color: var(--fg-subtle); flex-wrap: wrap; }
+
+    /* Icon grid (§9) */
+    .ds-icon-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 1rem; width: 100%; }
+    .ds-icon-cell {
+      display: flex; flex-direction: column; align-items: center; gap: 0.5rem;
+      padding: 1rem 0.5rem; border: 1px solid var(--border); border-radius: var(--radius-md);
+      background: var(--bg-sunken);
+    }
+    .ds-icon-cell svg { width: 24px; height: 24px; flex-shrink: 0; stroke: var(--sample-accent); color: var(--sample-accent); }
+    .ds-icon-cell span { font-family: var(--font-mono); font-size: 0.68rem; color: var(--fg-subtle); text-align: center; }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
+    }
+
+    /* La barra móvil sticky no debe tapar el título al saltar a una sección */
+    .doc-section, .ds-gaps { scroll-margin-top: 1rem; }
+    @media (max-width: 1023px) {
+      .doc-section, .ds-gaps { scroll-margin-top: 64px; }
+    }
+
+    /* Contenedor de scroll horizontal para tablas anchas (evita desbordar el viewport móvil) */
+    .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .table-wrap > table { margin-top: 0; }
+
+    /* Barra de navegación móvil (reemplaza el rail oculto) */
+    .mobile-nav { display: none; }
+
+    /* ==========================================================================
+       RESPONSIVE — Tablet & Mobile
+       ========================================================================== */
+    @media (max-width: 1023px) {
+      .app-layout { padding-left: 0; }
+      .left-rail-sidebar { display: none; }
+      .main-viewport { padding: 1.5rem 1.25rem 2rem; max-width: 100%; }
+
+      .mobile-nav {
+        display: flex; align-items: center; gap: 0.6rem;
+        position: sticky; top: 0; z-index: 300;
+        padding: 0.6rem 1rem;
+        background: color-mix(in srgb, var(--bg-sunken) 92%, transparent);
+        backdrop-filter: blur(10px);
+        border-bottom: 1px solid var(--border);
+      }
+      .mobile-nav .mn-brand { font-size: 11px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--fg-subtle); flex-shrink: 0; }
+      .mobile-nav select {
+        flex: 1; min-width: 0; height: 38px; padding: 0 0.6rem;
+        background: var(--bg-elevated); color: var(--fg);
+        border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
+        font-family: var(--font-sans); font-size: 12px;
+      }
+      .mobile-nav .mn-theme {
+        flex-shrink: 0; width: 38px; height: 38px; display: inline-flex; align-items: center; justify-content: center;
+        background: transparent; border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
+        color: var(--fg-subtle); cursor: pointer;
+      }
+    }
+
+    @media (max-width: 767px) {
+      .main-viewport { padding: 1.25rem 1rem 1.5rem; }
+      .glow-blob { display: none; }
+
+      .hero-headline { font-size: clamp(1.9rem, 8.5vw, 2.6rem); max-width: none; margin-bottom: 1rem; }
+      .hero-desc { font-size: 1rem; margin-bottom: 2.5rem; }
+
+      .doc-section, .ds-gaps { padding-top: 2.25rem; margin-bottom: 3rem; padding-bottom: 2.5rem; }
+      .section-title { font-size: clamp(1.5rem, 6.5vw, 2rem); }
+      .section-desc { font-size: 1rem; }
+
+      .homium-card { padding: 1.25rem; }
+      .homium-card[style*="2.2rem"] { padding: 1.25rem; }
+
+      .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+      .ds-stage { padding: 1.1rem; }
+
+      .type-glyph-hero { font-size: 2.6rem; }
+      .type-scale-table th, .type-scale-table td { padding: 0.7rem 0.8rem; }
+      .type-scale-table { min-width: 540px; }
+      .tech-table { min-width: 480px; }
+
+      .homium-callout-banner { padding: 1.25rem 1.25rem; margin: 2rem 0 1.5rem; }
+      .ds-gaps { margin-bottom: 1.5rem; padding-bottom: 1rem; }
+
+      .homium-executive-footer { flex-direction: column; gap: 1.25rem; margin-top: 1.5rem; padding-top: 1.5rem; padding-bottom: 1.25rem; }
+      .footer-right { text-align: left; }
+
+      .modal-box { padding: 1.5rem; }
+      .type-tester-output { padding: 1rem; }
+    }
+
+    @media (max-width: 400px) {
+      .ds-icon-grid { grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); }
+    }
+
+    /* Botón "volver arriba" */
+    .to-top {
+      position: fixed; right: 1rem; bottom: 1rem; z-index: 250;
+      width: 42px; height: 42px; display: none; align-items: center; justify-content: center;
+      border-radius: var(--radius-pill); border: 1px solid var(--border-strong);
+      background: var(--bg-elevated); color: var(--fg); cursor: pointer;
+      box-shadow: var(--shadow-card); opacity: 0; transition: opacity var(--dur-med) var(--ease-out);
+    }
+    .to-top.show { display: flex; opacity: 1; }
+    .to-top:focus-visible { outline: 2px solid var(--sample-accent); outline-offset: 2px; }
+
+    /* Zonas copiables (click para copiar el token/bloque) */
+    .is-copyable { cursor: copy; }
+    .is-copyable:hover { outline: 1px dashed var(--border-strong); outline-offset: 3px; }
+
+    /* ==========================================================================
+       IMPRESIÓN — "Descargar PDF" (window.print) sobre fondo claro y legible
+       ========================================================================== */
+    @media print {
+      :root {
+        --bg: #ffffff; --bg-elevated: #ffffff; --bg-sunken: #f7f7f9;
+        --surface-card: #ffffff; --surface-overlay: #f2f2f4;
+        --fg: #111; --fg-muted: #333; --fg-subtle: #666;
+        --border: #ddd; --border-strong: #bbb; --accent: #0a5; --sample-accent: #b3260c;
+      }
+      body { background: #fff; color: #111; }
+      .glow-blob, .left-rail-sidebar, .mobile-nav, .to-top,
+      .type-tester-controls, #gsap-box, .modal-overlay, .dsc-drawer-overlay { display: none !important; }
+      .app-layout { padding-left: 0; }
+      .main-viewport { max-width: 100%; padding: 0; }
+      .homium-card, .ds-stage, .swatch-card { box-shadow: none !important; border: 1px solid #ddd !important; backdrop-filter: none !important; break-inside: avoid; }
+      .doc-section, .ds-gaps { break-inside: avoid-page; border-bottom: 1px solid #ddd; }
+      .table-wrap { overflow: visible !important; }
+      a { color: #06c; }
+      .dsc-btn, .dsc-chip, .chip { border: 1px solid #999 !important; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ATMOSPHERIC CYAN GLOW SPHERE IN BACKGROUND -->
+  <div class="glow-blob"></div>
+
+  <!-- MOBILE NAV (sustituye al rail izquierdo en <=1023px; poblada por JS desde #rail-nav) -->
+  <nav class="mobile-nav" aria-label="Navegación de secciones">
+    <span class="mn-brand">{{BRAND_NAME}}</span>
+    <select id="mobile-jump" aria-label="Ir a sección">
+      <option value="">Secciones…</option>
+    </select>
+  </nav>
+
+  <div class="app-layout">
+
+    <!-- LEFT-RAIL MINI-NAV -->
+    <aside class="left-rail-sidebar">
+      <div>
+        <div class="rail-brand-block">
+          {{BRAND_LOGO_BLOCK}}
+          <span class="brand-subtitle">DESIGN SYSTEM v1.0</span>
+
+          <!-- Metadata Block -->
+          <div class="rail-meta-table">
+            <div class="meta-row"><span class="meta-label">Cliente</span><span class="meta-val">{{BRAND_NAME}}</span></div>
+            <div class="meta-row"><span class="meta-label">Fecha</span><span class="meta-val">{{CURRENT_DATE}}</span></div>
+            <div class="meta-row"><span class="meta-label">Versión</span><span class="meta-val">v1.0.0</span></div>
+          </div>
+        </div>
+
+        <!-- 5 grupos colapsables × 14 secciones (ScrollSpy) -->
+        <ul class="rail-nav-list" id="rail-nav">
+
+          <li class="rail-group open">
+            <div class="rail-group-header" onclick="dsToggleGroup(this)">
+              <span class="rail-group-num">§1</span><span>Discovery</span>
+              <svg class="rail-group-chevron" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+            </div>
+            <ul class="rail-group-items">
+              <li class="rail-nav-item"><a href="#sec-discovery" class="active"><span class="rail-num">01</span><span class="rail-dot"></span> Resumen</a></li>
+              <li class="rail-nav-item"><a href="#sec-equalizer"><span class="rail-num">02</span><span class="rail-dot"></span> Ecualizador de marca</a></li>
+              <li class="rail-nav-item"><a href="#sec-visual-dna"><span class="rail-num">03</span><span class="rail-dot"></span> Deconstrucción visual</a></li>
+            </ul>
+          </li>
+
+          <li class="rail-group">
+            <div class="rail-group-header" onclick="dsToggleGroup(this)">
+              <span class="rail-group-num">§2</span><span>Cimientos Visuales</span>
+              <svg class="rail-group-chevron" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+            </div>
+            <ul class="rail-group-items">
+              <li class="rail-nav-item"><a href="#sec-spacing"><span class="rail-num">04</span><span class="rail-dot"></span> Grilla & espaciado</a></li>
+              <li class="rail-nav-item"><a href="#sec-colors"><span class="rail-num">05</span><span class="rail-dot"></span> Paleta & rampas HCT</a></li>
+              <li class="rail-nav-item"><a href="#sec-typography"><span class="rail-num">06</span><span class="rail-dot"></span> Sistema tipográfico</a></li>
+              <li class="rail-nav-item"><a href="#sec-geometry"><span class="rail-num">07</span><span class="rail-dot"></span> Geometría & sombras</a></li>
+              <li class="rail-nav-item"><a href="#sec-icons"><span class="rail-num">08</span><span class="rail-dot"></span> Iconografía oficial</a></li>
+              <li class="rail-nav-item"><a href="#sec-motion"><span class="rail-num">09</span><span class="rail-dot"></span> Motion & GSAP 3</a></li>
+            </ul>
+          </li>
+
+          <li class="rail-group">
+            <div class="rail-group-header" onclick="dsToggleGroup(this)">
+              <span class="rail-group-num">§3</span><span>Componentes</span>
+              <svg class="rail-group-chevron" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+            </div>
+            <ul class="rail-group-items">
+              <li class="rail-nav-item"><a href="#sec-atoms"><span class="rail-num">10</span><span class="rail-dot"></span> Catálogo atómico</a></li>
+              <li class="rail-nav-item"><a href="#sec-molecules"><span class="rail-num">11</span><span class="rail-dot"></span> Moléculas UI</a></li>
+              <li class="rail-nav-item"><a href="#sec-organisms"><span class="rail-num">12</span><span class="rail-dot"></span> Organismos & bento</a></li>
+            </ul>
+          </li>
+
+          <li class="rail-group">
+            <div class="rail-group-header" onclick="dsToggleGroup(this)">
+              <span class="rail-group-num">§4</span><span>Accesibilidad</span>
+              <svg class="rail-group-chevron" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+            </div>
+            <ul class="rail-group-items">
+              <li class="rail-nav-item"><a href="#sec-wcag"><span class="rail-num">13</span><span class="rail-dot"></span> Auditoría WCAG AAA</a></li>
+            </ul>
+          </li>
+
+          <li class="rail-group">
+            <div class="rail-group-header" onclick="dsToggleGroup(this)">
+              <span class="rail-group-num">§5</span><span>Handoff</span>
+              <svg class="rail-group-chevron" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+            </div>
+            <ul class="rail-group-items">
+              <li class="rail-nav-item"><a href="#sec-code"><span class="rail-num">14</span><span class="rail-dot"></span> Handoff de código</a></li>
+            </ul>
+          </li>
+
+        </ul>
+      </div>
+
+      <!-- Sidebar Footer Action Buttons -->
+      <div class="rail-footer">
+        <button class="btn-rail-primary" onclick="window.print()">
+          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+          Descargar PDF
+        </button>
+      </div>
+    </aside>
+
+    <!-- MAIN VIEWPORT CONTENT -->
+    <main class="main-viewport">
+
+      <!-- Client URL / Brand Status Pill -->
+      <div class="client-status-pill">
+        <span class="cs-live">Living Spec</span>
+        <span class="cs-sep">/</span>
+        <span class="cs-brand">{{BRAND_NAME}}</span>
+        <span class="cs-sep">/</span>
+        <span class="cs-meta">{{REFERENCE_URL}}</span>
+        <span class="cs-sep">/</span>
+        <span class="cs-meta">{{CURRENT_DATE}}</span>
+      </div>
+
+      <!-- Display Hero Headline -->
+      <h1 class="hero-headline">
+        {{BRAND_NAME}} <span class="display-italic">Design System.</span>
+      </h1>
+      <p class="hero-desc">
+        Sistema de diseño vivo y especificación técnica de interfaz, construido bajo el estándar oficial W3C Design Tokens y accesibilidad WCAG 2.2 AAA.
+      </p>
+
+      <!-- 1. DISCOVERY & PROPÓSITO -->
+      <section id="sec-discovery" class="doc-section">
+        <div class="section-eyebrow"><span class="eyebrow-num">01</span> DISCOVERY & PROPÓSITO</div>
+        <h2 class="section-title">Contexto del Producto.</h2>
+        <p class="section-desc">Definición de modelo de negocio, misión y requerimientos técnicos del cliente.</p>
+
+        <div class="grid-2">
+          <div class="homium-card">
+            <h3 style="font-size: 1.15rem; margin-bottom: 1rem; color: var(--accent);">Identidad de Marca</h3>
+            <p><strong>Proyecto:</strong> {{BRAND_NAME}}</p>
+            <p><strong>Propósito:</strong> {{BRAND_PURPOSE}}</p>
+            <p><strong>Modelo de Negocio:</strong> {{BUSINESS_MODEL}}</p>
+          </div>
+          <div class="homium-card">
+            <h3 style="font-size: 1.15rem; margin-bottom: 1rem; color: var(--accent-2);">Estándares Técnicos</h3>
+            <p><strong>Tokens:</strong> W3C Design Tokens (CSS Custom Properties)</p>
+            <p><strong>Estándar Accesibilidad:</strong> WCAG 2.2 AAA (Ratio ≥ 7:1)</p>
+            <p><strong>Motion Engine:</strong> GSAP 3 Core + ScrollTrigger</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. ECUALIZADOR DE MARCA (14 EJES) -->
+      <section id="sec-equalizer" class="doc-section">
+        <div class="section-eyebrow"><span class="eyebrow-num">02</span> CALIBRACIÓN VISUAL</div>
+        <h2 class="section-title">Ecualizador de Marca — 14 Ejes.</h2>
+        <p class="section-desc">Personalidad cuantificada y traducida a tokens de interfaz para {{BRAND_NAME}}.</p>
+
+        <div class="homium-card">
+          <div class="table-wrap">
+          <table class="tech-table">
+            <thead>
+              <tr><th>Eje de Marca</th><th>Calibración (1 a 5)</th><th>Traducción a Tokens CSS</th></tr>
+            </thead>
+            <tbody>
+              {{EQUALIZER_TABLE_ROWS}}
+            </tbody>
+          </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3. DECONSTRUCCIÓN VISUAL & BLUEPRINT -->
+      <section id="sec-visual-dna" class="doc-section">
+        <div class="section-eyebrow"><span class="eyebrow-num">03</span> BLUEPRINT FORENSE</div>
+        <h2 class="section-title">Deconstrucción Arquitectónica 6D.</h2>
+        <p class="section-desc">Wireflow de módulos y desglose forense sin plantillas genéricas.</p>
+
+        <div class="homium-card">
+          <p style="margin-bottom: 1.25rem;"><strong>Referencia Analizada:</strong> {{PRIMARY_REFERENCE_NAME}} (Nivel: <span class="chip chip-cyan">{{FIDELITY_MODE_LABEL}}</span>)</p>
+          <ul class="homium-bullet-list">
+            <li><span><strong>Navbar:</strong> {{NAVBAR_BLUEPRINT_SUMMARY}}</span></li>
+            <li><span><strong>Hero:</strong> {{HERO_BLUEPRINT_SUMMARY}}</span></li>
+            <li><span><strong>Secuencia de Secciones:</strong> {{SECTION_SEQUENCE_SUMMARY}}</span></li>
+            <li><span><strong>Morfología de Tarjetas:</strong> {{CARD_MORPHOLOGY_SUMMARY}}</span></li>
+            <li><span><strong>Footer:</strong> {{FOOTER_BLUEPRINT_SUMMARY}}</span></li>
+            <li><span><strong>Banner de Cookies:</strong> {{COOKIE_BANNER_SUMMARY}}</span></li>
+          </ul>
+        </div>
+
+        <div class="card-stack" style="margin-top: 2rem;">
+          <div class="homium-card">
+            <h3 style="font-size: 1.15rem; margin-bottom: 1rem; color: var(--accent);">Morfologías Bloqueadas (Component DNA)</h3>
+            <p style="margin-bottom: 1.5rem;">Morfologías clusterizadas medidas en la referencia e inmutables para todo el sistema (verificadas mecánicamente con tolerancia ±2px).</p>
+            <div class="table-wrap">
+            <table class="tech-table">
+              <thead>
+                <tr><th>Componente</th><th>Radio</th><th>Padding / Altura</th><th>Fondo / Texto</th><th>Usos</th></tr>
+              </thead>
+              <tbody>
+                {{COMPONENT_DNA_TABLE_ROWS}}
+              </tbody>
+            </table>
+            </div>
+          </div>
+
+          <div class="homium-card">
+            <h3 style="font-size: 1.15rem; margin-bottom: 1rem; color: var(--accent);">Slots de Imagen Detectados</h3>
+            <p>{{MEDIA_SLOTS_SUMMARY}}</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 5. GRID & SPACING -->
+      <section id="sec-spacing" class="doc-section">
+        <div class="section-eyebrow"><span class="eyebrow-num">04</span> ESCALA ESPACIAL</div>
+        <h2 class="section-title">Grilla, Espaciado & Densidad.</h2>
+        <p class="section-desc">Escala base {{SPACING_BASE}}px, contenedores fluidos y modo de densidad calibrados para {{BRAND_NAME}}.</p>
+
+        <h3 style="font-size: 1.05rem; margin-bottom: 1rem; color: var(--accent);">Escala de espaciado</h3>
+        <div class="homium-card">
+          <!-- SPACING_SCALE_BARS: una celda por paso de la escala real del Master MD §2.1
+               (state.spacing / --space-*). Cada celda = div.text-align-center con una barra
+               (altura = {px}px, fondo var(--sample-accent), radio 2px) y un <code>{token} ({px}px)</code>. -->
+          <div style="display: flex; flex-wrap: wrap; align-items: flex-end; gap: 1rem;">
+            {{SPACING_SCALE_BARS}}
+          </div>
+        </div>
+
+        <h3 style="font-size: 1.05rem; margin: 2.5rem 0 1rem; color: var(--accent);">Breakpoints fluidos</h3>
+        <div class="homium-card">
+          <div class="table-wrap">
+          <table class="tech-table">
+            <thead><tr><th>Breakpoint</th><th>Rango</th><th>Columnas</th><th>Margen</th><th>Gutter</th><th>Contexto</th></tr></thead>
+            <tbody>
+              <!-- BREAKPOINTS_TABLE: 5 filas del Master MD §2.2 (XS/SM/MD/LG/TV) con los valores reales del proyecto. -->
+              {{BREAKPOINTS_TABLE}}
+            </tbody>
+          </table>
+          </div>
+        </div>
+
+        <h3 style="font-size: 1.05rem; margin: 2.5rem 0 1rem; color: var(--accent);">Grilla de columnas</h3>
+        <div class="homium-card">
+          <p style="font-size: 0.9rem; color: var(--fg-muted); margin-bottom: 1rem;">{{GRID_OVERLAY_CAPTION}}</p>
+          <div style="display: grid; grid-template-columns: repeat({{GRID_COLUMNS_LG}}, 1fr); gap: {{GRID_GUTTER_LG}}; border: 1px solid var(--border);">
+            <!-- GRID_OVERLAY_COLS: {{GRID_COLUMNS_LG}} celdas <div style="background:var(--dsc-accent-tint);height:64px;border-right:1px solid var(--border);"></div> -->
+            {{GRID_OVERLAY_COLS}}
+          </div>
+        </div>
+
+        <h3 style="font-size: 1.05rem; margin: 2.5rem 0 1rem; color: var(--accent);">Modos de densidad</h3>
+        <div class="grid-2">
+          <!-- DENSITY_MODES: 2 cards (Cómoda / Compacta) del Master MD §2.1 con touch-target,
+               control-height y multiplicador reales. Si el proyecto solo define uno, mostrar ese
+               y una nota. Estructura:
+               <div class="homium-card"><span class="chip chip-neutral">Cómoda (base)</span>
+                 <ul class="homium-bullet-list" style="margin-top:1rem;">
+                   <li><span>touch-target-min: 48px</span></li>
+                   <li><span>control-height: 48px · multiplicador ×1.0</span></li>
+                 </ul></div> -->
+          {{DENSITY_MODES}}
+        </div>
+      </section>
+
+      <!-- 6. COLORES & RAMPAS HCT -->
+      <section id="sec-colors" class="doc-section">
+        <div class="section-eyebrow"><span class="eyebrow-num">05</span> TOKENS CROMÁTICOS</div>
+        <h2 class="section-title">Paleta de Colores & Rampas Tonales HCT.</h2>
+        <p class="section-desc">Paleta del proyecto deconstruida y calibrada para {{BRAND_NAME}} con accesibilidad WCAG AAA.</p>
+
+        <div class="grid-3" style="margin-bottom: 2rem;">
+          <div class="swatch-card" onclick="copyToClipboard('{{PRIMARY_COLOR}}')">
+            <div class="swatch-preview" style="background: {{PRIMARY_COLOR}};"></div>
+            <div class="swatch-meta">
+              <div class="swatch-name">Primario / Dominante</div>
+              <div class="swatch-hex">{{PRIMARY_COLOR}}</div>
+            </div>
+          </div>
+          <div class="swatch-card" onclick="copyToClipboard('{{SECONDARY_COLOR}}')">
+            <div class="swatch-preview" style="background: {{SECONDARY_COLOR}};"></div>
+            <div class="swatch-meta">
+              <div class="swatch-name">Secundario</div>
+              <div class="swatch-hex">{{SECONDARY_COLOR}}</div>
+            </div>
+          </div>
+          <div class="swatch-card" onclick="copyToClipboard('{{ACCENT_COLOR}}')">
+            <div class="swatch-preview" style="background: {{ACCENT_COLOR}};"></div>
+            <div class="swatch-meta">
+              <div class="swatch-name">Acento / Resaltado</div>
+              <div class="swatch-hex">{{ACCENT_COLOR}}</div>
+            </div>
+          </div>
+          <div class="swatch-card" onclick="copyToClipboard('{{BG_BASE}}')">
+            <div class="swatch-preview" style="background: {{BG_BASE}};"></div>
+            <div class="swatch-meta">
+              <div class="swatch-name">Canvas Base (Fondo)</div>
+              <div class="swatch-hex">{{BG_BASE}}</div>
+            </div>
+          </div>
+          <div class="swatch-card" onclick="copyToClipboard('{{SURFACE_CARD}}')">
+            <div class="swatch-preview" style="background: {{SURFACE_CARD}};"></div>
+            <div class="swatch-meta">
+              <div class="swatch-name">Superficie de Tarjetas</div>
+              <div class="swatch-hex">{{SURFACE_CARD}}</div>
+            </div>
+          </div>
+          <div class="swatch-card" onclick="copyToClipboard('{{TEXT_PRIMARY}}')">
+            <div class="swatch-preview" style="background: {{TEXT_PRIMARY}};"></div>
+            <div class="swatch-meta">
+              <div class="swatch-name">Texto Principal</div>
+              <div class="swatch-hex">{{TEXT_PRIMARY}}</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 7. TIPOGRAFÍA -->
+      <section id="sec-typography" class="doc-section">
+        <div class="section-eyebrow"><span class="eyebrow-num">06</span> SISTEMA TIPOGRÁFICO</div>
+        <h2 class="section-title">Estrategia Tipográfica & Escala Modular.</h2>
+        <p class="section-desc">Arquitectura tipográfica dual de alta fidelidad, escala armónica {{MODULAR_SCALE_NAME}} (Ratio: {{MODULAR_SCALE_RATIO}}) y ritmo vertical calibrado para {{BRAND_NAME}}.</p>
+
+        <!-- 7.1 HERO BRAND SPECIMEN -->
+        <div class="homium-card" style="margin-bottom: 1.5rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.2rem; flex-wrap: wrap; gap: 0.75rem;">
+            <div style="display: flex; gap: 0.5rem; align-items: center;">
+              <!-- TYPOGRAPHY_HEADLINE_CHIP: "Display &amp; Accent Italic" solo si typography.reference_uses_italic; si no, "Display". -->
+              <span class="chip chip-neutral">{{TYPOGRAPHY_HEADLINE_CHIP}}</span>
+              <span class="chip chip-neutral">{{MODULAR_SCALE_NAME}} ({{MODULAR_SCALE_RATIO}})</span>
+            </div>
+            <span class="mono" style="font-size: 0.8rem; color: var(--fg-muted);">Base: 1.00rem (16px) · Tracking Óptico</span>
+          </div>
+
+          <div style="font-family: var(--client-font-display); font-size: clamp(2.2rem, 5vw, 3.8rem); font-weight: 700; line-height: 1.08; letter-spacing: -0.02em; margin-bottom: 1.2rem; color: var(--fg);">
+            <!-- TYPOGRAPHY_ITALIC_SAMPLE_BLOCK: envuelve el italic_sample del estado.
+                 · reference_uses_italic → span.accent-italic con color:var(--sample-accent); font-weight:400
+                 · si no → span recto con color:var(--fg-muted); font-weight:400 (misma fuente display, sin cursiva) -->
+            {{TYPOGRAPHY_DISPLAY_SAMPLE}} {{TYPOGRAPHY_ITALIC_SAMPLE_BLOCK}}
+          </div>
+
+          <!-- IDENTIDAD DE FAMILIAS: el nombre real de cada fuente de la referencia, grande y en su propia
+               tipografía. {{FONT_*_META}} = origen + categoría (+ "original 'X' → aprox. Y" si se sustituyó). -->
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.25rem; padding-top: 1.25rem; border-top: 1px solid var(--border);">
+            <div>
+              <div style="font-size: 0.72rem; text-transform: uppercase; color: var(--fg-subtle); letter-spacing: 0.12em; margin-bottom: 0.35rem;">Fuente Display</div>
+              <div style="font-weight: 600; font-size: clamp(1.35rem, 2.4vw, 1.7rem); line-height: 1.1; color: var(--fg); font-family: var(--client-font-display);">&laquo;{{FONT_DISPLAY}}&raquo;</div>
+              <div class="mono" style="font-size: 0.72rem; color: var(--fg-muted); margin-top: 0.35rem;">{{FONT_DISPLAY_META}}</div>
+            </div>
+            <div>
+              <div style="font-size: 0.72rem; text-transform: uppercase; color: var(--fg-subtle); letter-spacing: 0.12em; margin-bottom: 0.35rem;">Fuente UI &amp; Cuerpo</div>
+              <div style="font-weight: 600; font-size: clamp(1.35rem, 2.4vw, 1.7rem); line-height: 1.1; color: var(--fg); font-family: var(--client-font-ui);">&laquo;{{FONT_UI}}&raquo;</div>
+              <div class="mono" style="font-size: 0.72rem; color: var(--fg-muted); margin-top: 0.35rem;">{{FONT_UI_META}}</div>
+            </div>
+            <div>
+              <div style="font-size: 0.72rem; text-transform: uppercase; color: var(--fg-subtle); letter-spacing: 0.12em; margin-bottom: 0.35rem;">Fuente Mono / Datos</div>
+              <div style="font-weight: 600; font-size: clamp(1.35rem, 2.4vw, 1.7rem); line-height: 1.1; color: var(--fg); font-family: var(--font-mono);">&laquo;{{FONT_MONO}}&raquo;</div>
+              <div class="mono" style="font-size: 0.72rem; color: var(--fg-muted); margin-top: 0.35rem;">{{FONT_MONO_META}}</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 7.2 GRID DE FAMILIAS TIPOGRÁFICAS -->
+        <div class="grid-3" style="margin-bottom: 1.5rem;">
+          <!-- Card Display -->
+          <div class="homium-card" style="padding: 1.5rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+              <span class="chip chip-neutral">Display</span>
+              <span class="mono" style="font-size: 0.75rem; color: var(--fg-subtle);">Titulares</span>
+            </div>
+            <div class="type-glyph-hero" style="font-family: var(--client-font-display);">Aa</div>
+            <h3 style="font-size: 1.5rem; font-family: var(--client-font-display); margin-bottom: 0.15rem; color: var(--fg);">&laquo;{{FONT_DISPLAY}}&raquo;</h3>
+            <div class="mono" style="font-size: 0.72rem; color: var(--sample-accent); margin-bottom: 0.75rem;">{{FONT_DISPLAY_META}}</div>
+            <p style="font-size: 0.85rem; color: var(--fg-muted); margin-bottom: 1rem;">Titulares masivos, Hero showcase, jerarquías H1-H3 y branding de alto impacto.</p>
+            <div class="type-charset mono" style="font-family: var(--client-font-display);">
+              ABCDEFGHIJKLMNOPQRSTUVWXYZ<br>abcdefghijklmnopqrstuvwxyz<br>0123456789 (!@#$%&amp;*?+)
+            </div>
+          </div>
+
+          <!-- Card UI -->
+          <div class="homium-card" style="padding: 1.5rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+              <span class="chip chip-neutral">UI &amp; Cuerpo</span>
+              <span class="mono" style="font-size: 0.75rem; color: var(--fg-subtle);">Cuerpo &amp; UI</span>
+            </div>
+            <div class="type-glyph-hero" style="font-family: var(--client-font-ui); color: var(--fg);">Gg</div>
+            <h3 style="font-size: 1.5rem; font-family: var(--client-font-ui); margin-bottom: 0.15rem; color: var(--fg);">&laquo;{{FONT_UI}}&raquo;</h3>
+            <div class="mono" style="font-size: 0.72rem; color: var(--sample-accent); margin-bottom: 0.75rem;">{{FONT_UI_META}}</div>
+            <p style="font-size: 0.85rem; color: var(--fg-muted); margin-bottom: 1rem;">Cuerpo de lectura, botones, formularios, tablas y micro-copy con alta legibilidad en pantallas retina.</p>
+            <div class="type-charset mono" style="font-family: var(--client-font-ui);">
+              ABCDEFGHIJKLMNOPQRSTUVWXYZ<br>abcdefghijklmnopqrstuvwxyz<br>0123456789 (!@#$%&amp;*?+)
+            </div>
+          </div>
+
+          <!-- Card Mono -->
+          <div class="homium-card" style="padding: 1.5rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+              <span class="chip chip-neutral">Monospace / Datos</span>
+              <span class="mono" style="font-size: 0.75rem; color: var(--fg-subtle);">Datos &amp; Tokens</span>
+            </div>
+            <div class="type-glyph-hero" style="font-family: var(--font-mono); color: var(--fg-muted);">{;}</div>
+            <h3 style="font-size: 1.5rem; font-family: var(--font-mono); margin-bottom: 0.15rem; color: var(--fg);">&laquo;{{FONT_MONO}}&raquo;</h3>
+            <div class="mono" style="font-size: 0.72rem; color: var(--sample-accent); margin-bottom: 0.75rem;">{{FONT_MONO_META}}</div>
+            <p style="font-size: 0.85rem; color: var(--fg-muted); margin-bottom: 1rem;">Valores de tokens, bloques de código, métricas tabulares y timestamps precisos.</p>
+            <div class="type-charset mono">
+              0123456789 :root {<br>&nbsp;&nbsp;--token: {{PRIMARY_COLOR}};<br>} [0xDEADBEEF]
+            </div>
+          </div>
+        </div>
+
+        <!-- 7.3 ESPECIFICACIÓN JERÁRQUICA COMPLETA (MODULAR TYPE SCALE) -->
+        <div class="homium-card" style="margin-bottom: 1.5rem; padding: 1.75rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 0.75rem;">
+            <div>
+              <h3 style="font-size: 1.2rem; color: var(--fg);">Escala Tipográfica Jerárquica Completa</h3>
+              <p style="font-size: 0.85rem; color: var(--fg-muted); margin: 0;">Rampa matemática modular derivada según la fórmula <code>16px × ({{MODULAR_SCALE_RATIO}})^n</code>.</p>
+            </div>
+            <span class="chip chip-neutral">Escala tipográfica</span>
+          </div>
+
+          <div style="overflow-x: auto;">
+            <table class="type-scale-table">
+              <thead>
+                <tr>
+                  <th style="width: 220px;">Token &amp; Nivel</th>
+                  <th style="width: 140px;">Familia &amp; Peso</th>
+                  <th style="width: 150px;">Tamaño / LH</th>
+                  <th>Muestra Visual en Vivo</th>
+                </tr>
+              </thead>
+              <tbody>
+                <!-- TYPE_SCALE_ROWS: una fila de tabla por token de la Escala Modular del Master MD (§2.4),
+                     con TAMAÑOS / PESOS / LH / LETTER-SPACING REALES medidos
+                     (state.typography.h1_size_px / h1_weight / h1_line_height / h1_letter_spacing / h2_* / body_line_height / nav_letter_spacing).
+                     Estructura de cada fila (los valores entre {…} salen del state, NO son fijos):
+                     <tr>
+                       <td><div class="type-meta-stack"><span class="type-token-tag">typography-heading-1</span><span class="type-spec-details">Encabezado H1</span></div></td>
+                       <td><span class="chip chip-purple">Display {h1_weight}</span></td>
+                       <td><span class="mono" style="font-size:0.8rem;">{h1_rem} ({h1_px}px)<br>LH: {h1_lh} &middot; {h1_ls}</span></td>
+                       <td><div class="type-preview-cell" style="font-family:var(--client-font-display);font-size:clamp(1.6rem,2.8vw,{h1_rem});font-weight:{h1_weight};line-height:{h1_lh};letter-spacing:{h1_ls_em};">{copy real del dominio de la marca}</div></td>
+                     </tr>
+                     La "Muestra Visual en Vivo" usa copy real del dominio de la marca,
+                     nunca frases de relleno tipo "impacto visual" o "arquitectura de software". -->
+                {{TYPE_SCALE_ROWS}}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- 7.4 MATRIZ DE PESOS Y COMPOSICIÓN EDITORIAL EN CONTEXTO -->
+        <div class="grid-2" style="margin-bottom: 1.5rem;">
+          <!-- Pesos y Estilos -->
+          <div class="homium-card" style="padding: 1.5rem;">
+            <h3 style="font-size: 1.1rem; margin-bottom: 1rem; color: var(--fg);">Matriz de Pesos Tipográficos</h3>
+            <div style="display: flex; flex-direction: column; gap: 0.6rem;">
+              <!-- TYPE_WEIGHT_PILLS: un .type-weight-pill SOLO por peso realmente usado
+                   (state.typography.h1_weight / h2_weight / nav_font_weight + Master MD §2.4).
+                   No inventar 300/800 si la referencia solo usa 400/500.
+                   <div class="type-weight-pill"><span style="font-family:var(--client-font-display);font-weight:{peso};font-size:1.05rem;">{Nombre} {peso}</span><span class="mono" style="font-size:0.75rem;color:var(--fg-subtle);">{uso real de ese peso}</span></div>
+                   Fila "Accent Italic" SOLO si typography.reference_uses_italic. -->
+              {{TYPE_WEIGHT_PILLS}}
+            </div>
+          </div>
+
+          <!-- Composición Editorial en Vivo -->
+          <div class="homium-card" style="padding: 1.75rem; background: var(--bg-sunken);">
+            <div class="section-eyebrow" style="margin-bottom: 0.5rem;"><span class="eyebrow-num">Párrafo</span> COMPOSICIÓN EDITORIAL</div>
+            <!-- EDITORIAL_COMPOSITION: muestra tipográfica en contexto con COPY REAL DE LA MARCA
+                 (nada de "propósito estratégico" ni cita de Eames):
+                 <h3 style="font-family:var(--client-font-display);font-size:1.45rem;font-weight:{h_weight};line-height:1.25;margin-bottom:0.75rem;">Titular de marca</h3>
+                 <p style="font-family:var(--client-font-ui);font-size:1.05rem;color:var(--fg);line-height:1.55;margin-bottom:0.85rem;">Lead con la voz de la marca.</p>
+                 <p style="font-family:var(--client-font-ui);font-size:0.92rem;color:var(--fg-muted);line-height:1.6;">Secundario; enlaces / inline-code en var(--sample-accent).</p>
+                 <blockquote style="border-left:3px solid var(--sample-accent);padding-left:1rem;margin:1rem 0;font-family:var(--client-font-ui);font-size:0.95rem;color:var(--fg);{ 'font-style:italic;' SOLO si reference_uses_italic }">Cita real del cliente, con atribución.</blockquote> -->
+            {{EDITORIAL_COMPOSITION}}
+          </div>
+        </div>
+
+        <!-- 7.5 PROBADOR TIPOGRÁFICO INTERACTIVO EN VIVO (TYPE PLAYGROUND) -->
+        <div class="homium-card type-tester-box">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              <span class="chip chip-neutral">Playground Interactivo</span>
+              <h3 style="font-size: 1.1rem; color: var(--fg); margin: 0;">Probador Tipográfico en Vivo</h3>
+            </div>
+            <span class="mono" style="font-size: 0.75rem; color: var(--fg-subtle);">Ajusta tamaño, peso y familia en tiempo real</span>
+          </div>
+
+          <div class="type-tester-controls">
+            <div style="flex: 1; min-width: 240px;">
+              <label style="display: block; font-size: 0.75rem; text-transform: uppercase; color: var(--fg-subtle); margin-bottom: 0.35rem;">Texto de Prueba</label>
+              <input type="text" id="type-tester-input" class="type-tester-input" value="{{TYPOGRAPHY_DISPLAY_SAMPLE}}" oninput="updateTypeTester()">
+            </div>
+
+            <div style="min-width: 140px;">
+              <label style="display: block; font-size: 0.75rem; text-transform: uppercase; color: var(--fg-subtle); margin-bottom: 0.35rem;">Familia</label>
+              <select id="type-tester-font" class="type-tester-input" style="padding: 0.65rem;" onchange="updateTypeTester()">
+                <option value="var(--client-font-display)">Display ({{FONT_DISPLAY}})</option>
+                <option value="var(--client-font-ui)">UI Sans ({{FONT_UI}})</option>
+                <option value="var(--font-mono)">Mono ({{FONT_MONO}})</option>
+              </select>
+            </div>
+
+            <div style="min-width: 160px;">
+              <div style="display: flex; justify-content: space-between; font-size: 0.75rem; text-transform: uppercase; color: var(--fg-subtle); margin-bottom: 0.35rem;">
+                <span>Tamaño</span>
+                <span id="type-tester-size-val" class="mono" style="color: var(--sample-accent);">36px</span>
+              </div>
+              <input type="range" id="type-tester-size" min="14" max="72" value="36" style="width: 100%; accent-color: var(--sample-accent);" oninput="updateTypeTester()">
+            </div>
+
+            <div style="min-width: 120px;">
+              <label style="display: block; font-size: 0.75rem; text-transform: uppercase; color: var(--fg-subtle); margin-bottom: 0.35rem;">Peso</label>
+              <select id="type-tester-weight" class="type-tester-input" style="padding: 0.65rem;" onchange="updateTypeTester()">
+                <!-- TYPE_WEIGHT_OPTIONS: una <option> por peso real del sistema; `selected` en el de titulares. -->
+                {{TYPE_WEIGHT_OPTIONS}}
+              </select>
+            </div>
+          </div>
+
+          <div id="type-tester-output" class="type-tester-output" style="font-family: var(--client-font-display); font-size: 36px; font-weight: 700; color: var(--fg);">
+            {{TYPOGRAPHY_DISPLAY_SAMPLE}}
+          </div>
+        </div>
+      </section>
+
+      <!-- 8. GEOMETRÍA & SOMBRAS -->
+      <section id="sec-geometry" class="doc-section">
+        <div class="section-eyebrow"><span class="eyebrow-num">07</span> MORFOLOGÍA & SUPERFICIES</div>
+        <h2 class="section-title">Radios, Sombras & Elevación Tintada.</h2>
+        <p class="section-desc">Escala geométrica y de elevación calibrada para {{BRAND_NAME}} (valores del Master MD §2.5).</p>
+
+        <h3 style="font-size: 1.05rem; margin-bottom: 1rem; color: var(--accent);">Radios</h3>
+        <div class="grid-3">
+          <div class="homium-card" style="border-radius: var(--client-radius-sm);">
+            <span class="chip chip-neutral">--client-radius-sm ({{RADIUS_SM}})</span>
+            <p style="margin-top: 1rem; font-size: 0.9rem;">Controles compactos, badges, tags e inputs.</p>
+          </div>
+          <div class="homium-card" style="border-radius: var(--client-radius-md);">
+            <span class="chip chip-neutral">--client-radius-md ({{RADIUS_MD}})</span>
+            <p style="margin-top: 1rem; font-size: 0.9rem;">Tarjetas estándar, paneles modulares y botones.</p>
+          </div>
+          <div class="homium-card" style="border-radius: var(--client-radius-lg);">
+            <span class="chip chip-neutral">--client-radius-lg ({{RADIUS_LG}})</span>
+            <p style="margin-top: 1rem; font-size: 0.9rem;">Grandes contenedores de sección, hero showcase y modales.</p>
+          </div>
+        </div>
+
+        <h3 style="font-size: 1.05rem; margin: 2.5rem 0 1rem; color: var(--accent);">Elevación & Sombras</h3>
+        <div class="grid-4">
+          <!-- ELEVATION_SAMPLES: una card por nivel del Master MD §2.5 (elevation-0..3 + focus-ring),
+               con el box-shadow / borde REAL de ese nivel aplicado inline sobre .homium-card
+               (para sistemas sin sombras, usar el borde que corresponda):
+               <div class="homium-card" style="{box-shadow o border del nivel, del Master MD};border-color:transparent;">
+                 <span class="chip chip-cyan">{nivel}</span>
+                 <p style="margin-top:1rem;font-size:0.85rem;">{uso real del nivel}</p>
+               </div> -->
+          {{ELEVATION_SAMPLES}}
+        </div>
+      </section>
+
+      <!-- 9. ICONOGRAFÍA OFICIAL -->
+      <section id="sec-icons" class="doc-section">
+        <div class="section-eyebrow"><span class="eyebrow-num">08</span> ICONOGRAFÍA</div>
+        <h2 class="section-title">Iconografía Oficial & Motivos Vectoriales.</h2>
+        <!-- ICON_STYLE_SUMMARY: 1 frase real: {icons.library} · trazo {stroke}px · {estilo de unión}
+             (o la sustitución señalada si la marca no entregó set). -->
+        <p class="section-desc">{{ICON_STYLE_SUMMARY}}</p>
+
+        <div class="homium-card">
+          <!-- ICON_SET: grid vivo del set real de íconos del proyecto.
+               Cada celda: div.ds-icon-cell con un SVG inline (dimensiones explícitas, stroke 1.5–1.75) y un span con el nombre-kebab.
+               Sin emojis. SVG inline con width/height/flex-shrink explícitos (Regla 5 del SKILL). -->
+          <div class="ds-icon-grid">
+            {{ICON_SET}}
+          </div>
+        </div>
+        <h3 style="font-size: 1.05rem; margin: 2rem 0 1rem; color: var(--accent);">Escala de tamaños</h3>
+        <div class="homium-card">
+          <div style="display: flex; flex-wrap: wrap; align-items: flex-end; gap: 2rem;">
+            <div style="text-align: center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--sample-accent)" stroke-width="1.75" style="flex-shrink:0"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg><div class="mono" style="font-size:0.7rem;color:var(--fg-subtle);margin-top:0.4rem;">sm · 16</div></div>
+            <div style="text-align: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--sample-accent)" stroke-width="1.75" style="flex-shrink:0"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg><div class="mono" style="font-size:0.7rem;color:var(--fg-subtle);margin-top:0.4rem;">md · 20</div></div>
+            <div style="text-align: center;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--sample-accent)" stroke-width="1.75" style="flex-shrink:0"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg><div class="mono" style="font-size:0.7rem;color:var(--fg-subtle);margin-top:0.4rem;">lg · 24</div></div>
+            <div style="text-align: center;"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--sample-accent)" stroke-width="1.75" style="flex-shrink:0"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg><div class="mono" style="font-size:0.7rem;color:var(--fg-subtle);margin-top:0.4rem;">xl · 32</div></div>
+            <div style="text-align: center;"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--sample-accent)" stroke-width="1.75" style="flex-shrink:0"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg><div class="mono" style="font-size:0.7rem;color:var(--fg-subtle);margin-top:0.4rem;">hero · 48</div></div>
+          </div>
+        </div>
+        <ul class="homium-bullet-list" style="margin-top: 1.5rem;">
+          <li><span>Todo ícono de acción sin texto lleva <code>aria-label</code>.</span></li>
+          <li><span>Los decorativos que acompañan texto llevan <code>aria-hidden="true"</code>.</span></li>
+          <li><span>SVG inline con <code>width</code>/<code>height</code> explícitos y <code>flex-shrink: 0</code>; color heredado (<code>currentColor</code>).</span></li>
+        </ul>
+      </section>
+
+      <!-- 10. MOTION TOKENS & PLAYGROUND -->
+      <section id="sec-motion" class="doc-section">
+        <div class="section-eyebrow"><span class="eyebrow-num">09</span> MOTION ENGINE</div>
+        <h2 class="section-title">Tokens de Movimiento & Playground de Easing.</h2>
+        <p class="section-desc">Duraciones y curvas del Master MD §3.0, más un playground de easing (demostración GSAP).</p>
+
+        <div class="homium-card" style="margin-bottom: 1.5rem;">
+          <!-- MOTION_TOKENS_TABLE: .tech-table con los tokens --motion-* REALES del Master MD
+               (motion-duration-fast/medium/slow · motion-easing-standard/decelerate/accelerate) y su uso.
+               Si structural_blueprint.motion_dna trae has_smooth_scroll / has_custom_cursor, añadir fila-nota. -->
+          {{MOTION_TOKENS_TABLE}}
+        </div>
+
+        <div class="homium-card">
+          <div style="display: flex; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap;">
+            <button class="btn btn-secondary" onclick="playGsapDemo('power2.out')">power2.out</button>
+            <button class="btn btn-secondary" onclick="playGsapDemo('elastic.out(1, 0.5)')">elastic.out</button>
+            <button class="btn btn-secondary" onclick="playGsapDemo('back.out(1.7)')">back.out</button>
+          </div>
+          <div style="height: 80px; background: var(--bg-sunken); border-radius: var(--radius-md); border: 1px solid var(--border); display: flex; align-items: center; padding: 0 1.5rem; position: relative;">
+            <div id="gsap-box" style="width: 44px; height: 44px; border-radius: var(--radius-pill); background: var(--client-primary); box-shadow: 0 0 20px var(--client-primary);"></div>
+          </div>
+        </div>
+
+        <h3 style="font-size: 1.05rem; margin: 2.5rem 0 1rem; color: var(--accent);">Curvas de aceleración</h3>
+        <div class="grid-3">
+          <div class="homium-card">
+            <span class="chip chip-neutral">standard</span>
+            <svg viewBox="0 0 100 100" style="width: 100%; height: 90px; margin-top: 0.75rem; overflow: visible;"><path d="M0,100 C20,0 0,0 100,0" fill="none" stroke="var(--sample-accent)" stroke-width="2"/><line x1="0" y1="100" x2="100" y2="0" stroke="var(--border)" stroke-width="1" stroke-dasharray="3"/></svg>
+            <code style="font-size: 0.72rem;">cubic-bezier(0.2, 0, 0, 1)</code>
+          </div>
+          <div class="homium-card">
+            <span class="chip chip-neutral">decelerate</span>
+            <svg viewBox="0 0 100 100" style="width: 100%; height: 90px; margin-top: 0.75rem; overflow: visible;"><path d="M0,100 C0,0 20,0 100,0" fill="none" stroke="var(--sample-accent)" stroke-width="2"/><line x1="0" y1="100" x2="100" y2="0" stroke="var(--border)" stroke-width="1" stroke-dasharray="3"/></svg>
+            <code style="font-size: 0.72rem;">cubic-bezier(0, 0, 0.2, 1)</code>
+          </div>
+          <div class="homium-card">
+            <span class="chip chip-neutral">accelerate</span>
+            <svg viewBox="0 0 100 100" style="width: 100%; height: 90px; margin-top: 0.75rem; overflow: visible;"><path d="M0,100 C40,100 100,0 100,0" fill="none" stroke="var(--sample-accent)" stroke-width="2"/><line x1="0" y1="100" x2="100" y2="0" stroke="var(--border)" stroke-width="1" stroke-dasharray="3"/></svg>
+            <code style="font-size: 0.72rem;">cubic-bezier(0.4, 0, 1, 1)</code>
+          </div>
+        </div>
+
+        <div class="homium-card" style="margin-top: 1.5rem;">
+          <h3 style="font-size: 1rem; margin-bottom: 0.5rem; color: var(--fg);">Sliders / Carruseles</h3>
+          <!-- CAROUSEL_ENGINE_INFO: 1–2 frases del Master MD §3.0 (motor, versión, tokens de gap/slide-width,
+               scroll-snap nativo). Si el proyecto no usa carrusel: "No se emplean carruseles en este sistema." -->
+          <p style="font-size: 0.9rem; color: var(--fg-muted);">{{CAROUSEL_ENGINE_INFO}}</p>
+        </div>
+      </section>
+
+      <!-- 11. CATÁLOGO ATÓMICO (6 ESTADOS) -->
+      <section id="sec-atoms" class="doc-section">
+        <div class="section-eyebrow"><span class="eyebrow-num">10</span> ATOMIC DESIGN</div>
+        <h2 class="section-title">Catálogo Atómico — Componentes Vivos.</h2>
+        <p class="section-desc">Un <strong>Component Block</strong> vivo por átomo (universales + los del tipo de sitio "{{SITE_TYPE}}"). Los estados se demuestran con CSS real: pasa el cursor, navega con <kbd>Tab</kbd> y mantén pulsado.</p>
+
+        <!-- ATOM_BLOCKS: un .ds-block por átomo. Estructura obligatoria de cada bloque:
+             <div class="ds-block">
+               <div class="ds-block-head"><span class="chip chip-neutral">Nombre</span><span class="ds-cat">Átomo</span></div>
+               <p class="ds-use">Para qué se usa (voz concreta, sin relleno).</p>
+               <div class="ds-stage"> ...instancias vivas: todas las variantes + disabled + [aria-busy]... </div>
+               <div class="ds-tokens"><b>tokens:</b> --color-interactive-primary · --client-radius-md · --focus-ring</div>
+             </div>
+             Morfología (radio/padding/bg/transición) COPIADA de structural_blueprint.component_dna. -->
+        {{ATOM_BLOCKS}}
+
+        <div class="homium-card" style="margin-top: 2rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 1rem;">
+            <h3 style="font-size: 1.15rem; color: var(--accent);">Matriz de 6 estados por categoría</h3>
+            <span class="chip chip-neutral">Referencia técnica</span>
+          </div>
+          <p style="margin-bottom: 1.5rem; color: var(--fg-muted); font-size: 0.9rem;">Aplicabilidad de <code>default</code>, <code>hover</code>, <code>focus-visible</code>, <code>active</code>, <code>disabled</code> y <code>loading</code>. Las instancias de arriba los muestran en vivo; esta tabla los documenta.</p>
+          <div class="table-wrap">
+          <table class="tech-table">
+            <thead>
+              <tr><th>Categoría</th><th>default</th><th>hover</th><th>focus-visible</th><th>active</th><th>disabled</th><th>loading</th></tr>
+            </thead>
+            <tbody>
+              {{ATOM_STATE_TABLES}}
+            </tbody>
+          </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- 12. MOLÉCULAS UI -->
+      <section id="sec-molecules" class="doc-section">
+        <div class="section-eyebrow"><span class="eyebrow-num">11</span> MOLÉCULAS</div>
+        <h2 class="section-title">Moléculas UI & Campos de Entrada.</h2>
+        <p class="section-desc">Un Component Block vivo por molécula (universales + las del tipo de sitio "{{SITE_TYPE}}"): search bar, chips de filtro con estado, quantity stepper, toast, avatar, breadcrumb…</p>
+
+        <!-- MOLECULE_BLOCKS: mismo contrato que ATOM_BLOCKS.
+             Las stateful (FilterChip, QuantityStepper, Toast) usan los helpers JS:
+             onclick="dsChipToggle(this)" · onclick="dsStep(this,1)" · onclick="dsToast('…')". -->
+        {{MOLECULE_BLOCKS}}
+      </section>
+
+      <!-- 13. ORGANISMOS & BENTO -->
+      <section id="sec-organisms" class="doc-section">
+        <div class="section-eyebrow"><span class="eyebrow-num">12</span> ORGANISMOS</div>
+        <h2 class="section-title">Organismos & Composiciones.</h2>
+        <p class="section-desc">Un Component Block vivo por organismo (universales + los del tipo de sitio "{{SITE_TYPE}}"): navbar, footer, hero, modal, y los específicos (p. ej. Product Card con hover-zoom, Cart Drawer con focus trap).</p>
+
+        <!-- ORGANISM_BLOCKS: mismo contrato. Usar .ds-stage.ds-stage--grid cuando haya varias tarjetas.
+             TODOS los organismos portan la morfología de la referencia (radio --client-radius-*, acento
+             --sample-accent / --client-primary, fuentes --client-font-*), NUNCA el cian/púrpura/radio
+             del cliente. `.dsc-navbar`, `.dsc-footer`, `.dsc-product`, `.dsc-drawer`, `.modal-box` ya están
+             cableados así en el CSS — no sobrescribir con var(--accent) ni var(--radius-lg).
+             El Modal reutiliza #modal-demo (trigger onclick openModalDemo); su título/cuerpo salen de
+             {{MODAL_DEMO_TITLE}} / {{MODAL_DEMO_BODY}} (copy real de la marca).
+             El Cart Drawer emite su trigger dentro del .ds-stage y, al final del bloque, un
+             contenedor .dsc-drawer-overlay con id propio (position:fixed). Trigger: onclick dsOpenDrawer('id'). -->
+        {{ORGANISM_BLOCKS}}
+      </section>
+
+      <!-- 14. AUDITORÍA WCAG 2.2 AAA -->
+      <section id="sec-wcag" class="doc-section">
+        <div class="section-eyebrow"><span class="eyebrow-num">13</span> ACCESIBILIDAD TOTAL</div>
+        <h2 class="section-title">Auditoría de Accesibilidad WCAG 2.2 AAA.</h2>
+        <p class="section-desc">Verificación matemática de ratios de contraste (≥ 7:1 en texto base) para {{BRAND_NAME}}.</p>
+
+        <div class="homium-card">
+          <div class="table-wrap">
+          <table class="tech-table">
+            <thead>
+              <tr><th>Par Cromático</th><th>Ratio Calculado</th><th>Criterio WCAG 2.2</th><th>Estado</th></tr>
+            </thead>
+            <tbody>
+              {{WCAG_TABLE_ROWS}}
+            </tbody>
+          </table>
+          </div>
+        </div>
+
+        <h3 style="font-size: 1.05rem; margin: 2.5rem 0 1rem; color: var(--accent);">Pares texto sobre color (verificación visual)</h3>
+        <div class="grid-3">
+          <!-- CONTRAST_PAIRS_VISUAL: una card por par crítico del Master MD §4 (mín. on-primary,
+               on-secondary, text-primary/bg, text-inverse/inverse). Estructura:
+               <div class="homium-card" style="background:#PRIMARY;color:#ON_PRIMARY;border-color:#PRIMARY;">
+                 <div style="font:var(--typography-label-cta,600 1rem/1 sans);">Aa · 7.5:1</div>
+                 <div style="font-size:0.8rem;margin-top:0.5rem;opacity:0.9;">on-primary · #ON_PRIMARY sobre #PRIMARY · PASS AAA</div>
+               </div>
+               Con los hex y ratios REALES; el texto se renderiza sobre el fondo para ver el contraste. -->
+          {{CONTRAST_PAIRS_VISUAL}}
+        </div>
+      </section>
+
+      <!-- 15. HANDOFF DE CÓDIGO -->
+      <section id="sec-code" class="doc-section">
+        <div class="section-eyebrow"><span class="eyebrow-num">14</span> INTEGRACIÓN</div>
+        <h2 class="section-title">Handoff de Código & Exportación de Tokens.</h2>
+        <p class="section-desc">Variables CSS listas para producción — tokens primitivos, semánticos y de componentes.</p>
+
+        <div class="homium-card">
+          <!-- TOKENS_CSS_EXPORT: el bloque :root COMPLETO del Master MD §5.1 — primitivos + rampas HCT
+               + semánticos + tipografía (display/ui/mono) + shape + elevación + motion + status +
+               @media (prefers-reduced-motion). NO una versión reducida de 6 colores.
+               {{FONT_*}} = nombre de familia primaria solo; añadir un único fallback (sin duplicar). -->
+          <pre style="background: var(--bg-sunken); padding: 1.5rem; border-radius: var(--radius-md); border: 1px solid var(--border); overflow-x: auto;"><code class="mono" style="color: var(--sample-accent);">{{TOKENS_CSS_EXPORT}}</code></pre>
+        </div>
+
+        <div class="homium-card">
+          <h3 style="font-size: 1.15rem; margin-bottom: 1rem; color: var(--accent);">Assets & Compuerta de Fidelidad</h3>
+          <ul class="homium-bullet-list">
+            <li><span><strong>Plan de Imágenes:</strong> {{MEDIA_PLAN_SUMMARY}}</span></li>
+            <li><span><strong>Verificación Mecánica:</strong> verify_fidelity.cjs — allowlist cromática, geometría (±2px radios / ±5% columnas), media slots y paridad visual por sección APROBADOS antes del prototipo final.</span></li>
+            <li><span><strong>Morfologías Inmutables:</strong> los botones, inputs y CTAs portan exactamente los valores de Component DNA; prohibido derivar variantes.</span></li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- VACÍOS CONOCIDOS (Transparencia de entrega: qué no proveyó el cliente y cómo se sustituyó) -->
+      <section class="ds-gaps">
+        <div class="section-eyebrow"><span class="eyebrow-num">·</span> TRANSPARENCIA DE ENTREGA</div>
+        <h2 class="section-title">Vacíos Conocidos.</h2>
+        <p class="section-desc">Qué no fue provisto por {{BRAND_NAME}} y cómo se sustituyó, para trazabilidad del handoff.</p>
+        <div class="homium-card">
+          <ul class="homium-bullet-list">
+            <!-- KNOWN_GAPS: un <li><span>…</span></li> por vacío real derivado de media_plan,
+                 typography.self_hosted_fonts, icon_library y fidelity_mode. Si no hay vacíos: un solo
+                 <li> indicando que el cliente entregó todos los assets. -->
+            {{KNOWN_GAPS}}
+          </ul>
+        </div>
+      </section>
+
+      <!-- CLOSING CALLOUT BANNER (From live platform screenshot) -->
+      <div class="homium-callout-banner">
+        <p>Con este sistema de diseño implementado, <em>{{BRAND_NAME}}</em> cuenta con cimientos visuales de alta fidelidad, accesibilidad WCAG 2.2 AAA y arquitectura de componentes lista para producción.</p>
+      </div>
+
+      <!-- EXECUTIVE FOOTER -->
+      <footer class="homium-executive-footer">
+        <div class="footer-left">
+          <div class="footer-logo">
+            {{BRAND_LOGO_BLOCK}}
+          </div>
+          <div class="footer-line">{{BRAND_NAME}} — Design System v1.0</div>
+        </div>
+
+        <div class="footer-right">
+          <div class="footer-line">Generado · {{CURRENT_DATE}}</div>
+          <div class="footer-line">Especificación técnica preparada para {{BRAND_NAME}}</div>
+        </div>
+      </footer>
+
+    </main>
+  </div>
+
+  <!-- INTERACTIVE MODAL DEMO — organismo del cliente (§13). Copy y morfología de la referencia. -->
+  <div class="modal-overlay" id="modal-demo" onclick="if(event.target === this) closeModalDemo()">
+    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="modal-demo-title">
+      <span class="ds-cat">Organismo · Modal / Dialog</span>
+      <h3 id="modal-demo-title" style="font-family: var(--client-font-display); font-size: 1.5rem; margin: 0.4rem 0 1rem; color: var(--fg);">{{MODAL_DEMO_TITLE}}</h3>
+      <p style="margin-bottom: 1.5rem; color: var(--fg-muted); font-family: var(--client-font-ui);">{{MODAL_DEMO_BODY}}</p>
+      <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+        <button class="dsc-btn dsc-btn--ghost dsc-btn--sm" onclick="closeModalDemo()">Cancelar</button>
+        <button class="dsc-btn dsc-btn--sm" onclick="closeModalDemo()">Confirmar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Volver arriba -->
+  <button class="to-top" id="to-top" aria-label="Volver arriba" type="button">
+    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 19V5m0 0l-7 7m7-7l7 7"/></svg>
+  </button>
+
+  <!-- SHOWCASE LOGIC -->
+  <script>
+    // Copy to clipboard helper (feedback vía toast, no alert)
+    function copyToClipboard(text) {
+      const done = () => { if (typeof dsToast === 'function') dsToast('Copiado: ' + text); };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(done).catch(done);
+      } else { done(); }
+    }
+
+    // Modal helpers (con focus trap accesible, igual que el drawer)
+    let modalLastFocus = null;
+    function openModalDemo() {
+      const m = document.getElementById('modal-demo');
+      if (!m) return;
+      modalLastFocus = document.activeElement;
+      m.classList.add('active');
+      (m.querySelector('button, a[href], input, [tabindex]') || m).focus();
+      document.addEventListener('keydown', modalKey);
+    }
+    function closeModalDemo() {
+      const m = document.getElementById('modal-demo');
+      if (!m || !m.classList.contains('active')) return;
+      m.classList.remove('active');
+      document.removeEventListener('keydown', modalKey);
+      if (modalLastFocus) modalLastFocus.focus();
+    }
+    function modalKey(e) {
+      if (e.key === 'Escape') { closeModalDemo(); return; }
+      if (e.key !== 'Tab') return;
+      const box = document.querySelector('#modal-demo .modal-box');
+      if (!box) return;
+      const items = [...box.querySelectorAll('button, a[href], input, [tabindex]')].filter(el => !el.disabled && el.offsetParent !== null);
+      if (!items.length) return;
+      const first = items[0], last = items[items.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    }
+
+    // Theme Switcher (Dark / Light .theme-light)
+    function dsToggleTheme() {
+      const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+      const newTheme = isDark ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', newTheme);
+      document.body.classList.toggle('theme-light', newTheme === 'light');
+    }
+    document.getElementById('theme-toggle-btn')?.addEventListener('click', dsToggleTheme);
+    document.getElementById('theme-toggle-mobile')?.addEventListener('click', dsToggleTheme);
+
+    // Mobile section nav: poblar el <select> agrupado por §1–§5
+    (function buildMobileNav() {
+      const sel = document.getElementById('mobile-jump');
+      if (!sel) return;
+      const groups = document.querySelectorAll('#rail-nav .rail-group');
+      groups.forEach(group => {
+        const headerLabel = group.querySelector('.rail-group-header span:nth-child(2)')?.textContent.trim() || '';
+        const opt_group = document.createElement('optgroup');
+        opt_group.label = headerLabel;
+        group.querySelectorAll('.rail-nav-item a').forEach(a => {
+          const href = a.getAttribute('href');
+          const label = a.textContent.replace(/\s+/g, ' ').trim();
+          if (!href || !href.startsWith('#')) return;
+          const o = document.createElement('option');
+          o.value = href; o.textContent = label;
+          opt_group.appendChild(o);
+        });
+        sel.appendChild(opt_group);
+      });
+      sel.addEventListener('change', () => {
+        if (!sel.value) return;
+        const t = document.querySelector(sel.value);
+        if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    })();
+
+    // Botón "volver arriba"
+    (function toTop() {
+      const btn = document.getElementById('to-top');
+      if (!btn) return;
+      btn.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+      let t = false;
+      window.addEventListener('scroll', () => {
+        if (t) return; t = true;
+        requestAnimationFrame(() => { btn.classList.toggle('show', window.pageYOffset > 600); t = false; });
+      }, { passive: true });
+    })();
+
+    // Zonas copiables: líneas de tokens y bloque de export
+    document.querySelectorAll('.ds-tokens, #sec-code pre').forEach(el => {
+      el.classList.add('is-copyable');
+      el.title = 'Click para copiar';
+      el.addEventListener('click', () => copyToClipboard(el.textContent.replace(/^\s*tokens:\s*/i, '').trim()));
+    });
+
+    // GSAP Interactive Demo Box (respeta prefers-reduced-motion)
+    function playGsapDemo(easeType) {
+      if (typeof gsap === 'undefined') return;
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        gsap.set('#gsap-box', { x: 0, scale: 1, opacity: 1 });
+        return;
+      }
+      gsap.fromTo('#gsap-box',
+        { x: 0, scale: 0.8, opacity: 0.5 },
+        { x: 'min(340px, 60vw)', scale: 1.1, opacity: 1, duration: 0.8, ease: easeType, yoyo: true, repeat: 1 }
+      );
+    }
+
+    // Interactive Typography Tester Helper
+    function updateTypeTester() {
+      const input = document.getElementById('type-tester-input');
+      const font = document.getElementById('type-tester-font');
+      const size = document.getElementById('type-tester-size');
+      const sizeVal = document.getElementById('type-tester-size-val');
+      const weight = document.getElementById('type-tester-weight');
+      const output = document.getElementById('type-tester-output');
+      
+      if (!output) return;
+      if (input) output.textContent = input.value || ' ';
+      if (sizeVal && size) sizeVal.textContent = size.value + 'px';
+      if (size) output.style.fontSize = size.value + 'px';
+      if (font) output.style.fontFamily = font.value;
+      if (weight) output.style.fontWeight = weight.value;
+    }
+
+    // ==========================================================================
+    // LIVING COMPONENT LIBRARY HELPERS (§11 Átomos, §12 Moléculas, §13 Organismos)
+    // ==========================================================================
+
+    // FilterChip — toggle de estado seleccionado
+    function dsChipToggle(btn) {
+      btn.setAttribute('aria-pressed', btn.getAttribute('aria-pressed') === 'true' ? 'false' : 'true');
+    }
+
+    // QuantityStepper — +/- con anuncio aria-live (mínimo 1)
+    function dsStep(btn, delta) {
+      const out = btn.closest('.dsc-stepper').querySelector('output');
+      const v = Math.max(1, (parseInt(out.textContent, 10) || 1) + delta);
+      out.textContent = v;
+    }
+
+    // CartDrawer / side panels — apertura con focus trap + cierre con Escape
+    let dsLastFocus = null;
+    function dsOpenDrawer(id) {
+      const ov = document.getElementById(id) || document.querySelector('.dsc-drawer-overlay');
+      if (!ov) return;
+      dsLastFocus = document.activeElement;
+      ov.classList.add('active');
+      const first = ov.querySelector('button, a[href], input, [tabindex]');
+      if (first) first.focus();
+      document.addEventListener('keydown', dsDrawerKey);
+    }
+    function dsCloseDrawer() {
+      const ov = document.querySelector('.dsc-drawer-overlay.active');
+      if (!ov) return;
+      ov.classList.remove('active');
+      document.removeEventListener('keydown', dsDrawerKey);
+      if (dsLastFocus) dsLastFocus.focus();
+    }
+    function dsDrawerKey(e) {
+      if (e.key === 'Escape') { dsCloseDrawer(); return; }
+      if (e.key !== 'Tab') return;
+      const ov = document.querySelector('.dsc-drawer-overlay.active');
+      if (!ov) return;
+      const items = [...ov.querySelectorAll('button, a[href], input, [tabindex]')]
+        .filter(el => !el.disabled && el.offsetParent !== null);
+      if (!items.length) return;
+      const first = items[0], last = items[items.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    }
+
+    // Toast / Notification — feedback temporal (auto-dismiss 3s)
+    function dsToast(msg) {
+      let t = document.getElementById('ds-toast');
+      if (!t) {
+        t = document.createElement('div');
+        t.id = 'ds-toast';
+        t.setAttribute('role', 'status');
+        t.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--bg-elevated);color:var(--fg);border:1px solid var(--accent);border-radius:12px;padding:0.85rem 1.4rem;font-size:0.9rem;box-shadow:var(--shadow-lift);z-index:1300;transition:opacity var(--dur-med) var(--ease-out);';
+        document.body.appendChild(t);
+      }
+      t.textContent = msg || 'Acción completada';
+      t.style.opacity = '1';
+      clearTimeout(t._timer);
+      t._timer = setTimeout(() => { t.style.opacity = '0'; }, 3000);
+    }
+
+    // Nav group toggle
+    function dsToggleGroup(header) {
+      const group = header.closest('.rail-group');
+      const isOpen = group.classList.contains('open');
+      document.querySelectorAll('#rail-nav .rail-group.open').forEach(g => {
+        if (g !== group) g.classList.remove('open');
+      });
+      group.classList.toggle('open', !isOpen);
+    }
+
+    // ScrollSpy for Left-Rail Mini-Nav + sync del <select> móvil (throttled con rAF)
+    const sections = document.querySelectorAll('.doc-section');
+    const navLinks = document.querySelectorAll('#rail-nav .rail-nav-item a');
+    const mobileJump = document.getElementById('mobile-jump');
+    let spyTicking = false;
+
+    function runScrollSpy() {
+      spyTicking = false;
+      let current = '';
+      sections.forEach(section => {
+        if (window.pageYOffset >= section.offsetTop - 150) current = section.getAttribute('id');
+      });
+
+      let foundActive = false;
+      navLinks.forEach(link => {
+        link.classList.remove('active', 'done');
+        const isMatch = link.getAttribute('href') === '#' + current;
+        if (isMatch) {
+          link.classList.add('active');
+          foundActive = true;
+          const group = link.closest('.rail-group');
+          if (group && !group.classList.contains('open')) {
+            document.querySelectorAll('#rail-nav .rail-group.open').forEach(g => g.classList.remove('open'));
+            group.classList.add('open');
+          }
+        }
+        else if (!foundActive && current !== '') { link.classList.add('done'); }
+      });
+
+      if (mobileJump && current && mobileJump.value !== '#' + current) {
+        const opt = [...mobileJump.options].find(o => o.value === '#' + current);
+        if (opt) mobileJump.value = '#' + current;
+      }
+    }
+
+    window.addEventListener('scroll', () => {
+      if (!spyTicking) { spyTicking = true; requestAnimationFrame(runScrollSpy); }
+    }, { passive: true });
+  </script>
+</body>
+</html>

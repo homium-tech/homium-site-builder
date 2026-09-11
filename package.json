@@ -1,0 +1,24 @@
+{
+  "name": "homium-site-builder",
+  "version": "1.1.0",
+  "description": "Autonomous AI Site Builder with Multi-Engine Support (Claude, AGY, Codex, OpenCode, Llama.cpp, Ollama) and Homium Design System",
+  "main": "server.js",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "setup": "node scripts/setup.cjs",
+    "doctor": "node scripts/setup.cjs --check-only",
+    "install:playwright": "pnpm exec playwright install chromium",
+    "test": "node test/agent-engine.test.js && node test/deliverable-store.test.js && node test/multi-engine.test.js && node test/workspace.test.js && node test/pipeline.test.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "cors": "^2.8.5"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.1"
+  }
+}
