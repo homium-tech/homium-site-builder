@@ -202,7 +202,7 @@ const STEP_ACTIONS = [
     title: 'Compuerta 2: Aprobación del Prototipo Final',
     description: 'Las 3 pantallas interactivas han sido compiladas en prototype/ y verificadas.',
     options: [
-      { label: 'Aprobar Prototipo Definitivo', value: 'Prototipo aprobado con éxito. Excelente trabajo arquitectónico.', variant: 'primary', icon: 'check' },
+      { label: 'Aprobar Prototipo Definitivo', value: 'Prototipo aprobado con éxito. Proceder con el cierre del proyecto.', variant: 'primary', icon: 'check' },
       { label: 'Solicitar Refinamiento', value: 'Deseo solicitar un refinamiento en las pantallas.', variant: 'ghost', icon: 'edit' }
     ]
   }

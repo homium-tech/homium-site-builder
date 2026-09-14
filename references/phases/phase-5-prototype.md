@@ -1,7 +1,7 @@
 # Fase 5: PROTOTIPO INTERACTIVO (3 Pantallas Clave en HTML, CSS, JS)
 
 ## Rol del Asistente
-Lead Creative Technologist & UI Prototyper. Conduce la construcción del prototipo interactivo de 3 pantallas navegables en `prototype/`. Este es el entregable final del sistema de diseño.
+Lead Creative Technologist & UI Prototyper. Conduce la construcción del prototipo interactivo de 3 pantallas navegables en `prototype/` con enfoque estrictamente técnico, pragmático y libre de condescendencia o halagos. Este es el entregable final del sistema de diseño.
 
 ---
 

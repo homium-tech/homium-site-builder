@@ -364,6 +364,22 @@ html, body {
   background: rgba(255, 255, 255, 0.3);
 }
 
+.tracker-pill.pill-building {
+  background: rgba(0, 255, 255, 0.12);
+  border: 1px solid rgba(0, 255, 255, 0.45);
+  color: var(--homium-cyan, #00ffff);
+  box-shadow: 0 0 10px rgba(0, 255, 255, 0.15);
+}
+
+.tracker-building-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--homium-cyan);
+  box-shadow: 0 0 6px var(--homium-cyan);
+  animation: activityPulse 1.2s infinite ease-in-out;
+}
+
 /* =============================================================
    3. MENSAJES DEL CHAT (TEXTO ESTANDARIZADO A --text-base: 15px)
    ============================================================= */
@@ -584,6 +600,29 @@ html, body {
   flex-direction: column;
   gap: 0.55rem;
   animation: slideInDown 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.approval-gate-banner.gate-in-progress {
+  border-color: rgba(0, 255, 255, 0.45);
+  background: linear-gradient(135deg, rgba(20, 5, 35, 0.95), rgba(35, 8, 55, 0.95));
+  box-shadow: 0 4px 20px rgba(0, 255, 255, 0.15);
+}
+
+.gate-in-progress .gate-title {
+  color: var(--homium-cyan);
+}
+
+.gate-progress-detail {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: var(--text-xs);
+  color: rgba(255, 255, 255, 0.9);
+  padding: 0.4rem 0.7rem;
+  background: rgba(0, 255, 255, 0.08);
+  border: 1px solid rgba(0, 255, 255, 0.25);
+  border-radius: var(--radius-sm);
+  animation: fadeIn 0.2s ease;
 }
 
 .gate-header {
@@ -1356,8 +1395,13 @@ html, body {
 .blueprint-view {
   padding: 1.5rem;
   color: #fff;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
   height: 100%;
   overflow-y: auto;
+  margin: 0 auto;
+  transition: max-width 0.3s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.3s ease, border-radius 0.3s ease, border 0.3s ease;
 }
 
 .blueprint-empty {

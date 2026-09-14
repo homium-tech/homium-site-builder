@@ -33,21 +33,103 @@ const statThinkingTokens = document.getElementById('statThinkingTokens');
 const statCacheTokens = document.getElementById('statCacheTokens');
 const statDuration = document.getElementById('statDuration');
 
-// 1. Auto-resize textarea
-userInput.addEventListener('input', () => {
-  userInput.style.height = 'auto';
-  userInput.style.height = Math.min(userInput.scrollHeight, 140) + 'px';
-});
+// Formato y actualización dinámica de la fecha del proyecto ('14 sep 2026')
+function formatProjectDate(dateVal = null) {
+  const d = dateVal ? new Date(dateVal) : new Date();
+  if (isNaN(d.getTime())) return formatProjectDate();
+  const day = d.getDate();
+  const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+  const month = months[d.getMonth()];
+  const year = d.getFullYear();
+  return `${day} ${month} ${year}`;
+}
 
-// Enviar con Enter (sin Shift)
-userInput.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' && !e.shiftKey) {
-    e.preventDefault();
-    chatForm.dispatchEvent(new Event('submit'));
+function updateProjectDate(dateVal = null) {
+  const metaDate = document.getElementById('metaDateValue');
+  if (metaDate) {
+    metaDate.textContent = formatProjectDate(dateVal);
   }
-});
+}
+updateProjectDate();
 
-// 2. Tab switching
+// 1. Auto-resize textarea
+if (userInput) {
+  userInput.addEventListener('input', () => {
+    userInput.style.height = 'auto';
+    userInput.style.height = Math.min(userInput.scrollHeight, 140) + 'px';
+  });
+
+  // Enviar con Enter (sin Shift)
+  userInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      if (chatForm) chatForm.dispatchEvent(new Event('submit'));
+    }
+  });
+}
+
+// 2. Viewport Manager & Sizing Engine (Desktop, Tablet, Mobile)
+let currentViewportWidth = '100%';
+
+function applyViewportWidth(width) {
+  currentViewportWidth = width;
+  const isDesktop = width === '100%';
+
+  // 1. Prototipo iframe
+  if (prototypeFrame) {
+    prototypeFrame.style.maxWidth = width;
+    if (isDesktop) {
+      prototypeFrame.style.boxShadow = 'none';
+      prototypeFrame.style.borderRadius = '0';
+    } else {
+      prototypeFrame.style.boxShadow = '0 0 40px rgba(0, 255, 255, 0.2)';
+      prototypeFrame.style.borderRadius = '24px';
+    }
+  }
+
+  // 2. Showcase iframe
+  if (showcaseFrame) {
+    showcaseFrame.style.maxWidth = width;
+    if (isDesktop) {
+      showcaseFrame.style.boxShadow = 'none';
+      showcaseFrame.style.borderRadius = '0';
+    } else {
+      showcaseFrame.style.boxShadow = '0 0 40px rgba(0, 255, 255, 0.2)';
+      showcaseFrame.style.borderRadius = '24px';
+    }
+  }
+
+  // 3. Blueprint Inspector
+  if (blueprintView) {
+    blueprintView.style.maxWidth = width;
+    blueprintView.style.margin = '0 auto';
+    if (isDesktop) {
+      blueprintView.style.boxShadow = 'none';
+      blueprintView.style.borderRadius = '0';
+      blueprintView.style.border = 'none';
+    } else {
+      blueprintView.style.boxShadow = '0 0 40px rgba(0, 255, 255, 0.15)';
+      blueprintView.style.borderRadius = '16px';
+      blueprintView.style.border = '1px solid rgba(0, 255, 255, 0.2)';
+    }
+  }
+}
+
+function updateExternalPreviewLink(tabId) {
+  if (!btnExternalPreview) return;
+  if (tabId === 'tab-prototype') {
+    btnExternalPreview.href = '/preview/prototype/index.html';
+    btnExternalPreview.title = 'Abrir Prototipo en pestaña nueva';
+  } else if (tabId === 'tab-showcase') {
+    btnExternalPreview.href = '/preview/showcase';
+    btnExternalPreview.title = 'Abrir Showcase en pestaña nueva';
+  } else if (tabId === 'tab-blueprint') {
+    btnExternalPreview.href = '/preview/blueprint';
+    btnExternalPreview.title = 'Abrir Blueprint en pestaña nueva';
+  }
+}
+
+// 3. Tab switching
 let userExplicitTab = false;
 document.querySelectorAll('.tab-btn').forEach(btn => {
   btn.addEventListener('click', (e) => {
@@ -62,42 +144,54 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     const targetPane = document.getElementById(tabId);
     if (targetPane) targetPane.classList.add('active');
 
-    // Actualizar link de previsualización externa
-    if (tabId === 'tab-prototype') {
-      btnExternalPreview.href = '/preview/prototype/index.html';
-      document.getElementById('viewportControls').style.display = 'flex';
-    } else if (tabId === 'tab-showcase') {
-      btnExternalPreview.href = '/preview/showcase';
-      document.getElementById('viewportControls').style.display = 'none';
+    // Controles viewport: Visibles en TODAS las vistas (Blueprint, Prototipo, Showcase) MENOS en Consola
+    const viewportControls = document.getElementById('viewportControls');
+    if (tabId === 'tab-logs') {
+      if (viewportControls) viewportControls.style.display = 'none';
     } else {
-      document.getElementById('viewportControls').style.display = 'none';
+      if (viewportControls) viewportControls.style.display = 'flex';
+      updateExternalPreviewLink(tabId);
+      applyViewportWidth(currentViewportWidth);
     }
   });
 });
 
-// 3. Viewport controls (Desktop, Tablet, Mobile)
+// 4. Viewport controls (Desktop, Tablet, Mobile)
 document.querySelectorAll('.vp-btn[data-vp]').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.vp-btn[data-vp]').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
 
     const width = btn.getAttribute('data-vp');
-    prototypeFrame.style.maxWidth = width;
-    if (width === '100%') {
-      prototypeFrame.style.boxShadow = 'none';
-      prototypeFrame.style.borderRadius = '0';
-    } else {
-      prototypeFrame.style.boxShadow = '0 0 40px rgba(0, 255, 255, 0.2)';
-      prototypeFrame.style.borderRadius = '24px';
-    }
+    applyViewportWidth(width);
   });
 });
 
-btnRefreshPreview.addEventListener('click', () => {
-  prototypeFrame.src = prototypeFrame.src;
-  showcaseFrame.src = showcaseFrame.src;
-  appendLog('[System] Previsualizadores refrescados manualmente.');
-});
+if (btnRefreshPreview) {
+  btnRefreshPreview.addEventListener('click', () => {
+    const activeTab = document.querySelector('.tab-btn.active')?.getAttribute('data-tab');
+    if (activeTab === 'tab-blueprint') {
+      checkStatus();
+      loadWorkspaceInfo();
+      appendLog('[System] Blueprint refrescado manualmente.');
+    } else if (activeTab === 'tab-showcase') {
+      if (showcaseFrame) showcaseFrame.src = showcaseFrame.src;
+      appendLog('[System] Showcase refrescado manualmente.');
+    } else {
+      if (prototypeFrame) prototypeFrame.src = prototypeFrame.src;
+      appendLog('[System] Prototipo refrescado manualmente.');
+    }
+  });
+}
+
+// Inicializar estado inicial de viewport y link según la pestaña activa
+const initialActiveTab = document.querySelector('.tab-btn.active')?.getAttribute('data-tab') || 'tab-blueprint';
+const initialVpControls = document.getElementById('viewportControls');
+if (initialVpControls) {
+  initialVpControls.style.display = (initialActiveTab === 'tab-logs') ? 'none' : 'flex';
+}
+updateExternalPreviewLink(initialActiveTab);
+applyViewportWidth(currentViewportWidth);
 
 // 4. Quick prompts (Delegación de eventos para sugerencias contextuales)
 document.addEventListener('click', (e) => {
@@ -113,25 +207,32 @@ const resetModal = document.getElementById('resetModal');
 const btnCancelReset = document.getElementById('btnCancelReset');
 const btnConfirmReset = document.getElementById('btnConfirmReset');
 
-btnReset.addEventListener('click', (e) => {
-  e.preventDefault();
-  resetModal.style.display = 'flex';
-});
+if (btnReset) {
+  btnReset.addEventListener('click', (e) => {
+    e.preventDefault();
+    if (resetModal) resetModal.style.display = 'flex';
+  });
+}
 
-btnCancelReset.addEventListener('click', () => {
-  resetModal.style.display = 'none';
-});
+if (btnCancelReset) {
+  btnCancelReset.addEventListener('click', () => {
+    if (resetModal) resetModal.style.display = 'none';
+  });
+}
 
 // Cerrar modal al hacer clic en el backdrop
-resetModal.addEventListener('click', (e) => {
-  if (e.target === resetModal) {
-    resetModal.style.display = 'none';
-  }
-});
+if (resetModal) {
+  resetModal.addEventListener('click', (e) => {
+    if (e.target === resetModal) {
+      resetModal.style.display = 'none';
+    }
+  });
+}
 
-btnConfirmReset.addEventListener('click', async () => {
-  resetModal.style.display = 'none';
-  btnReset.disabled = true;
+if (btnConfirmReset) {
+  btnConfirmReset.addEventListener('click', async () => {
+    if (resetModal) resetModal.style.display = 'none';
+    if (btnReset) btnReset.disabled = true;
 
   try {
     const res = await fetch('/api/reset', {
@@ -157,6 +258,7 @@ btnConfirmReset.addEventListener('click', async () => {
     `;
 
     // Limpiar iframes y vista de blueprint
+    dynamicBlueprintState = {};
     prototypeFrame.src = '/preview/prototype/index.html';
     showcaseFrame.src = '/preview/showcase';
     blueprintView.innerHTML = `
@@ -179,6 +281,7 @@ btnConfirmReset.addEventListener('click', async () => {
 
     const metaBrand = document.getElementById('metaBrandValue');
     if (metaBrand) metaBrand.textContent = 'Sin iniciar';
+    updateProjectDate();
 
     checkStatus();
     loadWorkspaceInfo();
@@ -189,8 +292,11 @@ btnConfirmReset.addEventListener('click', async () => {
     btnReset.disabled = false;
   }
 });
+}
 
-btnClearChat.addEventListener('click', () => {
+if (btnClearChat) {
+  btnClearChat.addEventListener('click', () => {
+    if (!chatMessages) return;
   chatMessages.innerHTML = `
     <div class="message agent-message">
       <div class="message-meta">
@@ -225,6 +331,7 @@ btnClearChat.addEventListener('click', () => {
     </div>
   `;
 });
+}
 
 // 6. Formateo limpio de Markdown / Texto (Sin Corchetes)
 function formatText(text) {
@@ -285,20 +392,26 @@ function appendLog(line, type = 'info') {
 }
 
 // 7. Manejo del Chat y Streaming SSE
-chatForm.addEventListener('submit', async (e) => {
+if (chatForm) {
+  chatForm.addEventListener('submit', async (e) => {
   e.preventDefault();
   const message = userInput.value.trim();
   if (!message) return;
+
+  // Inspeccionar respuesta del usuario para enriquecer reactivamente el Blueprint en vivo
+  inspectUserMessageForState(message);
 
   userInput.value = '';
   userInput.style.height = 'auto';
   btnSend.disabled = true;
 
-  // Ocultar bandeja y compuerta al enviar respuesta
+  // Ocultar bandeja y compuerta al enviar respuesta (salvo si está en progreso)
   const dynamicActionTray = document.getElementById('dynamicActionTray');
   if (dynamicActionTray) dynamicActionTray.style.display = 'none';
   const approvalGateContainer = document.getElementById('approvalGateContainer');
-  if (approvalGateContainer) approvalGateContainer.style.display = 'none';
+  if (approvalGateContainer && !approvalGateContainer.querySelector('.gate-in-progress')) {
+    approvalGateContainer.style.display = 'none';
+  }
 
   // Renderizar mensaje del usuario
   const userDiv = document.createElement('div');
@@ -320,6 +433,10 @@ chatForm.addEventListener('submit', async (e) => {
     <div class="message-meta">
       <span class="sender-name">Lead Engineer</span>
       <span class="message-time">Generando…</span>
+    </div>
+    <div class="agent-activity-pill" style="display: none;">
+      <span class="activity-pulse-dot"></span>
+      <span class="activity-label"></span>
     </div>
     <div class="message-body"><span class="typing-cursor"></span></div>
   `;
@@ -367,6 +484,24 @@ chatForm.addEventListener('submit', async (e) => {
                 fullResponse += payload.text;
                 agentBody.innerHTML = formatText(fullResponse);
                 chatMessages.scrollTop = chatMessages.scrollHeight;
+              } else if (payload.type === 'tool_activity') {
+                // Mostrar píldora de actividad en vivo en la burbuja del agente
+                const pill = agentDiv.querySelector('.agent-activity-pill');
+                if (pill && payload.text && payload.text.trim()) {
+                  pill.style.display = 'inline-flex';
+                  const label = pill.querySelector('.activity-label');
+                  if (label) label.textContent = payload.text.trim();
+                  chatMessages.scrollTop = chatMessages.scrollHeight;
+                }
+                // Actualizar detalle en la compuerta si está en estado de progreso
+                const gateDetail = document.getElementById('gateProgressActivity');
+                if (gateDetail && payload.text && payload.text.trim()) {
+                  gateDetail.textContent = payload.text.trim();
+                }
+                // Notificar a la barra de seguimiento de entregables
+                notifyTrackerBuilding(payload.text.trim());
+                // Registrar también en consola técnica
+                appendLog(payload.text.trim(), 'info');
               } else if (payload.text && payload.text.trim()) {
                 // Enviar a consola de logs la actividad de herramientas, scripts o stderr
                 appendLog(payload.text.trim(), payload.type === 'log' ? 'warn' : 'info');
@@ -388,6 +523,18 @@ chatForm.addEventListener('submit', async (e) => {
             try { doneData = JSON.parse(match[1]); } catch (e) {}
           }
           appendLog(`[AgentBridge] Turno completado (código: ${doneData.code ?? 0}).`);
+          
+          // Ocultar píldora de actividad en vivo al terminar el turno
+          const pill = agentDiv.querySelector('.agent-activity-pill');
+          if (pill) pill.style.display = 'none';
+
+          // Ocultar compuerta de aprobación si quedó en estado de progreso
+          const activeGateContainer = document.getElementById('approvalGateContainer');
+          if (activeGateContainer && activeGateContainer.querySelector('.gate-in-progress')) {
+            activeGateContainer.style.display = 'none';
+            activeGateContainer.innerHTML = '';
+          }
+
           if (!fullResponse.trim()) {
             const engineLabel = engineSelect.options[engineSelect.selectedIndex]?.text || engineSelect.value;
             if (doneData.code && doneData.code !== 0) {
@@ -405,6 +552,13 @@ chatForm.addEventListener('submit', async (e) => {
           if (match) {
             const payload = JSON.parse(match[1]);
             appendLog('[Error] ' + payload.error, 'error');
+            const pill = agentDiv.querySelector('.agent-activity-pill');
+            if (pill) pill.style.display = 'none';
+            const activeGateContainer = document.getElementById('approvalGateContainer');
+            if (activeGateContainer && activeGateContainer.querySelector('.gate-in-progress')) {
+              activeGateContainer.style.display = 'none';
+              activeGateContainer.innerHTML = '';
+            }
             const engineLabel = engineSelect.options[engineSelect.selectedIndex]?.text || engineSelect.value;
             agentBody.innerHTML = `<p style="color:#ff5555;display:flex;align-items:center;gap:6px;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg><span>Error en ${engineLabel}: ${payload.error}. Verifica que el servicio esté disponible o selecciona otro motor.</span></p>`;
           }
@@ -412,6 +566,13 @@ chatForm.addEventListener('submit', async (e) => {
       }
     }
   } catch (err) {
+    const pill = agentDiv.querySelector('.agent-activity-pill');
+    if (pill) pill.style.display = 'none';
+    const activeGateContainer = document.getElementById('approvalGateContainer');
+    if (activeGateContainer && activeGateContainer.querySelector('.gate-in-progress')) {
+      activeGateContainer.style.display = 'none';
+      activeGateContainer.innerHTML = '';
+    }
     agentBody.innerHTML = `<p style="color:#ff5555;">Error de conexión: ${err.message}</p>`;
     appendLog('[Error] ' + err.message, 'error');
   } finally {
@@ -420,6 +581,7 @@ chatForm.addEventListener('submit', async (e) => {
     checkStatus();
   }
 });
+}
 
 // 7b. Mobile Toggle (Chat <-> Preview)
 const btnMobileToggle = document.getElementById('btnMobileToggle');
@@ -462,11 +624,172 @@ function loadGoogleFont(fontName) {
   document.head.appendChild(link);
 }
 
+// =========================================================
+// GESTIÓN DEL ESTADO DINÁMICO Y REACTIVO DEL BLUEPRINT
+// =========================================================
+
+let dynamicBlueprintState = {};
+
+function deepMergeState(target = {}, source = {}) {
+  const output = { ...(target || {}) };
+  if (!source || typeof source !== 'object') return output;
+  for (const [key, val] of Object.entries(source)) {
+    if (val && typeof val === 'object' && !Array.isArray(val)) {
+      output[key] = deepMergeState(target[key] || {}, val);
+    } else if (val !== undefined && val !== null && val !== '') {
+      output[key] = val;
+    }
+  }
+  return output;
+}
+
+function updateDynamicBlueprintState(partial) {
+  if (!partial || typeof partial !== 'object') return;
+  dynamicBlueprintState = deepMergeState(dynamicBlueprintState, partial);
+  const badgeState = document.getElementById('badgeState');
+  if (badgeState && (dynamicBlueprintState.brand_name || dynamicBlueprintState.brand?.name || dynamicBlueprintState.brand)) {
+    badgeState.style.background = 'rgba(0, 255, 255, 0.15)';
+    badgeState.style.borderColor = 'rgba(0, 255, 255, 0.35)';
+    badgeState.style.color = 'var(--homium-cyan)';
+    badgeState.textContent = 'Activo';
+  }
+  renderBlueprint(dynamicBlueprintState);
+}
+
+function isColorLight(hex) {
+  if (!hex || typeof hex !== 'string') return false;
+  const clean = hex.replace('#', '');
+  if (clean.length === 3) {
+    const r = parseInt(clean[0] + clean[0], 16);
+    const g = parseInt(clean[1] + clean[1], 16);
+    const b = parseInt(clean[2] + clean[2], 16);
+    return (r * 0.299 + g * 0.587 + b * 0.114) > 175;
+  } else if (clean.length === 6) {
+    const r = parseInt(clean.substring(0, 2), 16);
+    const g = parseInt(clean.substring(2, 4), 16);
+    const b = parseInt(clean.substring(4, 6), 16);
+    return (r * 0.299 + g * 0.587 + b * 0.114) > 175;
+  }
+  return false;
+}
+
+function resolveFidelityLabel(s) {
+  const rawMode = s.visual_dna?.fidelity_mode || s.fidelity_mode || '';
+  if (rawMode === 'TOTAL_ARCHITECTURAL_FIDELITY') return 'Fidelidad Arquitectónica Total (Fast-Track)';
+  if (rawMode === 'INSPIRATION') return 'Inspiración Conceptual (Vibe)';
+  if (rawMode === 'SURGICAL') return 'Personalizada / Quirúrgica';
+  if (rawMode && !['INSPIRATION', 'TOTAL_ARCHITECTURAL_FIDELITY', 'SURGICAL'].includes(rawMode)) {
+    return rawMode;
+  }
+
+  const refText = `${s.visual_references || ''} ${s.route || ''} ${s.completed_steps?.['1.5'] || ''}`.toLowerCase();
+  if (refText.includes('sin referencia') || refText.includes('desde cero') || refText.includes('secuencial') || refText.includes('original')) {
+    return 'Diseño Original (Desde Cero)';
+  }
+  if (refText.includes('fast-track') || refText.includes('total')) {
+    return 'Fidelidad Arquitectónica Total (Fast-Track)';
+  }
+  if (refText.includes('inspiraci')) {
+    return 'Inspiración Conceptual (Vibe)';
+  }
+  if (refText.includes('quirúrg') || refText.includes('quirurg')) {
+    return 'Personalizada / Quirúrgica';
+  }
+  if (s.visual_references) {
+    return s.visual_references;
+  }
+  if (s.route) {
+    return s.route;
+  }
+  if (s.brand_name || s.brand?.name || (typeof s.brand === 'string' && s.brand)) {
+    return 'Pendiente de Selección';
+  }
+  return 'No definido';
+}
+
+function recordStepChoice(stepId, val) {
+  if (!val) return;
+  const cleanVal = val.replace(/^[0-9]+\.\s*/, '').trim();
+  if (stepId === '1.3') {
+    updateDynamicBlueprintState({ business_model: cleanVal });
+  } else if (stepId === '1.4') {
+    updateDynamicBlueprintState({ logo: cleanVal, logo_type: cleanVal });
+  } else if (stepId === '1.5.a') {
+    const isOriginal = cleanVal.toLowerCase().includes('sin referencia') || cleanVal.toLowerCase().includes('original');
+    updateDynamicBlueprintState({
+      visual_references: cleanVal,
+      route: isOriginal ? 'Secuencial' : ''
+    });
+  } else if (stepId === '1.5.b') {
+    let mode = cleanVal;
+    if (cleanVal.toLowerCase().includes('total') || cleanVal.toLowerCase().includes('fast-track')) {
+      mode = 'TOTAL_ARCHITECTURAL_FIDELITY';
+    } else if (cleanVal.toLowerCase().includes('inspiraci')) {
+      mode = 'INSPIRATION';
+    } else if (cleanVal.toLowerCase().includes('quirúrg') || cleanVal.toLowerCase().includes('quirurg')) {
+      mode = 'SURGICAL';
+    }
+    updateDynamicBlueprintState({
+      fidelity_mode: mode,
+      visual_dna: { ...(dynamicBlueprintState.visual_dna || {}), fidelity_mode: mode }
+    });
+  }
+}
+
+function inspectUserMessageForState(msg) {
+  if (!msg || typeof msg !== 'string') return;
+  const clean = msg.trim();
+  const lower = clean.toLowerCase();
+
+  const commandWords = ['si', 'no', 'continua', 'continuar', 'adelante', 'siguiente', 'ok', 'listo', 'hola', 'buenas'];
+  if (!dynamicBlueprintState.brand_name && !dynamicBlueprintState.brand?.name) {
+    if (!commandWords.includes(lower) && clean.length < 50 && !clean.includes('\n')) {
+      updateDynamicBlueprintState({ brand_name: clean, brand: { name: clean } });
+    }
+  }
+
+  if (/b2b|b2c|marketplace|freemium|saas|servicios profesionales|agencia|consultor/i.test(clean)) {
+    updateDynamicBlueprintState({ business_model: clean.replace(/^[0-9]+\.\s*/, '') });
+  }
+
+  if (/isotipo|logo existente|svg|logotipo/i.test(clean)) {
+    updateDynamicBlueprintState({ logo: clean.replace(/^[0-9]+\.\s*/, ''), logo_type: clean.replace(/^[0-9]+\.\s*/, '') });
+  }
+
+  if (/sin referencia|desde cero|diseño original/i.test(clean)) {
+    updateDynamicBlueprintState({
+      visual_references: 'Sin referencias previas (diseño desde cero)',
+      route: 'Secuencial'
+    });
+  } else if (/fidelidad total|fast-track/i.test(clean)) {
+    updateDynamicBlueprintState({
+      fidelity_mode: 'TOTAL_ARCHITECTURAL_FIDELITY',
+      visual_dna: { ...(dynamicBlueprintState.visual_dna || {}), fidelity_mode: 'TOTAL_ARCHITECTURAL_FIDELITY' }
+    });
+  } else if (/inspiraci/i.test(clean)) {
+    updateDynamicBlueprintState({
+      fidelity_mode: 'INSPIRATION',
+      visual_dna: { ...(dynamicBlueprintState.visual_dna || {}), fidelity_mode: 'INSPIRATION' }
+    });
+  }
+}
+
 function renderBlueprint(s) {
   if (!s) return;
   const brandName = typeof s.brand === 'string' ? s.brand : (s.brand?.name || s.brand_name || s.completed_steps?.['1.1']?.name || '');
-  const brandPurpose = s.mission || s.purpose || s.completed_steps?.['1.2']?.mission || s.completed_steps?.['1.2']?.purpose || (typeof s.brand === 'object' ? s.brand?.purpose : '') || '';
-  const brand = { name: brandName, purpose: brandPurpose };
+  const brandPurpose = s.mission || s.purpose || s.brand?.purpose || s.brand?.mission || s.completed_steps?.['1.2']?.mission || s.completed_steps?.['1.2']?.purpose || '';
+  const brandBusinessModel = s.business_model || s.brand?.business_model || s.brand?.model || s.model || s.completed_steps?.['1.3']?.business_model || '';
+  const brandLogo = s.logo || s.logo_type || s.brand?.logo_type || s.brand?.logo || s.completed_steps?.['1.4']?.logo || '';
+  const brandFidelity = resolveFidelityLabel(s);
+
+  const brand = {
+    name: brandName,
+    purpose: brandPurpose,
+    business_model: brandBusinessModel,
+    logo_type: brandLogo,
+    fidelity_mode: brandFidelity
+  };
+
   const f = s.foundations || {};
   const palette = s.palette || f.palette || {};
   const step21 = s.completed_steps?.['2.1'] || {};
@@ -476,30 +799,33 @@ function renderBlueprint(s) {
     font_display: typoRaw.font_display || typoRaw.display || step22.typography_display || step22.display || '',
     font_ui: typoRaw.font_ui || typoRaw.body || typoRaw.font_body || step22.typography_ui || step22.ui || step22.body || '',
     font_body: typoRaw.font_body || typoRaw.body || typoRaw.font_ui || step22.typography_ui || step22.body || '',
+    font_mono: typoRaw.font_mono || typoRaw.mono || '',
+    character: typoRaw.character || '',
     h1_size_px: typoRaw.h1_size_px || 64
   };
-  const sitemap = s.sitemap || {};
-  const modularScale = s.modular_scale || {};
-  const densityMode = s.density_mode || {};
+  const sitemap = s.sitemap || f.sitemap || {};
+  const modularScale = s.modular_scale || f.modular_scale || {};
+  const densityMode = s.density_mode || f.density_mode || {};
+  const personality = s.personality || f.personality || {};
+  const geometry = s.geometry_tokens || f.geometry_elevations || {};
+  const components = s.components || {};
 
-  // Extraer allowedHexes (soporta array plano, rampas de objetos o completed_steps)
+  // Extraer allowedHexes (soporta array plano, rampas de objetos, campos individuales o completed_steps)
   let allowedHexes = palette.allowed_hexes || [];
-  if (allowedHexes.length === 0) {
+  if (!Array.isArray(allowedHexes) || allowedHexes.length === 0) {
     const hexSet = new Set();
-    Object.entries(palette).forEach(([k, val]) => {
-      if (typeof val === 'object' && val !== null) {
-        Object.values(val).forEach(h => {
-          if (typeof h === 'string' && /^#[0-9a-fA-F]{3,6}$/.test(h)) hexSet.add(h);
-        });
-      } else if (typeof val === 'string' && /^#[0-9a-fA-F]{3,6}$/.test(val)) {
-        hexSet.add(val);
-      }
-    });
-    if (step21) {
-      Object.values(step21).forEach(val => {
-        if (typeof val === 'string' && /^#[0-9a-fA-F]{3,6}$/.test(val)) hexSet.add(val);
+    const scanObject = (obj) => {
+      if (!obj || typeof obj !== 'object') return;
+      Object.values(obj).forEach(val => {
+        if (typeof val === 'string' && /^#[0-9a-fA-F]{3,6}$/.test(val)) {
+          hexSet.add(val.toUpperCase());
+        } else if (typeof val === 'object' && val !== null) {
+          scanObject(val);
+        }
       });
-    }
+    };
+    scanObject(palette);
+    scanObject(step21);
     allowedHexes = Array.from(hexSet);
   }
 
@@ -511,7 +837,7 @@ function renderBlueprint(s) {
   let bgBase = palette.bg_base || palette.background || step21.background || '';
   let surfaceCard = palette.surface_card || palette.surface || step21.surface || '';
   let surfaceCardHover = palette.surface_card_hover || step21.surface_hover || '';
-  let textPrimary = palette.text_primary || palette.text || step21.text || '';
+  let textPrimary = palette.text_primary || palette.text_base || palette.text || step21.text || '';
   let textSecondary = palette.text_secondary || step21.text_secondary || '';
 
   if (!primaryHex && mapping.primary && palette[mapping.primary]) {
@@ -521,8 +847,8 @@ function renderBlueprint(s) {
     accentHex = palette[mapping.accent]['500'] || palette[mapping.accent]['400'] || '';
   }
   if (!bgBase && mapping.neutral_surface && palette[mapping.neutral_surface]) {
-    bgBase = palette[mapping.neutral_surface]['950'] || palette[mapping.neutral_surface]['900'] || '#101313';
-    surfaceCard = palette[mapping.neutral_surface]['900'] || palette[mapping.neutral_surface]['800'] || '#171b1c';
+    bgBase = palette[mapping.neutral_surface]['950'] || palette[mapping.neutral_surface]['900'] || '';
+    surfaceCard = palette[mapping.neutral_surface]['900'] || palette[mapping.neutral_surface]['800'] || '';
     surfaceCardHover = palette[mapping.neutral_surface]['800'] || '#2f3637';
     textPrimary = palette[mapping.neutral_surface]['50'] || '#f1f3f3';
     textSecondary = palette[mapping.neutral_surface]['300'] || '#acb7b9';
@@ -534,20 +860,37 @@ function renderBlueprint(s) {
   if (!primaryHex && allowedHexes.length > 0) primaryHex = allowedHexes[0];
   if (!secondaryHex && allowedHexes.length > 1) secondaryHex = allowedHexes[1];
   if (!accentHex && allowedHexes.length > 2) accentHex = allowedHexes[2];
-  if (!bgBase) bgBase = '#101313';
-  if (!surfaceCard) surfaceCard = '#171b1c';
-  if (!textPrimary) textPrimary = '#f1f3f3';
-  if (!textSecondary) textSecondary = '#acb7b9';
+
+  // Detección adaptativa de Modo Claro vs Modo Oscuro para contraste óptico
+  const isLightScheme = Boolean(
+    (f.color_scheme && f.color_scheme.toLowerCase().includes('claro')) ||
+    (surfaceCard && isColorLight(surfaceCard)) ||
+    (bgBase && isColorLight(bgBase))
+  );
+
+  if (isLightScheme) {
+    if (!bgBase) bgBase = '#FFFFFF';
+    if (!surfaceCard) surfaceCard = '#F8FAFC';
+    if (!textPrimary) textPrimary = '#0F172A';
+    if (!textSecondary) textSecondary = '#475569';
+  } else {
+    if (!bgBase) bgBase = '#101313';
+    if (!surfaceCard) surfaceCard = '#171b1c';
+    if (!textPrimary) textPrimary = '#f1f3f3';
+    if (!textSecondary) textSecondary = '#acb7b9';
+  }
 
   const metaBrand = document.getElementById('metaBrandValue');
   if (metaBrand && brand.name) {
     metaBrand.textContent = brand.name;
   }
+  updateProjectDate(state.updated_at || state.timestamp || snapshot?.timestamp);
 
   // Cargar fuentes dinámicamente si están presentes
   if (typo.font_display) loadGoogleFont(typo.font_display);
   if (typo.font_ui) loadGoogleFont(typo.font_ui);
   if (typo.font_body) loadGoogleFont(typo.font_body);
+  if (typo.font_mono) loadGoogleFont(typo.font_mono);
 
   const displayFontFamily = typo.font_display ? `'${typo.font_display}', sans-serif` : 'inherit';
   const bodyFontFamily = (typo.font_ui || typo.font_body) ? `'${typo.font_ui || typo.font_body}', sans-serif` : 'inherit';
@@ -589,7 +932,7 @@ function renderBlueprint(s) {
   }
 
   // 3. Mini Canvas de UI en Vivo (Visual Preview de la identidad)
-  const borderSubtle = palette.border_subtle || 'rgba(255, 255, 255, 0.12)';
+  const borderSubtle = isLightScheme ? 'rgba(0, 0, 0, 0.08)' : (palette.border_subtle || 'rgba(255, 255, 255, 0.12)');
 
   const liveSpecimenHtml = (primaryHex || allowedHexes.length > 0) ? `
     <div class="blueprint-card">
@@ -657,10 +1000,27 @@ function renderBlueprint(s) {
                 <span style="font-weight: 600; font-size: 13px; color: #fff;">${typo.font_ui || typo.font_body}</span>
               </div>
               <div class="type-sample-body" style="font-family: ${bodyFontFamily};">
-                Tipografía de cuerpo calibrada para interfaces interactivas, menús de navegación, tarjetas y micro-copys de alta legibilidad en modo oscuro.
+                Tipografía de cuerpo calibrada para interfaces interactivas, menús de navegación, tarjetas y micro-copys de alta legibilidad.
               </div>
+              ${typo.character ? `
+                <p style="font-size: 12px; color: rgba(255,255,255,0.7); margin-top: 0.5rem; margin-bottom: 0;">
+                  <strong>Carácter:</strong> ${typo.character}
+                </p>
+              ` : ''}
               <div style="font-family: ${bodyFontFamily}; font-size: 11.5px; color: rgba(255,255,255,0.6); display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 0.5rem;">
                 <span>H1: 56px</span><span>H2: 28px</span><span>H3: 20px</span><span>Body: 15px</span><span>Caption: 12px</span>
+              </div>
+            </div>
+          ` : ''}
+
+          ${typo.font_mono ? `
+            <div class="type-family-box">
+              <div class="type-family-header">
+                <span class="type-role-tag" style="color: var(--homium-cyan);">Monospace · Código & Métricas</span>
+                <span style="font-weight: 600; font-size: 13px; color: #fff;">${typo.font_mono}</span>
+              </div>
+              <div class="type-sample-body" style="font-family: '${typo.font_mono}', monospace; font-size: 13px;">
+                const token = { brand: "${brand.name || 'Brand'}", ratio: ${modularScale.ratio || '1.618'} };
               </div>
             </div>
           ` : ''}
@@ -728,6 +1088,104 @@ function renderBlueprint(s) {
     </div>
   ` : '';
 
+  // 6. Personalidad & Arquetipo
+  const hasPersonality = Boolean(personality.archetype || personality.tone);
+  const personalityHtml = hasPersonality ? `
+    <div class="blueprint-card">
+      <span class="category-eyebrow">Fase 2 · Personalidad & Arquetipo</span>
+      <h4>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+        Arquetipo de Marca & Tono de Voz
+      </h4>
+      <div class="brand-meta-grid">
+        <div class="brand-meta-item">
+          <span class="meta-label">Arquetipo</span>
+          <span class="meta-value">${personality.archetype || 'No definido'}</span>
+        </div>
+        <div class="brand-meta-item">
+          <span class="meta-label">Tono de Voz</span>
+          <span class="meta-value">${personality.tone || 'No definido'}</span>
+        </div>
+      </div>
+    </div>
+  ` : '';
+
+  // 7. Componentes Atómicos
+  const hasComponents = Boolean(components.buttons || components.cards);
+  const componentsHtml = hasComponents ? `
+    <div class="blueprint-card">
+      <span class="category-eyebrow">Fase 3 · Componentes Atómicos</span>
+      <h4>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg>
+        Morfología de Componentes
+      </h4>
+      <div class="brand-meta-grid">
+        ${components.buttons ? `
+          <div class="brand-meta-item">
+            <span class="meta-label">Botones</span>
+            <span class="meta-value">${components.buttons.style || 'Estándar'}</span>
+          </div>
+        ` : ''}
+        ${components.cards ? `
+          <div class="brand-meta-item">
+            <span class="meta-label">Tarjetas</span>
+            <span class="meta-value">${components.cards.style || 'Estándar'} ${components.cards.border ? `(${components.cards.border} / ${components.cards.radius || ''})` : ''}</span>
+          </div>
+        ` : ''}
+      </div>
+    </div>
+  ` : '';
+
+  // 8. Geometría & Elevaciones
+  const hasGeometry = Boolean(geometry.style || geometry.radius_controls || geometry.radius_surfaces || geometry.shadows || modularScale.name);
+  const geometryHtml = hasGeometry ? `
+    <div class="blueprint-card">
+      <span class="category-eyebrow">Geometría, Elevaciones & Escalas</span>
+      <h4>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
+        Geometría Táctil & Escalas
+      </h4>
+      <div class="brand-meta-grid">
+        ${geometry.style ? `
+          <div class="brand-meta-item">
+            <span class="meta-label">Estilo Morfológico</span>
+            <span class="meta-value">${geometry.style}</span>
+          </div>
+        ` : ''}
+        ${geometry.radius_controls ? `
+          <div class="brand-meta-item">
+            <span class="meta-label">Radio Controles</span>
+            <span class="meta-value">${geometry.radius_controls}</span>
+          </div>
+        ` : ''}
+        ${geometry.radius_surfaces ? `
+          <div class="brand-meta-item">
+            <span class="meta-label">Radio Superficies</span>
+            <span class="meta-value">${geometry.radius_surfaces}</span>
+          </div>
+        ` : ''}
+        ${geometry.shadows ? `
+          <div class="brand-meta-item">
+            <span class="meta-label">Elevación / Sombras</span>
+            <span class="meta-value">${geometry.shadows}</span>
+          </div>
+        ` : ''}
+        ${modularScale.name ? `
+          <div class="brand-meta-item">
+            <span class="meta-label">Escala Modular</span>
+            <span class="meta-value">${modularScale.name} (${modularScale.ratio || 1.618})</span>
+          </div>
+        ` : ''}
+        ${densityMode.mode ? `
+          <div class="brand-meta-item">
+            <span class="meta-label">Densidad</span>
+            <span class="meta-value">${densityMode.mode} (${densityMode.base_px || 8}px)</span>
+          </div>
+        ` : ''}
+      </div>
+    </div>
+  ` : '';
+
   // Inyectar HTML consolidado en el inspector de Blueprint
   blueprintView.innerHTML = `
     <!-- 1. IDENTIDAD DE MARCA -->
@@ -740,19 +1198,19 @@ function renderBlueprint(s) {
       <div class="brand-meta-grid">
         <div class="brand-meta-item">
           <span class="meta-label">Propósito / Misión</span>
-          <span class="meta-value">${brand.purpose || 'No definido'}</span>
+          <span class="meta-value">${brand.purpose || 'Pendiente de Definir'}</span>
         </div>
         <div class="brand-meta-item">
           <span class="meta-label">Modelo de Negocio</span>
-          <span class="meta-value">${brand.business_model || 'N/A'}</span>
+          <span class="meta-value">${brand.business_model || 'Pendiente de Selección'}</span>
         </div>
         <div class="brand-meta-item">
           <span class="meta-label">Disponibilidad de Logo</span>
-          <span class="meta-value">${brand.logo_type || 'Generar Isotipo SVG'}</span>
+          <span class="meta-value">${brand.logo_type || 'Pendiente de Definir'}</span>
         </div>
         <div class="brand-meta-item">
           <span class="meta-label">Ruta de Fidelidad</span>
-          <span class="meta-value">${s.visual_dna?.fidelity_mode || 'INSPIRATION'}</span>
+          <span class="meta-value">${brand.fidelity_mode || 'Pendiente de Selección'}</span>
         </div>
       </div>
     </div>
@@ -784,26 +1242,14 @@ function renderBlueprint(s) {
     <!-- 5. ARQUITECTURA SITEMAP -->
     ${sitemapHtml}
 
-    <!-- 6. GEOMETRÍA Y ESCALA MODULAR -->
-    ${modularScale.name ? `
-      <div class="blueprint-card">
-        <span class="category-eyebrow">Geometría & Escalas</span>
-        <h4>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
-          Escala Modular & Densidad de Espaciado
-        </h4>
-        <div class="brand-meta-grid">
-          <div class="brand-meta-item">
-            <span class="meta-label">Escala Modular</span>
-            <span class="meta-value">${modularScale.name} (${modularScale.ratio || 1.618})</span>
-          </div>
-          <div class="brand-meta-item">
-            <span class="meta-label">Modo de Densidad</span>
-            <span class="meta-value">${densityMode.mode || 'Comfortable'} (${densityMode.base_px || 8}px Base)</span>
-          </div>
-        </div>
-      </div>
-    ` : ''}
+    <!-- 6. PERSONALIDAD & ARQUETIPO -->
+    ${personalityHtml}
+
+    <!-- 7. COMPONENTES ATÓMICOS -->
+    ${componentsHtml}
+
+    <!-- 8. GEOMETRÍA, ELEVACIONES & ESCALAS -->
+    ${geometryHtml}
   `;
 
   // Copiar hex al hacer clic en swatches o tarjetas de rol
@@ -819,14 +1265,43 @@ function renderBlueprint(s) {
     });
   });
 
-  // Actualizar pipeline de fases según datos
+  // Actualizar pipeline de fases según completitud de datos reales
   const badgeProto = document.getElementById('badgePrototype');
   const badgeShowcase = document.getElementById('badgeShowcase');
-  if (s.visual_dna) document.getElementById('phase-1').classList.add('completed');
-  if (s.palette && s.palette.allowed_hexes) document.getElementById('phase-2').classList.add('completed');
-  if (s.components) document.getElementById('phase-3').classList.add('completed');
-  if (badgeShowcase && badgeShowcase.textContent.includes('Listo')) document.getElementById('phase-4').classList.add('completed');
-  if (badgeProto && badgeProto.textContent.includes('Listo')) document.getElementById('phase-5').classList.add('completed');
+
+  const isPhase1Done = Boolean(
+    (brand.name && (brand.purpose || brand.business_model || (brand.fidelity_mode && !brand.fidelity_mode.includes('Pendiente')))) ||
+    s.visual_dna ||
+    s.visual_references ||
+    s.current_phase > 1
+  );
+  const isPhase2Done = Boolean(
+    ((primaryHex || allowedHexes.length > 0) && (typo.font_display || typo.font_ui)) ||
+    (s.palette && s.palette.allowed_hexes) ||
+    s.foundations?.palette ||
+    s.phase_2_complete ||
+    s.current_phase > 2
+  );
+  const isPhase3Done = Boolean(
+    (s.components && Object.keys(s.components).length > 0) ||
+    s.current_phase > 3
+  );
+  const isPhase4Done = Boolean(
+    (badgeShowcase && badgeShowcase.textContent.includes('Listo')) ||
+    s.artifacts?.showcase_html ||
+    s.current_phase > 4
+  );
+  const isPhase5Done = Boolean(
+    (badgeProto && badgeProto.textContent.includes('Listo')) ||
+    s.artifacts?.prototype_screen_1 ||
+    (s.current_phase >= 5 && (s.status?.includes('Completado') || s.status?.includes('Aprobado')))
+  );
+
+  if (isPhase1Done) document.getElementById('phase-1')?.classList.add('completed');
+  if (isPhase2Done) document.getElementById('phase-2')?.classList.add('completed');
+  if (isPhase3Done) document.getElementById('phase-3')?.classList.add('completed');
+  if (isPhase4Done) document.getElementById('phase-4')?.classList.add('completed');
+  if (isPhase5Done) document.getElementById('phase-5')?.classList.add('completed');
 
   // Asegurar que la primera fase incompleta mantenga el estado 'active'
   let foundActive = false;
@@ -893,7 +1368,7 @@ function updateDeliverablesTracker(snapshot) {
   trackerPills.innerHTML = items.map(item => {
     if (item.ready) {
       return `
-        <span class="tracker-pill pill-ready" title="${item.hint}: Creado en disco">
+        <span class="tracker-pill pill-ready" data-deliverable-id="${item.id}" title="${item.hint}: Creado en disco">
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="20 6 9 17 4 12"></polyline>
           </svg>
@@ -902,13 +1377,39 @@ function updateDeliverablesTracker(snapshot) {
       `;
     } else {
       return `
-        <span class="tracker-pill pill-pending" title="${item.hint}: Pendiente de creación">
+        <span class="tracker-pill pill-pending" data-deliverable-id="${item.id}" title="${item.hint}: Pendiente de creación">
           <span class="tracker-pending-dot"></span>
           <span>${item.label}</span>
         </span>
       `;
     }
   }).join('');
+}
+
+function notifyTrackerBuilding(activityText) {
+  const trackerBar = document.getElementById('deliverablesTrackerBar');
+  if (!trackerBar) return;
+
+  const lower = activityText.toLowerCase();
+  let targetId = null;
+  if (lower.includes('state.json') || lower.includes('token')) targetId = 'token';
+  else if (lower.includes('_design_system.md') || lower.includes('espec')) targetId = 'spec';
+  else if (lower.includes('_design_system.html') || lower.includes('showcase')) targetId = 'showcase';
+  else if (lower.includes('prototype') || lower.includes('index.html') || lower.includes('prototipo')) targetId = 'proto';
+
+  if (targetId) {
+    trackerBar.style.display = 'flex';
+    const pill = trackerBar.querySelector(`[data-deliverable-id="${targetId}"]`);
+    if (pill && !pill.classList.contains('pill-ready')) {
+      pill.className = 'tracker-pill pill-building';
+      const labelText = pill.querySelector('span:last-child')?.textContent || targetId;
+      pill.innerHTML = `
+        <span class="tracker-building-dot"></span>
+        <span>${labelText}</span>
+      `;
+      pill.title = `${labelText}: Generando en este momento...`;
+    }
+  }
 }
 
 function updatePhasePipeline(snapshot) {
@@ -937,6 +1438,7 @@ function applyDeliverableSnapshot(snapshot) {
 
   updateDeliverablesTracker(snapshot);
   updatePhasePipeline(snapshot);
+  updateProjectDate(snapshot.state?.updated_at || snapshot.state?.timestamp || snapshot.timestamp);
 
   const data = snapshot.status;
   const badgeProto = document.getElementById('badgePrototype');
@@ -979,13 +1481,29 @@ function applyDeliverableSnapshot(snapshot) {
     prevShowcaseExists = false;
   }
 
-  // 3. Blueprint State
+  // 3. Blueprint State reactivo y unificado
   if (data.stateExists && snapshot.state) {
+    dynamicBlueprintState = deepMergeState(dynamicBlueprintState, snapshot.state);
+  }
+
+  const hasBlueprintData = Boolean(
+    dynamicBlueprintState && (
+      dynamicBlueprintState.brand_name ||
+      dynamicBlueprintState.brand ||
+      dynamicBlueprintState.mission ||
+      dynamicBlueprintState.purpose ||
+      dynamicBlueprintState.business_model ||
+      dynamicBlueprintState.palette ||
+      dynamicBlueprintState.foundations
+    )
+  );
+
+  if (hasBlueprintData) {
     badgeState.style.background = 'rgba(0, 255, 255, 0.15)';
     badgeState.style.borderColor = 'rgba(0, 255, 255, 0.35)';
     badgeState.style.color = 'var(--homium-cyan)';
     badgeState.textContent = 'Activo';
-    renderBlueprint(snapshot.state);
+    renderBlueprint(dynamicBlueprintState);
   } else if (!data.stateExists) {
     badgeState.style.background = 'rgba(255, 255, 255, 0.08)';
     badgeState.style.borderColor = 'rgba(255, 255, 255, 0.15)';
@@ -1165,6 +1683,7 @@ function renderActionChips(step) {
   dynamicActionTray.querySelectorAll('.action-btn-chip').forEach(btn => {
     btn.addEventListener('click', () => {
       const val = decodeURIComponent(btn.getAttribute('data-val'));
+      recordStepChoice(step.stepId, val);
       userInput.value = val;
       dynamicActionTray.style.display = 'none';
       chatForm.dispatchEvent(new Event('submit'));
@@ -1209,11 +1728,22 @@ function renderActionCards(step) {
   dynamicActionTray.querySelectorAll('.action-card-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const val = decodeURIComponent(btn.getAttribute('data-val'));
+      recordStepChoice(step.stepId, val);
       userInput.value = val;
       dynamicActionTray.style.display = 'none';
       chatForm.dispatchEvent(new Event('submit'));
     });
   });
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
 }
 
 function renderApprovalGate(gate) {
@@ -1225,15 +1755,15 @@ function renderApprovalGate(gate) {
       <div class="gate-header">
         <span class="gate-title">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
-          ${gate.title}
+          ${escapeHtml(gate.title)}
         </span>
       </div>
-      <p class="gate-description">${gate.description}</p>
+      <p class="gate-description">${escapeHtml(gate.description)}</p>
       <div class="gate-actions">
         ${gate.options.map(opt => `
           <button type="button" class="${opt.variant === 'primary' ? 'btn-gate-approve' : 'btn-gate-adjust'}" data-val="${encodeURIComponent(opt.value)}">
             ${opt.icon ? getIconSvg(opt.icon) : (opt.variant === 'primary' ? getIconSvg('check') : getIconSvg('edit'))}
-            <span>${opt.label}</span>
+            <span>${escapeHtml(opt.label)}</span>
           </button>
         `).join('')}
       </div>
@@ -1244,8 +1774,25 @@ function renderApprovalGate(gate) {
   approvalGateContainer.querySelectorAll('button[data-val]').forEach(btn => {
     btn.addEventListener('click', () => {
       const val = decodeURIComponent(btn.getAttribute('data-val'));
+      const actionLabel = btn.querySelector('span')?.textContent || val;
       userInput.value = val;
-      approvalGateContainer.style.display = 'none';
+
+      // Transicionar la compuerta a estado de progreso en lugar de desaparecer
+      approvalGateContainer.innerHTML = `
+        <div class="approval-gate-banner gate-in-progress">
+          <div class="gate-header">
+            <span class="gate-title">
+              <span class="activity-pulse-dot"></span>
+              <span>Ejecutando: ${escapeHtml(actionLabel)}</span>
+            </span>
+          </div>
+          <p class="gate-description">Generando los entregables correspondientes. Por favor espera un momento...</p>
+          <div class="gate-progress-detail">
+            <span class="activity-pulse-dot" style="width:5px;height:5px;"></span>
+            <span id="gateProgressActivity">Iniciando motor agéntico...</span>
+          </div>
+        </div>
+      `;
       chatForm.dispatchEvent(new Event('submit'));
     });
   });
@@ -1313,7 +1860,8 @@ if (btnOpenWorkspace) {
 }
 
 // Delegación de clics para chips de archivo generados en los mensajes
-chatMessages.addEventListener('click', async (e) => {
+if (chatMessages) {
+  chatMessages.addEventListener('click', async (e) => {
   const chip = e.target.closest('.inline-file-chip');
   if (chip) {
     const fileName = chip.getAttribute('data-file') || '';
@@ -1338,6 +1886,7 @@ chatMessages.addEventListener('click', async (e) => {
     }
   }
 });
+}
 
 function updateTelemetry(metrics) {
   if (!metrics) return;
