@@ -8,6 +8,7 @@ const Workspace = require('./lib/workspace');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const HOST = process.env.HOST || '127.0.0.1';
 
 // Enriquecer PATH en Windows con directorios locales estándar (ej. Antigravity CLI)
 if (process.platform === 'win32') {
@@ -45,8 +46,34 @@ workspace.on('projectChanged', ({ workspaceDir }) => {
 const { Pipeline } = require('./core/pipeline');
 const pipeline = new Pipeline();
 
-app.use(cors());
+const allowedOrigins = new Set([
+  `http://localhost:${PORT}`,
+  `http://127.0.0.1:${PORT}`,
+  `http://[::1]:${PORT}`
+]);
+
+// CORS restringido: únicamente permite localhost, 127.0.0.1 o peticiones same-origin (sin encabezado Origin)
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.has(origin)) {
+      return callback(null, true);
+    }
+    return callback(new Error('Acceso bloqueado por política de seguridad CORS'));
+  },
+  credentials: true
+}));
 app.use(express.json());
+
+// Middleware de protección contra Cross-Origin Hijacking / CSRF en endpoints de API
+function requireSameOrigin(req, res, next) {
+  const origin = req.headers.origin;
+  if (origin && !allowedOrigins.has(origin)) {
+    return res.status(403).json({ error: 'Acceso no autorizado: origen no permitido' });
+  }
+  next();
+}
+
+app.use('/api', requireSameOrigin);
 
 // 1. Archivos estáticos de la UI de Homium Site Builder
 app.use(express.static(path.join(__dirname, 'public')));
@@ -150,7 +177,25 @@ function renderWaitingPage({ phase, title, highlight, description, statusText })
     </body>
     </html>
   `;
+// Función para escapar caracteres especiales HTML
+function escapeHtml(str) {
+  if (typeof str !== 'string') return '';
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
+
+// Aislamiento CSP Sandbox para todas las vistas previas de entregables
+app.use('/preview', (req, res, next) => {
+  res.setHeader(
+    'Content-Security-Policy',
+    "default-src 'self' 'unsafe-inline' data:; frame-ancestors 'self'; sandbox allow-scripts allow-forms allow-same-origin;"
+  );
+  next();
+});
 
 // 3. Servir el Prototipo navegable (Fase 5) con fallback de espera
 app.get(['/preview/prototype', '/preview/prototype/', '/preview/prototype/index.html'], (req, res) => {
@@ -215,7 +260,7 @@ app.get('/preview/blueprint', (req, res) => {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Blueprint · ${brandName} · Homium Site Builder</title>
+  <title>Blueprint · ${escapeHtml(brandName)} · Homium Site Builder</title>
   <link rel="stylesheet" href="/styles.css">
   <link rel="stylesheet" href="/homium/colors_and_type.css">
   <link href="https://fonts.googleapis.com/css2?family=Rubik:ital,wght@0,300..900;1,300..900&family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet">
@@ -351,13 +396,14 @@ app.post('/api/chat', (req, res) => {
       })
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    const statusCode = err.message && err.message.includes('en ejecución') ? 409 : 500;
+    res.status(statusCode).json({ error: err.message });
   }
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, HOST, () => {
   console.log(`\n========================================================`);
-  console.log(`🚀 HOMIUM SITE BUILDER activo en: http://localhost:${PORT}`);
+  console.log(`🚀 HOMIUM SITE BUILDER activo en: http://${HOST}:${PORT}`);
   console.log(`Tokens Homium cargados desde: ${HOMIUM_DIR}`);
   console.log(`========================================================\n`);
 });

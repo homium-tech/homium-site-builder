@@ -297,6 +297,33 @@ async function runSuite() {
     assert.strictEqual(stream.isCompleted, true);
   });
 
+  await it('should prevent concurrent turns on the same session via isExecuting mutex', async () => {
+    const engine = new AgentEngine({ defaultEngine: 'mock' });
+    const stream1 = engine.executeTurn({
+      sessionId: 'test-concurrency-session',
+      message: 'Primer turno en paralelo',
+      engine: 'mock'
+    });
+
+    assert.throws(() => {
+      engine.executeTurn({
+        sessionId: 'test-concurrency-session',
+        message: 'Segundo turno concurrente',
+        engine: 'mock'
+      });
+    }, /Ya hay un turno en ejecución/);
+
+    await new Promise((resolve) => stream1.on('done', resolve));
+
+    const stream2 = engine.executeTurn({
+      sessionId: 'test-concurrency-session',
+      message: 'Tercer turno secuencial',
+      engine: 'mock'
+    });
+    await new Promise((resolve) => stream2.on('done', resolve));
+    assert.strictEqual(stream2.isCompleted, true);
+  });
+
   console.log(`\n========================================`);
   console.log(`Summary: ${passedTests}/${totalTests} tests passed.`);
   console.log(`========================================\n`);

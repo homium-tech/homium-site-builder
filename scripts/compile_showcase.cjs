@@ -39,21 +39,34 @@ function compileShowcase(statePath, outputPath) {
   let stateRaw = fs.readFileSync(statePath, 'utf8').replace(/^\uFEFF/, '');
   const state = JSON.parse(stateRaw);
 
+  function escapeHtml(str) {
+    if (typeof str !== 'string') return '';
+    return str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
   const templatePath = path.resolve(__dirname, '..', 'templates', 'design-system.html');
   let html = fs.readFileSync(templatePath, 'utf8');
 
-  // 1. Extraer datos de marca
-  const brandName = typeof state.brand === 'string' ? state.brand : (state.brand?.name || 'ViewDev');
-  const brandPurpose = state.mission || state.brand?.purpose || 'Arquitectura web y sistemas de diseño digital de alta precisión.';
-  const businessModel = state.business_model || 'Servicios Profesionales / Consultoría Web y Plataformas Digitales';
+  // 1. Extraer datos de marca sanitizados para prevenir inyecciones HTML/XSS
+  const rawBrandName = typeof state.brand === 'string' ? state.brand : (state.brand?.name || 'ViewDev');
+  const brandName = escapeHtml(rawBrandName);
+  const rawBrandPurpose = state.mission || state.brand?.purpose || 'Arquitectura web y sistemas de diseño digital de alta precisión.';
+  const brandPurpose = escapeHtml(rawBrandPurpose);
+  const rawBusinessModel = state.business_model || 'Servicios Profesionales / Consultoría Web y Plataformas Digitales';
+  const businessModel = escapeHtml(rawBusinessModel);
 
   // 2. Extraer foundations
   const f = state.foundations || {};
   const palette = state.palette || f.palette || {};
   const typoRaw = state.typography || f.typography || {};
-  const fontDisplay = typoRaw.font_display || typoRaw.display || 'Cabinet Grotesk';
-  const fontUi = typoRaw.font_ui || typoRaw.body || typoRaw.font_body || 'Satoshi';
-  const fontMono = typoRaw.font_mono || 'Fira Code';
+  const fontDisplay = escapeHtml(typoRaw.font_display || typoRaw.display || 'Cabinet Grotesk');
+  const fontUi = escapeHtml(typoRaw.font_ui || typoRaw.body || typoRaw.font_body || 'Satoshi');
+  const fontMono = escapeHtml(typoRaw.font_mono || 'Fira Code');
 
   const fontDisplayUrl = fontDisplay.replace(/\s+/g, '+') + ':wght@500;600;700;800';
   const fontUiUrl = fontUi.replace(/\s+/g, '+') + ':wght@400;500;600;700';

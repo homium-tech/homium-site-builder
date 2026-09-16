@@ -2023,18 +2023,68 @@ function findSecondaryPageUrls(navLinks, homeUrl) {
   return result;
 }
 
+function validatePublicUrl(rawUrl) {
+  let parsed;
+  try {
+    parsed = new URL(rawUrl);
+  } catch (e) {
+    throw new Error(`URL inválida proporcionada: "${rawUrl}"`);
+  }
+
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    throw new Error(`Protocolo no permitido: "${parsed.protocol}". Únicamente se admiten http: y https:`);
+  }
+
+  const hostname = parsed.hostname.toLowerCase();
+
+  // Bloqueo de loopback y nombres locales
+  if (
+    hostname === 'localhost' ||
+    hostname === '127.0.0.1' ||
+    hostname === '::1' ||
+    hostname === '[::1]' ||
+    hostname.endsWith('.local') ||
+    hostname.endsWith('.internal')
+  ) {
+    throw new Error(`Acceso a host local o de loopback bloqueado por seguridad: "${hostname}"`);
+  }
+
+  // Bloqueo de rangos IPv4 privados y metadatos de nube
+  if (
+    /^127\./.test(hostname) ||
+    /^10\./.test(hostname) ||
+    /^192\.168\./.test(hostname) ||
+    /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(hostname) ||
+    /^169\.254\./.test(hostname) ||
+    /^0\./.test(hostname)
+  ) {
+    throw new Error(`Acceso a dirección IP privada o de infraestructura bloqueado por seguridad: "${hostname}"`);
+  }
+
+  return parsed.toString();
+}
+
 async function run(targetUrl) {
-  const home = await extractDNA(targetUrl, 'ref');
+  const validatedTarget = validatePublicUrl(targetUrl);
+  const home = await extractDNA(validatedTarget, 'ref');
 
   const navLinks = (home.structural_blueprint.navbar && home.structural_blueprint.navbar.nav_links) || [];
-  const secondaryUrls = findSecondaryPageUrls(navLinks, targetUrl);
+  const secondaryUrls = findSecondaryPageUrls(navLinks, validatedTarget);
   const rolePrefix = { content: 'ref_p2', conversion: 'ref_p3' };
 
   // Las páginas secundarias no dependen entre sí (solo de los nav_links ya
   // resueltos del home) — extraerlas en paralelo evita que el tiempo total
   // escale linealmente con la cantidad de páginas (antes: home + content +
   // conversion secuencial ≈ 3× el tiempo de una sola extracción).
-  const roles = ['content', 'conversion'].filter(role => secondaryUrls[role]);
+  const roles = ['content', 'conversion'].filter(role => {
+    if (!secondaryUrls[role]) return false;
+    try {
+      validatePublicUrl(secondaryUrls[role]);
+      return true;
+    } catch {
+      return false;
+    }
+  });
   const results = await Promise.allSettled(roles.map(async role => {
     const url = secondaryUrls[role];
     console.error(`[DNA v4] Extrayendo página secundaria (${role}) → ${url}`);
@@ -2059,8 +2109,14 @@ if (!targetUrl) {
   process.exit(1);
 }
 
-run(targetUrl).catch(err => {
+try {
+  const safeUrl = validatePublicUrl(targetUrl);
+  run(safeUrl).catch(err => {
+    console.error('[DNA Extractor Error]:', err.message);
+    process.exit(1);
+  });
+} catch (err) {
   console.error('[DNA Extractor Error]:', err.message);
   process.exit(1);
-});
+}
 
