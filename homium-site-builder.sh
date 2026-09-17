@@ -28,7 +28,7 @@ _start() {
 
   if [[ ! -f "${INSTALL_DIR}/server.js" ]]; then
     err "Instalación no encontrada en ${INSTALL_DIR}"
-    echo -e "  Reinstala con: ${CYAN}curl -sSL https://raw.githubusercontent.com/hccore25/homium-site-builder/main/install.sh | bash${RESET}"
+    echo -e "  Reinstala con: ${CYAN}curl -sSL https://raw.githubusercontent.com/homium-tech/homium-site-builder/main/install.sh | bash${RESET}"
     exit 1
   fi
 
@@ -116,7 +116,7 @@ _update() {
     git -C "$INSTALL_DIR" pull --quiet 2>/dev/null && ok "Código actualizado" || warn "No se pudo actualizar el repo"
   else
     err "No se encontró repositorio git en ${INSTALL_DIR}"
-    echo -e "  Reinstala con: ${CYAN}curl -sSL https://raw.githubusercontent.com/hccore25/homium-site-builder/main/install.sh | bash${RESET}"
+    echo -e "  Reinstala con: ${CYAN}curl -sSL https://raw.githubusercontent.com/homium-tech/homium-site-builder/main/install.sh | bash${RESET}"
     exit 1
   fi
 

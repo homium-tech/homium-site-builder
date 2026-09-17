@@ -75,7 +75,7 @@ homium_site_builder/
 ### Instalación directa (Recomendado)
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/hccore25/homium-site-builder/main/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/homium-tech/homium-site-builder/main/install.sh | bash
 ```
 
 El instalador detecta automáticamente el sistema operativo, instala Node.js ≥18 si no está presente, y configura el comando `homium-site-builder` en tu PATH.

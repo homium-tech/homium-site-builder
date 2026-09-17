@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # =============================================================================
 # homium-site-builder — Instalador
-# Repo: hccore25/homium-site-builder
-# Uso: curl -sSL https://raw.githubusercontent.com/hccore25/homium-site-builder/main/install.sh | bash
+# Repo: homium-tech/homium-site-builder
+# Uso: curl -sSL https://raw.githubusercontent.com/homium-tech/homium-site-builder/main/install.sh | bash
 # =============================================================================
 
 # ─── Detectar entorno ────────────────────────────────────────────────────────
@@ -10,7 +10,7 @@ OS_TYPE="linux"
 [[ "$OSTYPE" == "darwin"* ]] && OS_TYPE="macos"
 [[ "$OSTYPE" == "msys" || "$OSTYPE" == "cygwin" ]] && OS_TYPE="windows"
 
-REPO="hccore25/homium-site-builder"
+REPO="homium-tech/homium-site-builder"
 VERSION="1.1.0"
 INSTALL_DIR="${HOME}/.homium-site-builder"
 BIN_DIR="${HOME}/.local/bin"
