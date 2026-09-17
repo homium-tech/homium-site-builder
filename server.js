@@ -177,6 +177,8 @@ function renderWaitingPage({ phase, title, highlight, description, statusText })
     </body>
     </html>
   `;
+}
+
 // Función para escapar caracteres especiales HTML
 function escapeHtml(str) {
   if (typeof str !== 'string') return '';

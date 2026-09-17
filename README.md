@@ -72,7 +72,28 @@ homium_site_builder/
 
 ## 🚀 Instalación y Despliegue en Cualquier Equipo (Windows, macOS, Linux)
 
-### 1. Instalación asistida y diagnóstico (Recomendado)
+### Instalación directa (Recomendado)
+
+```bash
+curl -sSL https://raw.githubusercontent.com/hccore25/homium-site-builder/main/install.sh | bash
+```
+
+El instalador detecta automáticamente el sistema operativo, instala Node.js ≥18 si no está presente, y configura el comando `homium-site-builder` en tu PATH.
+
+**Uso tras la instalación:**
+```bash
+homium-site-builder start    # Inicia el servidor en http://localhost:3000
+homium-site-builder stop     # Detiene el servidor
+homium-site-builder status   # Estado del servidor
+homium-site-builder open     # Abre en el navegador
+homium-site-builder --update # Actualiza a la última versión
+```
+
+---
+
+### Instalación manual (desde el repo)
+
+### 1. Instalación asistida y diagnóstico
 Ejecuta el asistente interactivo en la consola:
 ```bash
 pnpm run setup
