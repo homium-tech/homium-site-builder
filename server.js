@@ -476,7 +476,7 @@ app.post('/api/chat', (req, res) => {
 
 app.listen(PORT, HOST, () => {
   console.log(`\n========================================================`);
-  console.log(`🚀 HOMIUM SITE BUILDER activo en: http://${HOST}:${PORT}`);
+  console.log(`🚀 HOMIUM SITE BUILDER activo en: http://localhost:${PORT}`);
   console.log(`Tokens Homium cargados desde: ${HOMIUM_DIR}`);
   console.log(`========================================================\n`);
 });
