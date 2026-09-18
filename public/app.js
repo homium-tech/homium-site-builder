@@ -206,6 +206,14 @@ document.addEventListener('click', (e) => {
 const resetModal = document.getElementById('resetModal');
 const btnCancelReset = document.getElementById('btnCancelReset');
 const btnConfirmReset = document.getElementById('btnConfirmReset');
+const btnLogout = document.getElementById('btnLogout');
+
+if (btnLogout) {
+  btnLogout.addEventListener('click', async () => {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    window.location.href = '/login';
+  });
+}
 
 if (btnReset) {
   btnReset.addEventListener('click', (e) => {

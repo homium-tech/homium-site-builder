@@ -1,14 +1,38 @@
 const express = require('express');
 const cors = require('cors');
+const session = require('express-session');
+const crypto = require('crypto');
 const path = require('path');
 const fs = require('fs');
 const { AgentEngine } = require('./lib/agent-engine');
 const DeliverableStore = require('./lib/deliverable-store');
 const Workspace = require('./lib/workspace');
 
+// Load .env if present (no dotenv dependency needed)
+const envPath = path.join(__dirname, '.env');
+if (fs.existsSync(envPath)) {
+  fs.readFileSync(envPath, 'utf-8').split('\n').forEach(line => {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) return;
+    const eqIdx = trimmed.indexOf('=');
+    if (eqIdx === -1) return;
+    const key = trimmed.slice(0, eqIdx).trim();
+    const val = trimmed.slice(eqIdx + 1).trim().replace(/^["']|["']$/g, '');
+    if (key && !process.env[key]) process.env[key] = val;
+  });
+}
+
 const app = express();
 const PORT = process.env.PORT || 8080;
 const HOST = process.env.HOST || '0.0.0.0';
+
+const AUTH_USER = process.env.AUTH_USER || 'admin';
+const AUTH_PASS = process.env.AUTH_PASS;
+const SESSION_SECRET = process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex');
+
+if (!AUTH_PASS) {
+  console.warn('[Auth] ADVERTENCIA: AUTH_PASS no configurada. Define AUTH_PASS en .env para proteger el acceso.');
+}
 
 // Enriquecer PATH en Windows con directorios locales estándar (ej. Antigravity CLI)
 if (process.platform === 'win32') {
@@ -62,6 +86,18 @@ app.use(cors({
   },
   credentials: true
 }));
+
+app.use(session({
+  secret: SESSION_SECRET,
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    httpOnly: true,
+    sameSite: 'strict',
+    maxAge: 8 * 60 * 60 * 1000 // 8 hours
+  }
+}));
+
 app.use(express.json());
 
 // Middleware de protección contra Cross-Origin Hijacking / CSRF en endpoints de API
@@ -73,13 +109,48 @@ function requireSameOrigin(req, res, next) {
   next();
 }
 
+// --- Rutas públicas (sin autenticación) ---
+
+app.get('/login', (req, res) => {
+  if (req.session && req.session.authenticated) return res.redirect('/');
+  res.sendFile(path.join(__dirname, 'public', 'login.html'));
+});
+
+app.post('/api/auth/login', (req, res) => {
+  const { email, password } = req.body || {};
+  if (!AUTH_PASS) {
+    return res.status(503).json({ error: 'Autenticación no configurada. Define AUTH_PASS en .env' });
+  }
+  if (email === AUTH_USER && password === AUTH_PASS) {
+    req.session.authenticated = true;
+    req.session.user = email;
+    return res.json({ ok: true });
+  }
+  res.status(401).json({ error: 'Credenciales incorrectas' });
+});
+
+app.post('/api/auth/logout', (req, res) => {
+  req.session.destroy(() => res.json({ ok: true }));
+});
+
+// Recursos del Design System accesibles públicamente (necesarios para la página de login)
+app.use('/homium', express.static(HOMIUM_DIR));
+
+// --- Middleware de autenticación — protege todo lo que sigue ---
+function requireAuth(req, res, next) {
+  if (req.session && req.session.authenticated) return next();
+  if (req.path.startsWith('/api/')) {
+    return res.status(401).json({ error: 'No autenticado' });
+  }
+  res.redirect('/login');
+}
+
+app.use(requireAuth);
+
 app.use('/api', requireSameOrigin);
 
 // 1. Archivos estáticos de la UI de Homium Site Builder
 app.use(express.static(path.join(__dirname, 'public')));
-
-// 2. Recursos de Homium Design System (fuentes, logos, tokens css)
-app.use('/homium', express.static(HOMIUM_DIR));
 
 // Función unificada para estandarizar las pantallas de espera con el diseño auténtico Homium
 function renderWaitingPage({ phase, title, highlight, description, statusText }) {
