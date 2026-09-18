@@ -902,7 +902,6 @@ html, body {
 }
 .chat-input-box textarea:focus {
   border-color: var(--homium-cyan);
-  box-shadow: 0 0 0 2px rgba(0, 255, 255, 0.2);
 }
 
 .btn-send {
