@@ -113,7 +113,7 @@ _update() {
   _is_running && was_running=true && _stop
 
   if [[ -d "${INSTALL_DIR}/.git" ]]; then
-    git -C "$INSTALL_DIR" pull --quiet 2>/dev/null && ok "Código actualizado" || warn "No se pudo actualizar el repo"
+    git -C "$INSTALL_DIR" pull && ok "Código actualizado" || { err "No se pudo actualizar el repo — revisa el error de git arriba"; exit 1; }
   else
     err "No se encontró repositorio git en ${INSTALL_DIR}"
     echo -e "  Reinstala con: ${CYAN}curl -sSL https://raw.githubusercontent.com/homium-tech/homium-site-builder/main/install.sh | bash${RESET}"
