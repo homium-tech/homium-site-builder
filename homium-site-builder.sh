@@ -5,7 +5,7 @@
 
 INSTALL_DIR="${HOME}/.homium-site-builder"
 PID_FILE="${INSTALL_DIR}/.server.pid"
-PORT="${PORT:-3000}"
+PORT="${PORT:-8080}"
 VERSION="1.1.0"
 
 GREEN='\033[0;32m'; CYAN='\033[0;36m'
