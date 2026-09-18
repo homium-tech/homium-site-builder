@@ -33,6 +33,53 @@ const SESSION_SECRET = process.env.SESSION_SECRET || crypto.randomBytes(32).toSt
 if (!AUTH_PASS) {
   console.warn('[Auth] ADVERTENCIA: AUTH_PASS no configurada. Define AUTH_PASS en .env para proteger el acceso.');
 }
+if (!process.env.SESSION_SECRET) {
+  console.warn('[Auth] ADVERTENCIA: SESSION_SECRET no configurada. Las sesiones se invalidan al reiniciar. Define SESSION_SECRET en .env');
+}
+if (!process.env.AUTH_USER) {
+  console.warn('[Auth] ADVERTENCIA: AUTH_USER usa el valor por defecto "admin". Define AUTH_USER en .env');
+}
+
+// Comparación en tiempo constante para evitar timing attacks
+function safeCompare(a, b) {
+  const ba = Buffer.from(String(a));
+  const bb = Buffer.from(String(b));
+  const maxLen = Math.max(ba.length, bb.length, 1);
+  const pa = Buffer.alloc(maxLen, 0);
+  const pb = Buffer.alloc(maxLen, 0);
+  ba.copy(pa);
+  bb.copy(pb);
+  return crypto.timingSafeEqual(pa, pb) && ba.length === bb.length;
+}
+
+// Rate limiting: máx 10 intentos por IP en ventana de 15 min
+const loginAttempts = new Map();
+const LOGIN_MAX = 10;
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+
+function checkRateLimit(ip) {
+  const now = Date.now();
+  const rec = loginAttempts.get(ip);
+  if (rec && now < rec.resetAt && rec.count >= LOGIN_MAX) return false;
+  if (rec && now >= rec.resetAt) loginAttempts.delete(ip);
+  return true;
+}
+
+function recordFailedAttempt(ip) {
+  const now = Date.now();
+  const rec = loginAttempts.get(ip) || { count: 0, resetAt: now + LOGIN_WINDOW_MS };
+  if (now >= rec.resetAt) { rec.count = 0; rec.resetAt = now + LOGIN_WINDOW_MS; }
+  rec.count++;
+  loginAttempts.set(ip, rec);
+}
+
+// Limpieza periódica del mapa de intentos para evitar memory leaks
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, rec] of loginAttempts) {
+    if (now >= rec.resetAt) loginAttempts.delete(ip);
+  }
+}, LOGIN_WINDOW_MS);
 
 // Enriquecer PATH en Windows con directorios locales estándar (ej. Antigravity CLI)
 if (process.platform === 'win32') {
@@ -94,6 +141,7 @@ app.use(session({
   cookie: {
     httpOnly: true,
     sameSite: 'strict',
+    secure: process.env.NODE_ENV === 'production',
     maxAge: 8 * 60 * 60 * 1000 // 8 hours
   }
 }));
@@ -117,16 +165,28 @@ app.get('/login', (req, res) => {
 });
 
 app.post('/api/auth/login', (req, res) => {
+  const ip = req.ip || req.socket?.remoteAddress || 'unknown';
+
+  if (!checkRateLimit(ip)) {
+    return res.status(429).json({ error: 'Demasiados intentos. Espera 15 minutos e inténtalo de nuevo.' });
+  }
+
   const { email, password } = req.body || {};
   if (!AUTH_PASS) {
     return res.status(503).json({ error: 'Autenticación no configurada. Define AUTH_PASS en .env' });
   }
-  if (email === AUTH_USER && password === AUTH_PASS) {
-    req.session.authenticated = true;
-    req.session.user = email;
-    return res.json({ ok: true });
+
+  if (safeCompare(email, AUTH_USER) && safeCompare(password, AUTH_PASS)) {
+    req.session.regenerate((err) => {
+      if (err) return res.status(500).json({ error: 'Error interno de sesión' });
+      req.session.authenticated = true;
+      req.session.user = email;
+      res.json({ ok: true });
+    });
+  } else {
+    recordFailedAttempt(ip);
+    res.status(401).json({ error: 'Credenciales incorrectas' });
   }
-  res.status(401).json({ error: 'Credenciales incorrectas' });
 });
 
 app.post('/api/auth/logout', (req, res) => {
