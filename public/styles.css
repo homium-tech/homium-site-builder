@@ -923,6 +923,13 @@ html, body {
   background: #5cffff;
   transform: scale(1.04);
 }
+.btn-send:focus {
+  outline: none;
+}
+.btn-send:focus-visible {
+  outline: 2px solid var(--homium-cyan);
+  outline-offset: 3px;
+}
 .btn-send:disabled {
   opacity: 0.4;
   cursor: not-allowed;
