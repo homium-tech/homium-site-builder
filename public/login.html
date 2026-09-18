@@ -96,6 +96,27 @@
     input::placeholder { color: rgba(255, 255, 255, 0.3); }
     input:focus { border-color: rgba(0, 255, 255, 0.45); }
 
+    /* ── Password wrapper ── */
+    .input-wrap {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+    .input-wrap input { padding-right: 2.8rem; }
+    .btn-toggle-pass {
+      position: absolute;
+      right: 0.9rem;
+      background: none;
+      border: none;
+      padding: 0;
+      cursor: pointer;
+      color: rgba(255,255,255,0.35);
+      display: flex;
+      align-items: center;
+      transition: color 0.2s;
+    }
+    .btn-toggle-pass:hover { color: rgba(255,255,255,0.75); }
+
     /* ── Error ── */
     .error-msg {
       display: none;
@@ -175,14 +196,29 @@
       </div>
       <div class="field">
         <label for="password">Contraseña</label>
-        <input
-          type="password"
-          id="password"
-          name="password"
-          placeholder="••••••••"
-          autocomplete="current-password"
-          required
-        >
+        <div class="input-wrap">
+          <input
+            type="password"
+            id="password"
+            name="password"
+            placeholder="••••••••"
+            autocomplete="current-password"
+            required
+          >
+          <button type="button" class="btn-toggle-pass" id="btnTogglePass" aria-label="Mostrar contraseña">
+            <!-- ojo abierto -->
+            <svg id="iconEye" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+              <circle cx="12" cy="12" r="3"/>
+            </svg>
+            <!-- ojo tachado (oculto por defecto) -->
+            <svg id="iconEyeOff" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none">
+              <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
+              <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+              <line x1="1" y1="1" x2="23" y2="23"/>
+            </svg>
+          </button>
+        </div>
       </div>
 
       <div class="error-msg" id="errorMsg">Credenciales incorrectas. Inténtalo de nuevo.</div>
@@ -194,6 +230,19 @@
   </div>
 
   <script>
+    const btnTogglePass = document.getElementById('btnTogglePass');
+    const iconEye = document.getElementById('iconEye');
+    const iconEyeOff = document.getElementById('iconEyeOff');
+
+    btnTogglePass.addEventListener('click', () => {
+      const pwd = document.getElementById('password');
+      const show = pwd.type === 'password';
+      pwd.type = show ? 'text' : 'password';
+      iconEye.style.display = show ? 'none' : '';
+      iconEyeOff.style.display = show ? '' : 'none';
+      btnTogglePass.setAttribute('aria-label', show ? 'Ocultar contraseña' : 'Mostrar contraseña');
+    });
+
     const form = document.getElementById('loginForm');
     const errorMsg = document.getElementById('errorMsg');
     const submitBtn = document.getElementById('submitBtn');
