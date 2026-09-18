@@ -545,6 +545,9 @@ if (chatForm) {
           }
           const timeSpan = agentDiv.querySelector('.message-time');
           if (timeSpan) timeSpan.textContent = 'Ahora';
+          // Re-enable input immediately so chips/manual input work before reader.read() resolves
+          btnSend.disabled = false;
+          userInput.focus();
           evaluateInteractiveActions(fullResponse, doneData.action);
           loadWorkspaceInfo();
         } else if (line.startsWith('event: error')) {
@@ -884,7 +887,7 @@ function renderBlueprint(s) {
   if (metaBrand && brand.name) {
     metaBrand.textContent = brand.name;
   }
-  updateProjectDate(state.updated_at || state.timestamp || snapshot?.timestamp);
+  updateProjectDate(s?.updated_at || s?.timestamp);
 
   // Cargar fuentes dinámicamente si están presentes
   if (typo.font_display) loadGoogleFont(typo.font_display);
@@ -1467,7 +1470,7 @@ function applyDeliverableSnapshot(snapshot) {
   if (data.showcaseExists) {
     badgeShowcase.style.background = 'rgba(90, 234, 162, 0.15)';
     badgeShowcase.style.borderColor = 'rgba(90, 234, 162, 0.35)';
-    badgeShowcase.color = 'var(--homium-green)';
+    badgeShowcase.style.color = 'var(--homium-green)';
     badgeShowcase.textContent = 'Listo';
     if (!prevShowcaseExists) {
       showcaseFrame.src = '/preview/showcase';
