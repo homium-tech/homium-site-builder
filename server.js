@@ -8,7 +8,7 @@ const Workspace = require('./lib/workspace');
 
 const app = express();
 const PORT = process.env.PORT || 8080;
-const HOST = process.env.HOST || '127.0.0.1';
+const HOST = process.env.HOST || '0.0.0.0';
 
 // Enriquecer PATH en Windows con directorios locales estándar (ej. Antigravity CLI)
 if (process.platform === 'win32') {
