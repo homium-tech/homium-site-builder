@@ -45,7 +45,27 @@ El sistema de componentes se organiza en 3 niveles:
 
 ---
 
-## 3.1 — Átomos
+## Formato de Presentación Obligatorio en Chat
+
+> [!CRITICAL_RULE]
+> **PROHIBIDO usar `<br>` en celdas de tabla (NON-BYPASSABLE).** El chat renderiza `<br>` como texto literal.
+>
+> Cada componente (átomo, molécula, organismo) se presenta como **bloque independiente** con esta estructura:
+>
+> #### [Nombre del Componente]
+> - Variantes: `` `clase-1` `` · `` `clase-2` `` · `` `clase-3` ``
+> - Geometría: radio Xpx · padding Xpx · altura Xpx
+> - Default: [descripción del estado base]
+> - Hover: [descripción del cambio visual]
+> - Focus: ring 3px WCAG AAA · Active: [escala/fondo]
+> - Disabled: opacity 0.45 · cursor not-allowed
+> - Loading: spinner inline sin cambio de tamaño
+>
+> Separar cada componente con `---`. Presentar de a **uno o dos por turno** y pedir confirmación antes de continuar con el siguiente.
+
+---
+
+## Etapa 3.1 — Átomos
 
 ### Catálogo Universal de Átomos
 
@@ -82,7 +102,7 @@ El asistente presenta cada átomo y pide confirmación o ajuste. Para cada uno:
 
 ---
 
-## 3.2 — Moléculas
+## Etapa 3.2 — Moléculas
 
 El asistente presenta cada molécula como combinación de átomos definidos en 3.1:
 
@@ -110,7 +130,7 @@ El asistente presenta cada molécula como combinación de átomos definidos en 3
 
 ---
 
-## 3.3 — Organismos
+## Etapa 3.3 — Organismos
 
 Los organismos son secciones completas de interfaz construidas con moléculas:
 
@@ -137,7 +157,7 @@ Los organismos son secciones completas de interfaz construidas con moléculas:
 
 ---
 
-## 3.4 — Motion Tokens
+## Etapa 3.4 — Motion Tokens
 
 Define los tokens de movimiento del sistema:
 

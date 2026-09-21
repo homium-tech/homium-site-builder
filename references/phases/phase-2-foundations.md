@@ -11,7 +11,7 @@ Lead Visual Foundations Architect. Define todos los cimientos del sistema de dis
 
 ---
 
-## 2.1 — Paleta Cromática (Sistema de Color)
+## Etapa 2.1 — Paleta Cromática (Sistema de Color)
 
 ### Directivas de Presentación
 
@@ -31,9 +31,9 @@ Lead Visual Foundations Architect. Define todos los cimientos del sistema de dis
 > **Reconocimiento de Paleta de Referencia (Modo INSPIRATION):**
 > Si en la Fase 1 se seleccionó `Inspiración Conceptual`, la **Opción 1 (Recomendada)** DEBE ser la paleta inspirada medida proveniente de `visual_dna.inspiration_seeds.palette_candidates` (mostrando muestra Unicode, HEX y cobertura). Las opciones restantes se adaptan al tipo de negocio.
 
-### Flujo Paso a Paso
+### Flujo de Etapas
 
-#### Paso 2.1.1 — Paleta Tonal Primaria
+#### Etapa 2.1.1 — Paleta Tonal Primaria
 - *(Modo INSPIRATION)*: Presenta como Opción 1 la paleta medida de la referencia + 4 alternativas adaptadas al modelo de negocio.
 - *(Sin referencia)*: Brinda 5 sugerencias cromáticas numeradas con muestra Unicode + opción personalizada.
 
@@ -42,17 +42,25 @@ Lead Visual Foundations Architect. Define todos los cimientos del sistema de dis
 > Si el color primario **no alcanza ΔTone ≥ 60** con ningún tono de su rampa para cumplir WCAG AAA en texto normal, el asistente NO debe auto-corregirlo en silencio. Debe presentar la disyuntiva:
 > *"El color de marca extraído (`{{HEX}}`) no alcanza el contraste AAA necesario. Opciones: **(1) Fidelidad de marca** — mantenerlo solo en superficies decorativas, complementándolo con un tono de acción que sí cumpla AAA; o **(2) Accesibilidad primero** — ajustar levemente el tono/luminosidad hasta cumplir AAA. ¿Cuál prefieres?"*
 
-#### Paso 2.1.2 — Paleta Neutra
+#### Etapa 2.1.2 — Paleta Neutra
 Pregunta por la paleta neutra (escala de grises tintados con el primario). Ofrece 3 sugerencias: neutra fría, neutra cálida, neutra pura.
 
-#### Paso 2.1.3 — Colores Semánticos / Funcionales
+#### Etapa 2.1.3 — Colores Semánticos / Funcionales
 Pregunta si desea definir colores semánticos: éxito (`#22C55E`), advertencia (`#F59E0B`), error (`#EF4444`), info (`#3B82F6`) — o derivarlos automáticamente.
 
-#### Paso 2.1.4 — Modo Oscuro (adelanto cromático)
-Pregunta si el sistema tendrá modo oscuro. La evaluación completa se hace en el Paso 2.6; aquí solo se confirma la intención para estructurar la allowlist.
+#### Etapa 2.1.4 — Modo Oscuro (adelanto cromático)
+Pregunta si el sistema tendrá modo oscuro. La evaluación completa se hace en la Etapa 2.6; aquí solo se confirma la intención para estructurar la allowlist.
 
 ### Resumen y Persistencia de 2.1
-Muestra tabla con muestras Unicode, HEX, Tono HCT y Ratio WCAG 2.2 AAA. Pide confirmación explícita.
+Muestra la tabla de paleta confirmada. Formato obligatorio — cuatro columnas exactas, una fila por color, sin `<br>` en ninguna celda:
+
+| Rol | Muestra | HEX | Ratio WCAG |
+| :--- | :--- | :--- | :--- |
+| Primario | 🟧 | `#FF5500` | 4.8:1 AA |
+| Fondo base | ⬛ | `#08080C` | — |
+| Texto | ⬜ | `#FFFFFF` | 19.8:1 AAA |
+
+El Tono HCT y los neutrales se incluyen como filas adicionales en la misma tabla, nunca como columnas extra ni como texto comprimido en una celda. Pide confirmación explícita.
 
 > **Acción de Persistencia en Disco:** Al confirmar, actualiza `design-system-state.json` con `palette` y `hct_tonal_ramps`, y **compone `palette.allowed_hexes`** con TODOS los hex aprobados (primario, secundario, acentos, fondo, superficie, texto, neutrales, semánticos).
 
@@ -61,17 +69,17 @@ Muestra tabla con muestras Unicode, HEX, Tono HCT y Ratio WCAG 2.2 AAA. Pide con
 
 ---
 
-## 2.2 — Sistema Tipográfico Dual (3 Capas + Iconografía)
+## Etapa 2.2 — Sistema Tipográfico Dual (3 Capas + Iconografía)
 
 > [!IMPORTANT]
 > **GUARDRAIL DE BYPASS (MODO FAST-TRACK / QUIRÚRGICO-DIM6):**
 > Se omite si `fidelity_mode: TOTAL_ARCHITECTURAL_FIDELITY` o si `replicated_dimensions` incluye `6`.
 
-### Paso 2.2.1 — Tipografía de Display (Títulos)
+### Etapa 2.2.1 — Tipografía de Display (Títulos)
 - *(Modo INSPIRATION)*: Presenta como Opción 1 la Google Font análoga exacta medida en `visual_dna.inspiration_seeds.typography_candidates`.
 - Sugiere 4 alternativas de alta personalidad (evitando clichés como `Inter` o `Roboto`) + opción escrita.
 
-### Paso 2.2.2 (Condicional) — Tipografía de Acento Serif Italic
+### Etapa 2.2.2 (Condicional) — Tipografía de Acento Serif Italic
 
 > [!IMPORTANT]
 > Esta fuente **solo existe si la referencia realmente usa cursiva editorial**. El extractor lo mide en `font-style` y lo reporta en `typography.reference_uses_italic`.
@@ -85,10 +93,10 @@ Si la referencia o el usuario desea cursiva editorial de acento, propone:
 4. **Cormorant Garamond (Italic)** (Refinada de lujo)
 5. *(Omitir fuente de acento — solo fuente Display)*
 
-### Paso 2.2.3 — Tipografía de UI (Cuerpo / Controles)
+### Etapa 2.2.3 — Tipografía de UI (Cuerpo / Controles)
 Sugiere 5 Google Fonts nítidas para UI (*Manrope*, *DM Sans*, *Instrument Sans*, *Figtree*, *Public Sans*) + opción escrita.
 
-### Paso 2.2.4 — Iconografía
+### Etapa 2.2.4 — Iconografía
 Presenta las siguientes opciones alineando el peso de trazo al estilo del diseño:
 1. **Lucide Icons** (Recomendado: limpios, modernos, stroke 2px)
 2. **Font Awesome 6** (Extenso catálogo)
@@ -98,29 +106,44 @@ Presenta las siguientes opciones alineando el peso de trazo al estilo del diseñ
 6. *(Escribir librería o íconos SVG personalizados)*
 
 ### Resumen y Persistencia de 2.2
-Muestra: pareja/terna tipográfica + escala modular calculada + librería de íconos con trazo oficial.
+Muestra el resumen tipográfico en tres bloques separados, nunca en una sola tabla comprimida:
 
-Pide confirmación: *"¿Está correcta la tipografía e iconografía para avanzar al Paso 2.3?"*
+**Fuentes confirmadas**
+- Display: [Nombre] — pesos usados: 700 / 800
+- UI / Cuerpo: [Nombre] — pesos usados: 400 / 500 / 600
+- Acento Italic: [Nombre Italic] o "no aplica"
+
+**Escala modular** (una fila por nivel, sin comprimir size+weight+leading en una celda):
+
+| Nivel | Tamaño | Peso | Line-height |
+| :--- | :--- | :--- | :--- |
+| H1 | 56px | 800 | 1.1 |
+| H2 | 40px | 700 | 1.2 |
+| Body | 16px | 400 | 1.6 |
+
+**Iconografía:** [Librería] — trazo [X]px
+
+Pide confirmación: *"¿Está correcta la tipografía e iconografía para avanzar a la Etapa 2.3?"*
 
 > **Acción de Persistencia en Disco:** Al confirmar, actualiza `design-system-state.json` con `typography` e `icons`.
 
 ---
 
-## 2.3 — Personalidad Visual (Ecualizador de Marca — 14 Ejes)
+## Etapa 2.3 — Personalidad Visual (Ecualizador de Marca — 14 Ejes)
 
 > [!IMPORTANT]
 > **GUARDRAIL DE BYPASS (MODO FAST-TRACK):**
 > Si `fidelity_mode: TOTAL_ARCHITECTURAL_FIDELITY`, esta sección se omite. Los radios, sombras y elevación ya fueron calibrados desde las medidas reales de la referencia.
 
-### Paso 2.3.1 — Seleccionar Arquetipo de Personalidad Visual
+### Etapa 2.3.1 — Seleccionar Arquetipo de Personalidad Visual
 Presenta las siguientes opciones numeradas:
-1. `Tech Minimalist` — Limpio, esquinas 2–4px, tipografía sans-serif nítida, estética SaaS/Tech.
-2. `Bold & Vibrant` — Colores saturados, tipografía ExtraBold 800, botones 56px, alto contraste.
-3. `Corporate & Trust` — Estructura sobria, simetría estricta, tonos neutros serios.
-4. `Organic & Warm` — Esquinas redondeadas 16–28px, tonos cálidos tintados, espaciado cómodo.
-5. `Cyber & Futuristic` — Fondo oscuro/nocturno, acentos neón, resplandores tintados.
-6. `Editorial & Premium` — Tipografía Display refinada, espaciado amplio, acabado de lujo.
-7. `Calibración Manual` — Calibración granular de los 14 ejes (ver `references/brand-equalizer.md`).
+1. `Calibración Manual` — Calibración granular de los 14 ejes (ver `references/brand-equalizer.md`).
+2. `Tech Minimalist` — Limpio, esquinas 2–4px, tipografía sans-serif nítida, estética SaaS/Tech.
+3. `Bold & Vibrant` — Colores saturados, tipografía ExtraBold 800, botones 56px, alto contraste.
+4. `Corporate & Trust` — Estructura sobria, simetría estricta, tonos neutros serios.
+5. `Organic & Warm` — Esquinas redondeadas 16–28px, tonos cálidos tintados, espaciado cómodo.
+6. `Cyber & Futuristic` — Fondo oscuro/nocturno, acentos neón, resplandores tintados.
+7. `Editorial & Premium` — Tipografía Display refinada, espaciado amplio, acabado de lujo.
 8. `[Defaults]` — Valores por defecto optimizados para el modelo de negocio.
 
 > [!IMPORTANT]
@@ -132,13 +155,16 @@ Presenta las siguientes opciones numeradas:
 ### Resumen y Persistencia de 2.3
 Muestra: perfil visual seleccionado + tokens derivados (`--radius-sm`, `--radius-md`, `--radius-lg`, sombras, bordes, espaciados).
 
-Pide confirmación: *"¿Está correcto el perfil visual para avanzar al Paso 2.4?"*
+Pide confirmación: *"¿Está correcto el perfil visual para avanzar a la Etapa 2.4?"*
 
 > **Acción de Persistencia en Disco:** Al confirmar, actualiza `design-system-state.json` con `personality` y `geometry_tokens`.
 
 ---
 
-## 2.4 — Sombras, Elevación y Foco
+## Etapa 2.4 — Sombras, Elevación y Foco
+
+> [!CRITICAL_RULE]
+> **FORMATO EN CHAT:** Presentar la tabla de elevación limpia (una fila por nivel, sin `<br>` en celdas). Describir el Focus Ring en una línea separada debajo de la tabla. Una sola pregunta al final.
 
 Presenta el sistema de elevación de 4 niveles derivado del arquetipo de personalidad:
 
@@ -158,7 +184,10 @@ Pregunta si el usuario desea personalizar alguno de los niveles o acepta los der
 
 ---
 
-## 2.5 — Radios y Bordes (Border Radius System)
+## Etapa 2.5 — Radios y Bordes (Border Radius System)
+
+> [!CRITICAL_RULE]
+> **FORMATO EN CHAT:** Presentar la tabla de radios limpia (una fila por token). Añadir debajo una sola línea de nota sobre coherencia morfológica con el arquetipo. Una sola pregunta al final.
 
 Presenta el sistema de radios derivado del Ecualizador (arquetipo seleccionado en 2.3):
 
@@ -178,9 +207,12 @@ Pregunta si el usuario desea ajustar algún valor de radio específico.
 
 ---
 
-## 2.6 — Evaluador de Dark Mode / Múltiples Temas
+## Etapa 2.6 — Evaluador de Dark Mode / Múltiples Temas
 
-*(Solo si el usuario confirmó modo oscuro en el Paso 2.1.4)*
+> [!CRITICAL_RULE]
+> **FORMATO EN CHAT:** Presentar los tokens de dark mode como bloque de código CSS (no tabla). Luego una línea de verificación de contraste y una pregunta de implementación (`@media` vs `data-theme`). Sin condensar todo en una sola celda.
+
+*(Solo si el usuario confirmó modo oscuro en la Etapa 2.1.4)*
 
 Presenta las alternativas de variables CSS para dark mode derivadas de la paleta de 2.1:
 
@@ -204,7 +236,7 @@ Pregunta si los tokens de modo oscuro son correctos o si desea ajustar algún va
 
 ## Resumen de Fase 2 y Confirmación de Avance
 
-Al completar todos los sub-pasos (2.1–2.6), presenta un resumen visual consolidado:
+Al completar todas las etapas (2.1–2.6), presenta un resumen visual consolidado:
 
 > *"Hemos definido los **Cimientos Visuales** completos del sistema:*
 > - *Paleta cromática con allowlist de {{N}} colores aprobados (WCAG AAA verificado)*

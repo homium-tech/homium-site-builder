@@ -10,9 +10,9 @@ Lead Design System Documentation Engineer & Visual Specification Writer. Redacci
 ```
 [design-system-state.json]
        ↓
-[Paso 4.1: [Brand]_Design_System.md]   → spec completo de 5 fases
+[Etapa 4.1: [Brand]_Design_System.md]   → spec completo de 5 fases
        ↓
-[Paso 4.2: [Brand]_Design_System.html] → showcase vivo con tema dinámico del cliente
+[Etapa 4.2: [Brand]_Design_System.html] → showcase vivo con tema dinámico del cliente
        ↓
 [Exportación de Código — al completar #sec-code]
        ↓
@@ -21,7 +21,7 @@ Lead Design System Documentation Engineer & Visual Specification Writer. Redacci
 
 ---
 
-### Paso 4.1 — Documento Maestro de Especificación (`[Brand]_Design_System.md`)
+### Etapa 4.1 — Documento Maestro de Especificación (`[Brand]_Design_System.md`)
 
 1. **Lectura de Estado:** Lee `design-system-state.json` en disco como única fuente de verdad.
 2. **Lectura de Plantilla MD:** Lee `templates/design-system.md`.
@@ -38,18 +38,18 @@ Lead Design System Documentation Engineer & Visual Specification Writer. Redacci
    - **§2 Foundations:** tokens W3C con rampas HCT 13 tonos, escala tipográfica completa verbatim de `state.typography`, grilla 5 breakpoints, densidad dual, elevación, iconografía.
    - **§3 Componentes:** catálogo completo de átomos/moléculas/organismos aprobados en Fase 3 con 6 estados por componente interactivo.
    - **§4 Auditoría WCAG 2.2 AAA:** matriz de contraste de todos los pares críticos (texto/fondo, estados activos, focus ring) con ratios medidos.
-   - **§5 Handoff de Código:** bloque `:root` completo con TODOS los tokens del sistema + formato de exportación elegido en el Paso 4.3.
+   - **§5 Handoff de Código:** bloque `:root` completo con TODOS los tokens del sistema + formato de exportación elegido en la Etapa 4.3.
 
 4. **Adaptaciones por la estructura de 5 fases** (sin sitemap ni selección de stack):
    - §1.1: No incluir campos de `Frontend Framework`, `CSS Framework` ni `Tipo de Sitio` — el skill no cubre selección de stack.
    - §1.3: Omitir completamente la sección "Arquitectura de Páginas y Mapa del Sitio" — la fase sitemap fue eliminada del flujo.
-   - §5.2: Incluir el bloque Tailwind CSS solo si `state.export_format === "tailwind"` (se confirma en Paso 4.3).
+   - §5.2: Incluir el bloque Tailwind CSS solo si `state.export_format === "tailwind"` (se confirma en la Etapa 4.3).
 
 5. **Nombre del archivo:** `[BrandSlug]_Design_System.md` donde `BrandSlug` es el valor de `state.brand.name` en snake_case sin acentos ni caracteres especiales (ej: `"Acme Corp"` → `Acme_Corp_Design_System.md`).
 
 ---
 
-### Paso 4.2 — Showcase de Design System (`[Brand]_Design_System.html`)
+### Etapa 4.2 — Showcase de Design System (`[Brand]_Design_System.html`)
 
 #### Base estructural
 
@@ -282,7 +282,7 @@ El select del `.mobile-nav` se puebla automáticamente desde `#rail-nav` por el 
 | Moléculas UI | `#sec-molecules` | `components.molecules` | Fase 3 |
 | Organismos & bento | `#sec-organisms` | `components.organisms` | Fase 3 |
 | Auditoría WCAG AAA | `#sec-wcag` | `palette.wcag_pairs` — todos los pares con ratio medido y badge PASS/FAIL | Fase 4 |
-| Handoff de código | `#sec-code` | Bloque `:root` completo + exportación elegida en Paso 4.3 | Fase 4 |
+| Handoff de código | `#sec-code` | Bloque `:root` completo + exportación elegida en la Etapa 4.3 | Fase 4 |
 
 > [!CRITICAL_RULE]
 > **MORFOLOGÍA BLOQUEADA (NON-BYPASSABLE):** Todo botón, input y nav_cta en los Component Blocks (`#sec-atoms`, `#sec-molecules`, `#sec-organisms`) DEBE portar la morfología medida en `structural_blueprint.component_dna` (radio, padding, altura, bg/texto) vía `style="..."` inline o vía tokens `--client-*`. El verificador valida radios con tolerancia ±2px.
@@ -292,7 +292,7 @@ El select del `.mobile-nav` se puebla automáticamente desde `#rail-nav` por el 
 
 #### Nombre del archivo
 
-`[BrandSlug]_Design_System.html` (mismo slug que el MD del Paso 4.1).
+`[BrandSlug]_Design_System.html` (mismo slug que el MD de la Etapa 4.1).
 
 ---
 
@@ -336,7 +336,7 @@ node scripts/verify_fidelity.cjs --state design-system-state.json --check A
 
 ---
 
-### Paso 4.3 — Persistencia y Confirmación de Exportación
+### Etapa 4.3 — Persistencia y Confirmación de Exportación
 
 Guarda en `design-system-state.json`:
 - `export_format`: formato de exportación elegido

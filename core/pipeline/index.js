@@ -70,7 +70,7 @@ const STEP_ACTIONS = [
     type: 'chips',
     title: '¿Confirmar Fase 1 y avanzar a la Fase 2?',
     options: [
-      { label: 'Sí, avanzar a la Fase 2', value: 'La información de la Fase 1 es correcta. Proceder a la Fase 2 (Tipo de Sitio & Arquitectura de Páginas).', icon: 'check' },
+      { label: 'Sí, avanzar a la Fase 2', value: 'La información de la Fase 1 es correcta. Proceder a la Fase 2 (Foundations Visuales).', icon: 'check' },
       { label: 'Ajustar un paso anterior', value: 'Deseo ajustar un parámetro de la Fase 1 antes de avanzar.', icon: 'edit' }
     ]
   },

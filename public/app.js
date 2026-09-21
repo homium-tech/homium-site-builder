@@ -348,8 +348,13 @@ function formatText(text) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
 
-  // Swatches visuales automáticos para códigos HEX (#RRGGBB o #RGB)
+  // Swatches visuales automáticos para códigos HEX (#RRGGBB, #RGB, o bare RRGGBB en contexto de paleta)
   safe = safe.replace(/`?#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b`?/g, (match, hex) => {
+    const fullHex = '#' + hex;
+    return `<span class="hex-swatch-pill"><span class="hex-dot" style="background-color:${fullHex};"></span>${fullHex}</span>`;
+  });
+  // Bare hex sin # — solo cuando va precedido de espacio/bullet y seguido de espacio/puntuación (evita falsos positivos)
+  safe = safe.replace(/(?<=[\s•·\-])([0-9A-F]{6}|[0-9a-f]{6})\b(?=[\s,·•<])/g, (match, hex) => {
     const fullHex = '#' + hex;
     return `<span class="hex-swatch-pill"><span class="hex-dot" style="background-color:${fullHex};"></span>${fullHex}</span>`;
   });
@@ -787,11 +792,33 @@ function inspectUserMessageForState(msg) {
 
 function renderBlueprint(s) {
   if (!s) return;
-  const brandName = typeof s.brand === 'string' ? s.brand : (s.brand?.name || s.brand_name || s.completed_steps?.['1.1']?.name || '');
-  const brandPurpose = s.mission || s.purpose || s.brand?.purpose || s.brand?.mission || s.completed_steps?.['1.2']?.mission || s.completed_steps?.['1.2']?.purpose || '';
-  const brandBusinessModel = s.business_model || s.brand?.business_model || s.brand?.model || s.model || s.completed_steps?.['1.3']?.business_model || '';
-  const brandLogo = s.logo || s.logo_type || s.brand?.logo_type || s.brand?.logo || s.completed_steps?.['1.4']?.logo || '';
-  const brandFidelity = resolveFidelityLabel(s);
+  // Helper: lee s.confirmed con keys en español (schema de OpenCode/Muse Spark)
+  const c = s.confirmed || {};
+  const _cKey = (keys) => { for (const k of keys) { const v = c[k]; if (v && typeof v === 'string') return v; } return ''; };
+
+  const brandName = typeof s.brand === 'string' ? s.brand :
+    (s.brand?.name || s.brand_name || _cKey(['Marca', 'marca', 'Brand', 'brand']) ||
+     s.completed_steps?.['1.1']?.name || '');
+
+  const brandPurpose = s.mission || s.purpose || s.brand?.purpose || s.brand?.mission ||
+    s.brand?.descripcion || s.brand?.description || s.brand?.mision ||
+    s.visual_dna?.purpose ||
+    _cKey(['Propósito', 'Proposito', 'PropÃ³sito', 'proposito', 'purpose', 'Purpose', 'Misión', 'Mision', 'mission']) ||
+    s.completed_steps?.['1.2']?.mission || s.completed_steps?.['1.2']?.purpose || '';
+
+  const _rawBizModel = s.business_model || s.brand?.business_model || s.brand?.modelo_negocio ||
+    _cKey(['Modelo', 'modelo', 'Model', 'model', 'ModeloNegocio', 'business_model']) ||
+    s.completed_steps?.['1.3']?.business_model || '';
+  const brandBusinessModel = (typeof _rawBizModel === 'string' && _rawBizModel.length < 120 &&
+    !_rawBizModel.trimStart().startsWith('{') && !_rawBizModel.trimStart().startsWith('[')) ? _rawBizModel : '';
+
+  const brandLogo = s.logo || s.logo_type || s.brand?.logo_type || s.brand?.logo ||
+    s.brand?.logo_url || s.brand?.isotipo ||
+    _cKey(['Logo', 'logo', 'Isotipo', 'isotipo', 'logo_type']) ||
+    s.completed_steps?.['1.4']?.logo || '';
+
+  const brandFidelity = resolveFidelityLabel(s) ||
+    _cKey(['Fidelidad', 'fidelidad', 'fidelity', 'Fidelity']) || '';
 
   const brand = {
     name: brandName,
@@ -1209,19 +1236,19 @@ function renderBlueprint(s) {
       <div class="brand-meta-grid">
         <div class="brand-meta-item">
           <span class="meta-label">Propósito / Misión</span>
-          <span class="meta-value">${brand.purpose || 'Pendiente de Definir'}</span>
+          <span class="meta-value">${(typeof brand.purpose === 'string' && brand.purpose.length > 0 && brand.purpose.length < 200) ? brand.purpose : 'Pendiente de Definir'}</span>
         </div>
         <div class="brand-meta-item">
           <span class="meta-label">Modelo de Negocio</span>
-          <span class="meta-value">${brand.business_model || 'Pendiente de Selección'}</span>
+          <span class="meta-value">${(typeof brand.business_model === 'string' && brand.business_model.length > 0 && brand.business_model.length < 120 && !brand.business_model.startsWith('{')) ? brand.business_model : 'Pendiente de Selección'}</span>
         </div>
         <div class="brand-meta-item">
           <span class="meta-label">Disponibilidad de Logo</span>
-          <span class="meta-value">${brand.logo_type || 'Pendiente de Definir'}</span>
+          <span class="meta-value">${(typeof brand.logo_type === 'string' && brand.logo_type.length > 0 && brand.logo_type.length < 200) ? brand.logo_type : 'Pendiente de Definir'}</span>
         </div>
         <div class="brand-meta-item">
           <span class="meta-label">Ruta de Fidelidad</span>
-          <span class="meta-value">${brand.fidelity_mode || 'Pendiente de Selección'}</span>
+          <span class="meta-value">${(typeof brand.fidelity_mode === 'string' && brand.fidelity_mode.length > 0) ? brand.fidelity_mode : 'Pendiente de Selección'}</span>
         </div>
       </div>
     </div>

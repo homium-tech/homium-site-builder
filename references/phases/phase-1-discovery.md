@@ -5,15 +5,15 @@ Lead Brand Strategist & UI Visual Architect. Conduce la entrevista técnica de f
 
 ---
 
-## Flujo Paso a Paso Granular
+## Flujo Etapa a Etapa
 
-### Paso 1.1 — Nombre de la Marca
+### Etapa 1.1 — Nombre de la Marca
 Pregunta el nombre oficial de la marca o proyecto digital. Espera la respuesta del usuario.
 
-### Paso 1.2 — Propósito y Misión
+### Etapa 1.2 — Propósito y Misión
 Pregunta el propósito, misión o propuesta de valor breve del proyecto. Espera la respuesta.
 
-### Paso 1.3 — Modelo de Negocio
+### Etapa 1.3 — Modelo de Negocio
 Presenta las siguientes 5 opciones numeradas + opción personalizada:
 1. **B2C** — Venta directa al consumidor
 2. **B2B** — Venta a empresas / corporativo
@@ -22,7 +22,7 @@ Presenta las siguientes 5 opciones numeradas + opción personalizada:
 5. **Servicios Profesionales / Agencia / Consultoría**
 6. *(Escribir mi propia opción personalizada)*
 
-### Paso 1.4 — Logo de la Marca / Isotipo & Análisis Morfológico
+### Etapa 1.4 — Logo de la Marca / Isotipo & Análisis Morfológico
 Pregunta si el cliente cuenta con un logo existente o desea que se genere/defina uno:
 1. **Tengo un logo existente** (proporcionar archivo, ruta o enlace SVG/PNG).
 2. **Generar un Isotipo SVG / Logo Tipográfico limpio** utilizando las fuentes y colores de la marca.
@@ -36,12 +36,12 @@ Pregunta si el cliente cuenta con un logo existente o desea que se genere/defina
 
 ---
 
-### Paso 1.5 — Referencias Visuales (1.5.a), Pregunta de Nivel de Fidelidad (1.5.b) e Inspección Técnica Forense (1.5.c)
+### Etapa 1.5 — Referencias Visuales (1.5.1), Pregunta de Nivel de Fidelidad (1.5.2) e Inspección Técnica Forense (1.5.3)
 
 > [!IMPORTANT]
-> **SECUENCIA OBLIGATORIA DE SUB-PASOS:** Este paso se ejecuta SIEMPRE en orden estricto **1.5.a ➔ 1.5.b ➔ 1.5.c**, anunciando cada número al usuario. Prohibido saltar u omitir el anuncio del Paso 1.5.b (pregunta de fidelidad). La pregunta de fidelidad es el **Paso 1.5.b**; el Paso 1.5.c es exclusivamente su ejecución posterior.
+> **SECUENCIA OBLIGATORIA DE SUB-ETAPAS:** Esta etapa se ejecuta SIEMPRE en orden estricto **1.5.1 ➔ 1.5.2 ➔ 1.5.3**, anunciando cada número al usuario. Prohibido saltar u omitir el anuncio de la Etapa 1.5.2 (pregunta de fidelidad). La pregunta de fidelidad es la **Etapa 1.5.2**; la Etapa 1.5.3 es exclusivamente su ejecución posterior.
 
-#### 1.5.a — Solicitud de Referencias & Regla de Jerarquía
+#### Etapa 1.5.1 — Solicitud de Referencias & Regla de Jerarquía
 Pregunta si el cliente cuenta con referencias visuales:
 1. **Tengo enlaces/URLs de sitios web de referencia** (proporcionar URLs).
 2. **Tengo imágenes / capturas de pantalla / moodboards** (pegar imágenes en el chat o indicar ruta en el proyecto).
@@ -52,18 +52,18 @@ Pregunta si el cliente cuenta con referencias visuales:
 > - **Referencia Primaria (Estructural & Wireflow):** Define la grilla, anatomía del Hero, Bento y morfología de tarjetas (Dimensiones 1, 2 y 3).
 > - **Referencias Secundarias (Inspiración Visual):** Aportan inspiración para colorimetría, estilo tipográfico o micro-animaciones (Dimensiones 4, 5 y 6).
 
-#### 1.5.b — Pregunta de Nivel de Fidelidad (Mostrar al Usuario como "Paso 1.5.b")
-Una vez que el usuario proporciona sus referencias (o si indica que cuenta con ellas), el asistente presenta esta pregunta **ANTES de ejecutar cualquier inspección técnica o extracción de datos**. Anúnciala explícitamente como *"Paso 1.5.b de 3"*:
+#### Etapa 1.5.2 — Pregunta de Nivel de Fidelidad (Mostrar al Usuario como "Etapa 1.5.2")
+Una vez que el usuario proporciona sus referencias (o si indica que cuenta con ellas), el asistente presenta esta pregunta **ANTES de ejecutar cualquier inspección técnica o extracción de datos**. Anúnciala explícitamente como *"Etapa 1.5.2 de 3"*:
 
 > *"¿Qué nivel de fidelidad deseas aplicar respecto a la(s) referencia(s) proporcionada(s)?"*
 > 1. `Fidelidad Arquitectónica Total` **Replicación Fiel de Estructura y Estética (Recomendado — Modo Fast-Track)**: Bloqueo inmutable del 100% de la arquitectura visual extraída (paleta real medida, tipografía real, grilla espacial, secuencia de secciones 1 a N y signature asset sin plantillas genéricas).
 > 2. `[Inspiración Conceptual / Vibe]`: Extrae atmósfera y tono tipográfico pero avanza por el flujo tradicional de preguntas.
 > 3. `[Personalizada / Quirúrgica]`: El usuario especifica cuáles de las 6 dimensiones calcar y cuáles personalizar.
 
-*(Nota: Si en el Paso 1.5.a el usuario eligió "Sin referencias específicas", se omite la inspección técnica y se avanza directamente a la Ruta B).*
+*(Nota: Si en la Etapa 1.5.1 el usuario eligió "Sin referencias específicas", se omite la inspección técnica y se avanza directamente a la Ruta B).*
 
-#### 1.5.c — Ejecución de la Inspección Técnica Forense Respectiva
-**LA INSPECCIÓN TÉCNICA SE REALIZA EXCLUSIVAMENTE DESPUÉS DE QUE EL USUARIO ESCOGE SU OPCIÓN EN EL PASO 1.5.b.**
+#### Etapa 1.5.3 — Ejecución de la Inspección Técnica Forense Respectiva
+**LA INSPECCIÓN TÉCNICA SE REALIZA EXCLUSIVAMENTE DESPUÉS DE QUE EL USUARIO ESCOGE SU OPCIÓN EN LA ETAPA 1.5.2.**
 Cuando el usuario responde y escoge su opción, el asistente ejecuta de inmediato el análisis forense respectivo adaptado a dicha elección:
 
 ##### Caso 1: El usuario escogió `Fidelidad Arquitectónica Total` (Ruta A — Fast-Track)
@@ -135,7 +135,7 @@ El asistente ejecuta la inspección técnica forense únicamente sobre las dimen
 
 ### Si el usuario seleccionó `Fidelidad Arquitectónica Total` (Ruta A — Fast-Track):
 
-#### Paso A — Presentación de la Ficha Técnica Forense con Evidencia (Compuerta de Paleta)
+#### Etapa A — Presentación de la Ficha Técnica Forense con Evidencia (Compuerta de Paleta)
 El asistente presenta la **Ficha Técnica Forense Completa Consolidada** usando los datos REALES del JSON del extractor (sin reinterpretación libre):
 
 > [!CRITICAL_RULE]
@@ -167,7 +167,7 @@ La primera pregunta de cierre es SOLO sobre la confirmación del blueprint (NO m
 > **COBERTURA COMPLETA DE `allowed_hexes` — INCLUIR COLORES POR SECCIÓN (NON-BYPASSABLE):** Al componer `palette.allowed_hexes`, no basta con los candidatos semánticos globales (`semantic_candidates`) y `component_dna`. Recorrer TAMBIÉN `structural_blueprint.section_sequence[]` y agregar a la allowlist cualquier hex distinto presente en `card_bg_hex`, `card_border` (color resuelto), y `cards_detail[].box_shadow` (color resuelto) de cada sección — normalizando `rgba(...)` a hex antes de comparar. Una sección puede tener tokens de card legítimamente distintos al resto del sitio (ver regla `(c.1)` de Fase 5); si esos colores no entran a la allowlist aquí, `verify_fidelity.cjs` los rechazará como "ilegales" en la Fase 5 pese a ser valores reales medidos por el extractor — no inventados.
 - **Si el usuario pide un ajuste:** registrar el nuevo valor aprobado verbalmente, actualizarlo en la tabla y volver a pedir confirmación explícita antes de bloquear.
 
-#### Paso B — Persistencia y Salto a Fase 4 (Solo tras confirmar el Blueprint)
+#### Etapa B — Persistencia y Salto a Fase 4 (Solo tras confirmar el Blueprint)
 
 Guarda inmediatamente el estado completo en `design-system-state.json` (incluyendo `brand`, `visual_dna` con `fidelity_mode: "TOTAL_ARCHITECTURAL_FIDELITY"` y `reference_screenshots` tomadas de `screenshots` del extractor, `structural_blueprint`, `palette` con `allowed_hexes`, `typography` y `personality`).
 
@@ -183,7 +183,7 @@ Guarda inmediatamente el estado completo en `design-system-state.json` (incluyen
 >
 > Si el extractor devuelve `self_hosted_fonts: [{ "family": "Silka", ... }]`, el campo `font_display` del state.json debe ser `"Silka, sans-serif"`. La aproximación GF solo aplica en el CSS del prototipo, nunca en el state.json.
 
-**Salto Directo a Fase 4:** **Se omiten automáticamente las Fases 2 y 3** (evitando cualquier contaminación de tokens) y se avanza directamente a la **Fase 4 (VALIDACIÓN VISUAL — Paso 4.1: Spec MD ➔ Paso 4.2: Styleguide HTML)**.
+**Salto Directo a Fase 4:** **Se omiten automáticamente las Fases 2 y 3** (evitando cualquier contaminación de tokens) y se avanza directamente a la **Fase 4 (VALIDACIÓN VISUAL — Etapa 4.1: Spec MD ➔ Etapa 4.2: Styleguide HTML)**.
 
 ---
 

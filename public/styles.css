@@ -452,6 +452,34 @@ html, body {
   margin-bottom: 0;
 }
 
+/* Headings dentro de mensajes del agente — jerarquía visual de componentes */
+.agent-message .message-body h4 {
+  color: var(--homium-cyan);
+  font-size: var(--text-base);
+  font-weight: 700;
+  border-left: 2px solid var(--homium-cyan);
+  padding-left: 0.6rem;
+  margin: 1.1rem 0 0.3rem;
+  letter-spacing: 0.01em;
+}
+.agent-message .message-body h4:first-child {
+  margin-top: 0.1rem;
+}
+.agent-message .message-body h3 {
+  color: rgba(255, 255, 255, 0.95);
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin: 1.25rem 0 0.5rem;
+  padding-bottom: 0.3rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+.agent-message .message-body h2 {
+  color: #ffffff;
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin: 1.4rem 0 0.6rem;
+}
+
 .typing-cursor {
   display: inline-block;
   width: 7px;

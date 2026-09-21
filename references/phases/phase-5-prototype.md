@@ -18,13 +18,13 @@ prototype/
 
 ---
 
-## Pipeline Secuencial de Construcción en 4 Etapas
+## Pipeline Secuencial de Construcción en 5 Etapas
 
 ```
-[Etapa 5.0: Carga de Artesanía] ──► [Etapa 5.1: Arquitectura Multi-Página] ──► [Etapa 5.2: Dirección de Arte & Blueprint] ──► [Etapa 5.3: Mobile & Craft] ──► [Etapa 5.4: Auditoría WCAG & Anti-Genéricos] ──► [Compuerta de Aprobación]
+[Etapa 5.1: Carga de Artesanía] ──► [Etapa 5.2: Arquitectura Multi-Página] ──► [Etapa 5.3: Dirección de Arte & Blueprint] ──► [Etapa 5.4: Mobile & Craft] ──► [Etapa 5.5: Auditoría WCAG & Anti-Genéricos] ──► [Compuerta de Aprobación]
 ```
 
-### Etapa 5.0 — Carga de Directivas de Artesanía & Anti-Genéricos (`frontend-design.md`)
+### Etapa 5.1 — Carga de Directivas de Artesanía & Anti-Genéricos (`frontend-design.md`)
 Antes de iniciar la codificación, consulta [`references/frontend-design.md`](references/frontend-design.md) mediante `view_file`.
 
 > [!CRITICAL_RULE]
@@ -39,7 +39,7 @@ Antes de iniciar la codificación, consulta [`references/frontend-design.md`](re
 
 ---
 
-### Etapa 5.1 — Cimientos & Estructura Multi-Página
+### Etapa 5.2 — Cimientos & Estructura Multi-Página
 - Crea la carpeta `prototype/` con `index.html`, `[page2].html`, `[page3].html`, `styles.css` y `main.js`.
 - Inyecta los tokens globales (colores, escala modular, elevación con Surface Tint en Dark Mode, `--density-multiplier` y radios) desde `design-system-state.json` en `:root` de `styles.css`.
 - Estructura Navbar y Footer consistentes con enlaces relativos (`href="index.html"`, `href="about.html"`, `href="contact.html"`) y clase `.active`.
@@ -57,7 +57,7 @@ Antes de iniciar la codificación, consulta [`references/frontend-design.md`](re
 
 ---
 
-### Etapa 5.2 — Dirección de Arte & Síntesis Dinámica Guiada por Blueprint (CERO PLANTILLAS FIJAS)
+### Etapa 5.3 — Dirección de Arte & Síntesis Dinámica Guiada por Blueprint (CERO PLANTILLAS FIJAS)
 
 > [!CRITICAL_RULE]
 > **PROHIBICIÓN ESTRICTA DE PLANTILLAS Y CLICHÉS GENÉRICOS:** 
@@ -301,7 +301,7 @@ Antes de iniciar la codificación, consulta [`references/frontend-design.md`](re
 
 ---
 
-### Etapa 5.3 — Maquetación Mobile-First, Micro-interacciones & Craft
+### Etapa 5.4 — Maquetación Mobile-First, Micro-interacciones & Craft
 - **Navegación Móvil:** Menú hamburguesa accesible con Drawer lateral en `main.js` (`@media (max-width: 1023px)`).
 - **Tipografía Fluida:** `clamp()` en todos los títulos de sección.
 - **Touch Targets:** Áreas táctiles mínimas de 48×48px y safe-areas (`env(safe-area-inset-bottom)`).
@@ -310,7 +310,7 @@ Antes de iniciar la codificación, consulta [`references/frontend-design.md`](re
 
 ---
 
-### Etapa 5.4 — Compuerta Mecánica de Fidelidad + Auditoría Complementaria
+### Etapa 5.5 — Compuerta Mecánica de Fidelidad + Auditoría Complementaria
 
 > [!CRITICAL_RULE]
 > **VERIFICACIÓN MECÁNICA OBLIGATORIA (NON-BYPASSABLE):**
@@ -362,8 +362,8 @@ Presenta el prototipo al usuario junto con el reporte JSON final de `verify_fide
 
 Si el usuario NO aprueba el prototipo o reporta problemas de fidelidad:
 
-1. **"El blueprint es correcto, pero el prototipo no lo ejecutó bien"** → **regenerar solo la Etapa 5** desde cero, releyendo `design-system-state.json`. NO re-ejecutar Fase 1.
+1. **"El blueprint es correcto, pero el prototipo no lo ejecutó bien"** → **regenerar toda la Fase 5** desde cero, releyendo `design-system-state.json`. NO re-ejecutar Fase 1.
 2. **"El blueprint tiene datos incorrectos o incompletos"** → **re-ejecutar Fase 1** (`extract_reference_dna.cjs`) para regenerar el estado, luego repetir la Etapa 5.
 3. **"No estoy seguro"** → tratar como caso 2.
 
-En cualquier caso, antes de re-presentar la Compuerta, ejecutar de nuevo la Verificación Mecánica (Etapa 5.4).
+En cualquier caso, antes de re-presentar la Compuerta, ejecutar de nuevo la Verificación Mecánica (Etapa 5.5).
