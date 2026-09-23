@@ -123,6 +123,15 @@ const allowedOrigins = new Set([
   `http://[::1]:${PORT}`
 ]);
 
+// Orígenes públicos adicionales (ej. dominios/proxies detrás de los que se expone la app)
+// ALLOWED_ORIGINS admite una lista separada por comas, ej: "http://apps.homium.tech:8080,https://apps.homium.tech"
+if (process.env.ALLOWED_ORIGINS) {
+  process.env.ALLOWED_ORIGINS.split(',')
+    .map(o => o.trim())
+    .filter(Boolean)
+    .forEach(o => allowedOrigins.add(o));
+}
+
 // CORS restringido: únicamente permite localhost, 127.0.0.1 o peticiones same-origin (sin encabezado Origin)
 app.use(cors({
   origin: (origin, callback) => {
