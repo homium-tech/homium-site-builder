@@ -331,10 +331,14 @@ function escapeHtml(str) {
 }
 
 // Aislamiento CSP Sandbox para todas las vistas previas de entregables
+// allow-scripts + allow-same-origin combinados permiten que el contenido sandboxeado
+// se libere del sandbox (via window.frameElement, al ser mismo origen que el padre).
+// Los prototipos/showcase generados son HTML/CSS/JS autocontenidos que no usan
+// fetch/localStorage/cookies, así que se puede omitir allow-same-origin sin romperlos.
 app.use('/preview', (req, res, next) => {
   res.setHeader(
     'Content-Security-Policy',
-    "default-src 'self' 'unsafe-inline' data:; frame-ancestors 'self'; sandbox allow-scripts allow-forms allow-same-origin;"
+    "default-src 'self' 'unsafe-inline' data:; frame-ancestors 'self'; sandbox allow-scripts allow-forms;"
   );
   next();
 });

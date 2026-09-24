@@ -2,7 +2,28 @@
 // HOMIUM SITE BUILDER — CLIENT LOGIC
 // =============================================================
 
-let sessionId = localStorage.getItem('homium_site_builder_session_id') || crypto.randomUUID();
+// crypto.randomUUID() only exists in secure contexts (HTTPS/localhost); this app is
+// also served over plain HTTP on LAN hostnames, so fall back to getRandomValues (which
+// has no such restriction) and finally to Math.random if crypto is unavailable at all.
+function generateUUID() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
+    const bytes = crypto.getRandomValues(new Uint8Array(16));
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    const hex = [...bytes].map((b) => b.toString(16).padStart(2, '0')).join('');
+    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
+let sessionId = localStorage.getItem('homium_site_builder_session_id') || generateUUID();
 localStorage.setItem('homium_site_builder_session_id', sessionId);
 
 const chatMessages = document.getElementById('chatMessages');
@@ -249,7 +270,7 @@ if (btnConfirmReset) {
       body: JSON.stringify({ sessionId })
     });
     const data = await res.json();
-    sessionId = crypto.randomUUID();
+    sessionId = generateUUID();
     localStorage.setItem('homium_site_builder_session_id', sessionId);
 
     chatMessages.innerHTML = `
