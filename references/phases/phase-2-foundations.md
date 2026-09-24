@@ -79,6 +79,8 @@ El Tono HCT y los neutrales se incluyen como filas adicionales en la misma tabla
 - *(Modo INSPIRATION)*: Presenta como Opción 1 la Google Font análoga exacta medida en `visual_dna.inspiration_seeds.typography_candidates`.
 - Sugiere 4 alternativas de alta personalidad (evitando clichés como `Inter` o `Roboto`) + opción escrita.
 
+> **Recordatorio de Adjuntos:** Si la marca ya tiene su propia fuente (archivo TTF, OTF, WOFF o WOFF2), recuérdale al cliente que puede adjuntarla con el botón de adjuntar del chat en vez de elegir una de las Google Fonts sugeridas.
+
 ### Etapa 2.2.2 (Condicional) — Tipografía de Acento Serif Italic
 
 > [!IMPORTANT]
@@ -95,6 +97,8 @@ Si la referencia o el usuario desea cursiva editorial de acento, propone:
 
 ### Etapa 2.2.3 — Tipografía de UI (Cuerpo / Controles)
 Sugiere 5 Google Fonts nítidas para UI (*Manrope*, *DM Sans*, *Instrument Sans*, *Figtree*, *Public Sans*) + opción escrita.
+
+> **Recordatorio de Adjuntos:** Misma opción que en la Etapa 2.2.1 — si la marca tiene una fuente de UI propia, puede adjuntarla (TTF, OTF, WOFF, WOFF2) en vez de elegir una sugerida.
 
 ### Etapa 2.2.4 — Iconografía
 Presenta las siguientes opciones alineando el peso de trazo al estilo del diseño:

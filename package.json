@@ -15,9 +15,11 @@
     "test": "node test/agent-engine.test.js && node test/deliverable-store.test.js && node test/multi-engine.test.js && node test/workspace.test.js && node test/pipeline.test.js"
   },
   "dependencies": {
+    "archiver": "^7.0.1",
     "cors": "^2.8.5",
     "express": "^4.21.2",
-    "express-session": "^1.19.0"
+    "express-session": "^1.19.0",
+    "multer": "^2.4.0"
   },
   "devDependencies": {
     "@playwright/test": "^1.62.1"

@@ -4,6 +4,8 @@ const session = require('express-session');
 const crypto = require('crypto');
 const path = require('path');
 const fs = require('fs');
+const multer = require('multer');
+const archiver = require('archiver');
 const { AgentEngine } = require('./lib/agent-engine');
 const DeliverableStore = require('./lib/deliverable-store');
 const Workspace = require('./lib/workspace');
@@ -488,9 +490,80 @@ app.get('/api/workspace/files', (req, res) => {
   res.json(workspace.listFiles());
 });
 
-app.post('/api/workspace/open', async (req, res) => {
-  await workspace.openInOS();
-  res.json({ ok: true, workspaceDir: workspace.getDir() });
+function requireActiveProject(req, res, next) {
+  if (!workspace.hasProject()) {
+    return res.status(409).json({ error: 'Definí primero el nombre de tu marca o proyecto para poder continuar.' });
+  }
+  next();
+}
+
+// Descarga el proyecto activo completo como .zip — reemplaza el intento anterior de abrir
+// el explorador de archivos nativo, que abría una ventana en el propio servidor y nunca
+// era visible para quien accede a la app por túnel remoto.
+app.get('/api/workspace/download', requireActiveProject, (req, res) => {
+  const projectName = workspace.getProjectName();
+  res.attachment(`${projectName}.zip`);
+
+  const archive = archiver('zip', { zlib: { level: 9 } });
+  archive.on('error', (err) => {
+    if (!res.headersSent) {
+      res.status(500).json({ error: err.message });
+    } else {
+      res.end();
+    }
+  });
+
+  archive.pipe(res);
+  archive.directory(workspace.getDir(), false);
+  archive.finalize();
+});
+
+const ALLOWED_UPLOAD_EXTENSIONS = new Set([
+  '.pdf', '.txt', '.md', '.docx',
+  '.ttf', '.otf', '.woff', '.woff2',
+  '.csv', '.json', '.xlsx'
+]);
+
+const uploadStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadsDir = path.join(workspace.getDir(), 'uploads');
+    fs.mkdirSync(uploadsDir, { recursive: true });
+    cb(null, uploadsDir);
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    const base = path.basename(file.originalname, ext)
+      .replace(/[^a-zA-Z0-9_-]+/g, '-')
+      .slice(0, 80) || 'archivo';
+    const uniqueSuffix = crypto.randomBytes(3).toString('hex');
+    cb(null, `${base}-${uniqueSuffix}${ext}`);
+  }
+});
+
+const upload = multer({
+  storage: uploadStorage,
+  limits: { fileSize: 15 * 1024 * 1024, files: 6 },
+  fileFilter: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (!ALLOWED_UPLOAD_EXTENSIONS.has(ext)) {
+      return cb(new Error(`Tipo de archivo no permitido: ${ext || '(sin extensión)'}`));
+    }
+    cb(null, true);
+  }
+});
+
+// Adjuntos de referencia (fuentes, documentos de marca, hojas de datos) para que el motor
+// de IA los lea desde uploads/ dentro del workspace activo.
+app.post('/api/upload', requireActiveProject, upload.array('files', 6), (req, res) => {
+  const files = (req.files || []).map((f) => ({ name: f.filename, size: f.size }));
+  res.json({ ok: true, files });
+});
+
+app.use('/api/upload', (err, req, res, next) => {
+  if (err instanceof multer.MulterError || err) {
+    return res.status(400).json({ error: err.message });
+  }
+  next();
 });
 
 // 7. Resetear sesión y pruebas

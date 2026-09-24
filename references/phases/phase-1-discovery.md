@@ -28,6 +28,8 @@ Pregunta si el cliente cuenta con un logo existente o desea que se genere/defina
 2. **Generar un Isotipo SVG / Logo Tipográfico limpio** utilizando las fuentes y colores de la marca.
 3. *(Escribir opción personalizada)*
 
+> **Recordatorio de Adjuntos:** Si el cliente cuenta con un manual de marca o guía de identidad existente en PDF o DOCX, recuérdale que puede adjuntarlo con el botón de adjuntar del chat para incorporarlo al análisis.
+
 > **Deducción Morfológica Automática del Logo (Bajo el Capó):**
 > Al recibir o generar el logo, el asistente analiza internamente su geometría sin requerir preguntas extra:
 > - **Geometría Rectilínea / Ángulos Duros / Serif:** Sesga automáticamente los radios a `2px–4px` y bordes técnicos (estética corporativa/precisa).
@@ -47,6 +49,8 @@ Pregunta si el cliente cuenta con referencias visuales:
 2. **Tengo imágenes / capturas de pantalla / moodboards** (pegar imágenes en el chat o indicar ruta en el proyecto).
 3. **Sin referencias específicas** (diseño original basado en el tipo de negocio utilizando fotografía temática profesional de Unsplash/Pexels).
 4. *(Escribir referencias personalizadas)*
+
+> **Recordatorio de Adjuntos:** Además de URLs o imágenes, el cliente puede adjuntar documentos de marca o datos estructurados (PDF, DOCX, CSV, JSON, XLSX) con el botón de adjuntar del chat.
 
 > **Regla de Referencia Primaria vs Secundaria (Prevención de Alucinaciones):** Si el usuario proporciona múltiples URLs o imágenes, el asistente NO debe mezclarlas caóticamente. Debe designar:
 > - **Referencia Primaria (Estructural & Wireflow):** Define la grilla, anatomía del Hero, Bento y morfología de tarjetas (Dimensiones 1, 2 y 3).

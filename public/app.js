@@ -39,6 +39,10 @@ const blueprintView = document.getElementById('blueprintView');
 const consoleOutput = document.getElementById('consoleOutput');
 const btnRefreshPreview = document.getElementById('btnRefreshPreview');
 const btnExternalPreview = document.getElementById('btnExternalPreview');
+const btnAttach = document.getElementById('btnAttach');
+const fileAttachInput = document.getElementById('fileAttachInput');
+const attachmentsTray = document.getElementById('attachmentsTray');
+let pendingAttachments = [];
 
 // Workspace Chip y Telemetría Elements
 const workspaceChip = document.getElementById('workspaceChip');
@@ -429,8 +433,20 @@ function appendLog(line, type = 'info') {
 if (chatForm) {
   chatForm.addEventListener('submit', async (e) => {
   e.preventDefault();
-  const message = userInput.value.trim();
-  if (!message) return;
+  const typedMessage = userInput.value.trim();
+  if (!typedMessage && pendingAttachments.length === 0) return;
+
+  const message = typedMessage || 'He adjuntado archivos de referencia para el proyecto.';
+
+  // Si hay adjuntos pendientes de enviar, se le avisa al motor en el propio mensaje del
+  // turno (única forma de que lo vea, ya que solo el primer turno recibe el prompt completo)
+  let outgoingMessage = message;
+  if (pendingAttachments.length > 0) {
+    const fileNames = pendingAttachments.map((f) => f.name).join(', ');
+    outgoingMessage += `\n\n[Archivos adjuntos en uploads/: ${fileNames}]`;
+  }
+  pendingAttachments = [];
+  renderAttachmentsTray();
 
   // Inspeccionar respuesta del usuario para enriquecer reactivamente el Blueprint en vivo
   inspectUserMessageForState(message);
@@ -487,7 +503,7 @@ if (chatForm) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        message,
+        message: outgoingMessage,
         sessionId,
         engine: engineSelect.value
       })
@@ -1876,14 +1892,20 @@ async function loadWorkspaceInfo() {
           workspaceChip.title = `Carpeta de trabajo: ${data.workspaceDir}\n(Clic para copiar ruta completa)`;
         }
       }
+      if (btnAttach) {
+        btnAttach.disabled = !data.hasProject;
+        btnAttach.title = data.hasProject
+          ? 'Adjuntar archivo'
+          : 'Definí primero el nombre de tu marca o proyecto para poder adjuntar archivos';
+      }
     }
   } catch (err) {}
 }
 
 if (workspaceChip) {
   workspaceChip.addEventListener('click', async (e) => {
-    // Si el clic fue en el botón de abrir carpeta, dejar que actúe su propio listener
-    if (e.target.closest('#btnOpenWorkspace')) return;
+    // Si el clic fue en el botón de descargar el proyecto, dejar que actúe su propio listener
+    if (e.target.closest('#btnDownloadWorkspace')) return;
 
     if (activeWorkspaceDir) {
       try {
@@ -1901,19 +1923,76 @@ if (workspaceChip) {
   });
 }
 
-const btnOpenWorkspace = document.getElementById('btnOpenWorkspace');
-if (btnOpenWorkspace) {
-  btnOpenWorkspace.addEventListener('click', async (e) => {
+const btnDownloadWorkspace = document.getElementById('btnDownloadWorkspace');
+if (btnDownloadWorkspace) {
+  btnDownloadWorkspace.addEventListener('click', (e) => {
     e.stopPropagation();
+    window.location.href = '/api/workspace/download';
+    appendLog(`[Workspace] Descargando proyecto: ${activeWorkspaceDir}`, 'info');
+  });
+}
+
+// =============================================================
+// 8b. ADJUNTOS DE REFERENCIA (fuentes, documentos, hojas de datos)
+// =============================================================
+
+function appendSystemEvent(text) {
+  const div = document.createElement('div');
+  div.className = 'message system-event';
+  div.innerHTML = `<span>[ ${text} ]</span>`;
+  chatMessages.appendChild(div);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+function renderAttachmentsTray() {
+  if (!attachmentsTray) return;
+  if (pendingAttachments.length === 0) {
+    attachmentsTray.hidden = true;
+    attachmentsTray.innerHTML = '';
+    return;
+  }
+  attachmentsTray.hidden = false;
+  attachmentsTray.innerHTML = pendingAttachments.map((file, index) => `
+    <span class="attachment-chip">
+      ${file.name}
+      <button type="button" class="attachment-chip-remove" data-index="${index}" title="Quitar adjunto" aria-label="Quitar adjunto">&times;</button>
+    </span>
+  `).join('');
+}
+
+if (attachmentsTray) {
+  attachmentsTray.addEventListener('click', (e) => {
+    const btn = e.target.closest('.attachment-chip-remove');
+    if (!btn) return;
+    const index = Number(btn.getAttribute('data-index'));
+    pendingAttachments.splice(index, 1);
+    renderAttachmentsTray();
+  });
+}
+
+if (btnAttach && fileAttachInput) {
+  btnAttach.addEventListener('click', () => fileAttachInput.click());
+
+  fileAttachInput.addEventListener('change', async () => {
+    const selected = Array.from(fileAttachInput.files || []);
+    fileAttachInput.value = '';
+    if (selected.length === 0) return;
+
+    const formData = new FormData();
+    selected.forEach((file) => formData.append('files', file));
+
     try {
-      const res = await fetch('/api/workspace/open', { method: 'POST' });
-      if (res.ok) {
-        appendLog(`[Workspace] Carpeta abierta en tu explorador de archivos: ${activeWorkspaceDir}`, 'info');
-      } else {
-        appendLog(`[Workspace] Ruta en disco: ${activeWorkspaceDir}`, 'warn');
+      const res = await fetch('/api/upload', { method: 'POST', body: formData });
+      const data = await res.json();
+      if (!res.ok) {
+        appendSystemEvent(data.error || 'No se pudo adjuntar el archivo.');
+        return;
       }
+      pendingAttachments.push(...data.files);
+      renderAttachmentsTray();
+      appendLog(`[Adjuntos] ${data.files.map(f => f.name).join(', ')}`, 'info');
     } catch (err) {
-      appendLog(`[Workspace] Ruta: ${activeWorkspaceDir}`);
+      appendSystemEvent('No se pudo adjuntar el archivo. Verificá tu conexión.');
     }
   });
 }
