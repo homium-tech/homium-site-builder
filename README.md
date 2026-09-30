@@ -11,7 +11,7 @@ Sistema autónomo de construcción web y diseño de interfaces impulsado por IA,
   - **Claude Code CLI** (`claude -p [prompt]`)
   - **Antigravity CLI** (`agy`)
   - **OpenAI Codex CLI** (`codex exec [prompt]`)
-  - **OpenCode CLI** (`opencode run --auto [prompt]`)
+  - **OpenCode CLI** (`opencode run [prompt]`)
   - **llama.cpp Server** (`http://127.0.0.1:8080/v1/chat/completions` con SSE streaming)
   - **Ollama Server** (`http://127.0.0.1:11434/api/chat` con JSON streaming)
   - **Simulador Mock:** Pruebas interactivas en memoria sin consumo de cuotas ni conexión.

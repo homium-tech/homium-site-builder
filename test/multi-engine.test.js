@@ -114,11 +114,15 @@ async function runSuite() {
     assert.deepStrictEqual(cmd.args, ['exec', 'Test codex prompt']);
   });
 
-  it('OpenCodeAdapter should generate proper opencode run --auto command', () => {
+  it('OpenCodeAdapter should generate proper opencode run command for first and subsequent turns', () => {
     const adapter = new OpenCodeAdapter();
-    const cmd = adapter.buildCommandAndArgs({ prompt: 'Test opencode prompt' });
-    assert.strictEqual(cmd.command, 'opencode');
-    assert.deepStrictEqual(cmd.args, ['run', '--auto', '--format', 'json', 'Test opencode prompt']);
+    const first = adapter.buildCommandAndArgs({ userMessage: 'Test opencode prompt', isFirstTurn: true });
+    assert.strictEqual(first.command, 'opencode');
+    assert.deepStrictEqual(first.args, ['run', '--format', 'json', '--dangerously-skip-permissions', 'Test opencode prompt']);
+
+    // Turnos siguientes continúan la sesión previa con -c
+    const next = adapter.buildCommandAndArgs({ userMessage: 'Otro mensaje', isFirstTurn: false });
+    assert.deepStrictEqual(next.args, ['run', '-c', '--format', 'json', '--dangerously-skip-permissions', 'Otro mensaje']);
   });
 
   it('LlamaCppAdapter should configure HTTP URL and parameters', () => {

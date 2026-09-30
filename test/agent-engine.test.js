@@ -134,8 +134,8 @@ async function runSuite() {
     assert.strictEqual(config.command, 'claude');
     assert(config.args.includes('-p'));
     assert(config.args.includes('Hola Claude'));
-    assert(config.args.includes('--session-id'));
-    assert(config.args.includes('sess-abc-123'));
+    // --session-id se eliminó a propósito (conflicto de lock entre turnos): no debe volver a aparecer
+    assert(!config.args.includes('--session-id'));
     assert(config.args.includes('--dangerously-skip-permissions'));
   });
 
