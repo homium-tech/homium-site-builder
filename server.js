@@ -223,6 +223,11 @@ app.use('/api', requireSameOrigin);
 // 1. Archivos estáticos de la UI de Homium Site Builder
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Heurística de mensajes compartida con el navegador (misma fuente que usa Workspace.extractProjectName)
+app.get('/message-heuristics.js', (req, res) => {
+  res.sendFile(path.join(__dirname, 'core', 'text', 'message-heuristics.js'));
+});
+
 // Función unificada para estandarizar las pantallas de espera con el diseño auténtico Homium
 function renderWaitingPage({ phase, title, highlight, description, statusText }) {
   return `
@@ -654,12 +659,13 @@ app.post('/api/chat', (req, res) => {
     const stream = agentEngine.executeTurn({
       sessionId,
       message,
-      engine: engineType || 'claude'
+      engine: engineType || 'claude',
+      pendingStep: workspace.getPendingStep()
     });
 
     stream.pipeToSSE(res, {
       transformDone: (doneData, fullText) => {
-        const action = pipeline.detectAction(fullText);
+        const action = pipeline.detectAction(fullText, { userMessage: message });
         if (workspace.hasProject()) {
           workspace.addChatMessage({
             role: 'assistant',

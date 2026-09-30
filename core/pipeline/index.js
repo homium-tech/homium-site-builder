@@ -6,6 +6,8 @@
  * eliminando la fuga de expresiones regulares crudas y lógica de dominio hacia el cliente.
  */
 
+const MessageHeuristics = require('../text/message-heuristics');
+
 const CANONICAL_PHASES = [
   {
     id: 1,
@@ -221,6 +223,41 @@ function sanitizeStep(step) {
   };
 }
 
+/**
+ * Tramo vigente de una respuesta: lo que sigue al último separador horizontal (---).
+ * Por formato canónico, el feedback de cierre y cualquier explicación ajena van antes del separador.
+ */
+function scopeToCurrentStep(agentText) {
+  const parts = agentText.split(/^\s*-{3,}\s*$/m);
+  const tail = parts[parts.length - 1];
+  return tail.trim() ? tail : agentText;
+}
+
+/**
+ * Evalúa un texto contra los patrones de pasos y compuertas (sin contexto de turno).
+ */
+function detectStepAction(agentText) {
+  // Eliminar filas de tablas markdown (e.g. | Parámetro | Valor |) para no provocar falsos positivos
+  // al resumir selecciones de pasos previos
+  const nonTableText = agentText.replace(/^\s*\|.*\|.*$/gm, '');
+
+  // 1. Primero evaluamos contra el texto limpio sin tablas (prioridad para preguntas activas y transiciones)
+  for (const step of STEP_ACTIONS) {
+    if (step.triggerPattern && step.triggerPattern.test(nonTableText)) {
+      return sanitizeStep(step);
+    }
+  }
+
+  // 2. Fallback al texto completo si no hubo match en el texto sin tablas
+  for (const step of STEP_ACTIONS) {
+    if (step.triggerPattern && step.triggerPattern.test(agentText)) {
+      return sanitizeStep(step);
+    }
+  }
+
+  return null;
+}
+
 class Pipeline {
   constructor({ enableExpansion = false } = {}) {
     this.enableExpansion = enableExpansion;
@@ -289,28 +326,19 @@ class Pipeline {
    * @param {string} agentText
    * @returns {Object|null}
    */
-  detectAction(agentText) {
+  detectAction(agentText, { userMessage = '' } = {}) {
     if (!agentText || typeof agentText !== 'string') return null;
 
-    // Eliminar filas de tablas markdown (e.g. | Parámetro | Valor |) para no provocar falsos positivos
-    // al resumir selecciones de pasos previos
-    const nonTableText = agentText.replace(/^\s*\|.*\|.*$/gm, '');
-
-    // 1. Primero evaluamos contra el texto limpio sin tablas (prioridad para preguntas activas y transiciones)
-    for (const step of STEP_ACTIONS) {
-      if (step.triggerPattern && step.triggerPattern.test(nonTableText)) {
-        return sanitizeStep(step);
-      }
+    // Turno desviado (pregunta, pedido o charla del usuario): la respuesta suele traer una explicación ajena
+    // que nombra términos del flujo (fast-track, isotipo, prototipo...). Solo cuenta el tramo final, tras el
+    // último separador, y únicamente si es un paso del flujo (título de Etapa/Fase) que repite la pregunta pendiente.
+    if (userMessage && MessageHeuristics.isRequestOrQuestion(userMessage)) {
+      const currentStep = scopeToCurrentStep(agentText);
+      if (!MessageHeuristics.isFlowMessage(currentStep)) return null;
+      return detectStepAction(currentStep);
     }
 
-    // 2. Fallback al texto completo si no hubo match en el texto sin tablas
-    for (const step of STEP_ACTIONS) {
-      if (step.triggerPattern && step.triggerPattern.test(agentText)) {
-        return sanitizeStep(step);
-      }
-    }
-
-    return null;
+    return detectStepAction(agentText);
   }
 
   /**
@@ -341,20 +369,8 @@ class PhaseRegistry extends Pipeline {}
  * Adaptador de retrocompatibilidad para PhaseDescriptors
  */
 class PhaseDescriptors {
-  static detectAction(agentText) {
-    if (!agentText || typeof agentText !== 'string') return null;
-    const nonTableText = agentText.replace(/^\s*\|.*\|.*$/gm, '');
-    for (const step of STEP_ACTIONS) {
-      if (step.triggerPattern && step.triggerPattern.test(nonTableText)) {
-        return sanitizeStep(step);
-      }
-    }
-    for (const step of STEP_ACTIONS) {
-      if (step.triggerPattern && step.triggerPattern.test(agentText)) {
-        return sanitizeStep(step);
-      }
-    }
-    return null;
+  static detectAction(agentText, options = {}) {
+    return new Pipeline().detectAction(agentText, options);
   }
 
   static getAllSteps() {

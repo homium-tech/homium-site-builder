@@ -201,6 +201,45 @@ it('should retrieve individual gate descriptors via getGate()', () => {
   assert.strictEqual(pipeline.getGate('unknown-gate'), null);
 });
 
+// 3. Turnos desviados: la detección no debe dispararse por explicaciones ajenas
+console.log('\n[3] Detección en turnos desviados:');
+it('should NOT trigger flow actions from an off-topic answer that only mentions flow terms', () => {
+  const pipeline = new Pipeline();
+  const cases = [
+    ['explícame qué es fast-track', 'El fast-track en logística es un carril de despacho prioritario para envíos urgentes.'],
+    ['¿qué es un isotipo?', 'Un isotipo es la parte simbólica de un logo; por ejemplo el de Nike.'],
+    ['dime qué es un prototipo interactivo', 'Un prototipo interactivo de 3 pantallas es común en UX para validar ideas.'],
+    ['dame ideas de negocio', 'Para el tipo de negocio de una pizzería, el modelo de negocio suele ser B2C.']
+  ];
+  for (const [userMessage, reply] of cases) {
+    assert.strictEqual(pipeline.detectAction(reply, { userMessage }), null, `no debe detectar acción para: ${userMessage}`);
+    // Sin contexto de turno el comportamiento histórico se conserva (la detección es por patrón)
+    assert.notStrictEqual(pipeline.detectAction(reply), null, `sin userMessage debe seguir detectando: ${reply.slice(0, 30)}`);
+  }
+});
+
+it('should detect only the restated flow step after a deviation answer, ignoring the explanation before ---', () => {
+  const pipeline = new Pipeline();
+  const reply = 'El fast-track en logística es un carril prioritario.\n\n---\n\n### Fase 1: Discovery y Marca\n\n#### Etapa 1.4: Logo\n\n¿Tienes un logo existente o generamos un isotipo?\n1. Logo existente\n2. Generar isotipo';
+  const action = pipeline.detectAction(reply, { userMessage: 'explícame qué es fast-track' });
+  assert(action !== null);
+  assert.strictEqual(action.stepId, '1.4');
+});
+
+it('should keep detecting normal answers when the user message is not a question or request', () => {
+  const pipeline = new Pipeline();
+  const reply = 'Modelo registrado.\n\n---\n\n#### Etapa 1.4: Logo\n\n¿Dispones de un logo existente o creamos un isotipo SVG?';
+  assert.strictEqual(pipeline.detectAction(reply, { userMessage: '2' }).stepId, '1.4');
+  assert.strictEqual(pipeline.detectAction('¿Dispones de un logo existente o creamos un isotipo SVG?', { userMessage: 'B2B' }).stepId, '1.4');
+});
+
+it('PhaseDescriptors.detectAction should delegate to the same logic', () => {
+  const { PhaseDescriptors } = require('../core/pipeline');
+  const reply = 'Un isotipo es la parte simbólica de un logo.';
+  assert.strictEqual(PhaseDescriptors.detectAction(reply, { userMessage: '¿qué es un isotipo?' }), null);
+  assert.strictEqual(PhaseDescriptors.detectAction('¿Dispones de un logo existente o creamos un isotipo?').stepId, '1.4');
+});
+
 console.log(`\n========================================`);
 console.log(`Summary: ${passedTests}/${totalTests} tests passed.`);
 console.log(`========================================\n`);
