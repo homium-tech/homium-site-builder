@@ -63,28 +63,15 @@ async function runSuite() {
 
   // 2. PhaseDescriptors Pattern Matching Tests
   console.log('\n[2] PhaseDescriptors (Acciones Interactivas y Compuertas):');
-  it('should detect Step 1.3 on business model queries', () => {
-    const prompt = '¿Cuál es el modelo de negocio de tu marca o empresa?';
-    const action = PhaseDescriptors.detectAction(prompt);
-    assert(action !== null, 'Should detect Step 1.3');
-    assert.strictEqual(action.stepId, '1.3');
-    assert.strictEqual(action.type, 'chips');
-    assert.strictEqual(action.options.length, 6, 'Should include 5 presets + 1 custom option');
-  });
-
-  it('should detect Step 1.4 on logo questions', () => {
-    const prompt = '¿Cuentas con un logo existente o deseas generar un isotipo?';
-    const action = PhaseDescriptors.detectAction(prompt);
-    assert(action !== null);
-    assert.strictEqual(action.stepId, '1.4');
-  });
-
-  it('should detect Step 1.5.b on fidelity mode questions', () => {
-    const prompt = 'Paso 1.5.b de 3: ¿Qué nivel de fidelidad deseas aplicar? [Fidelidad Arquitectónica Total] o Inspiración?';
-    const action = PhaseDescriptors.detectAction(prompt);
-    assert(action !== null);
-    assert.strictEqual(action.stepId, '1.5.b');
-    assert.strictEqual(action.type, 'cards');
+  it('should not produce fixed-option actions for interview step questions (options come from the agent text)', () => {
+    const prompts = [
+      '¿Cuál es el modelo de negocio de tu marca o empresa?',
+      '¿Cuentas con un logo existente o deseas generar un isotipo?',
+      'Paso 1.5.b de 3: ¿Qué nivel de fidelidad deseas aplicar? Fidelidad Arquitectónica Total o Inspiración?'
+    ];
+    for (const prompt of prompts) {
+      assert.strictEqual(PhaseDescriptors.detectAction(prompt), null, `no debe haber acción para: ${prompt}`);
+    }
   });
 
   it('should detect Approval Gate 1 on validation sign-off prompts', () => {

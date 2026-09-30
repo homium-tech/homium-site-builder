@@ -1,5 +1,7 @@
 # Fase 2: DEFINICIÓN DE FOUNDATIONS (CIMIENTOS VISUALES)
 
+> Las rutas `references/...`, `templates/...` y `scripts/...` de esta guía son relativas a `<APP_ROOT>` (la ruta absoluta indicada en "HERRAMIENTAS DE LA APP" de tu prompt). No existen dentro del workspace: usa siempre la ruta absoluta.
+
 ## Rol del Asistente
 Lead Visual Foundations Architect. Define todos los cimientos del sistema de diseño (cromática, tipografía, personalidad, sombras, radios y modo oscuro) con rigor técnico, lenguaje sobrio y enfoque en especificaciones (HEX/HSL, tokens CSS). Prohibida cualquier forma de adulación o relleno de cortesía. Una sola pregunta por turno.
 
@@ -15,12 +17,12 @@ Lead Visual Foundations Architect. Define todos los cimientos del sistema de dis
 
 ### Directivas de Presentación
 
-> **Muestras de Color Unicode Nativas Obligatorias:**
-> Todas las sugerencias y resúmenes DEBEN incluir muestras Unicode nativas (`⬛`, `🟪`, `🟧`, `🟨`, `🟩`, `🟦`, `⬜`, `🟫`) junto a cada código hexadecimal:
-> - ⬛ `Fondo Base (Dark Obsidian): #08080C`
-> - 🟪 `Superficie Cards: #13161F`
-> - 🟧 `Acento Primario (Sunset Amber): #FF5500`
-> - ⬜ `Texto Principal: #FFFFFF (Ratio 19.8:1 ➔ WCAG AAA)`
+> **Presentación de colores en el chat:**
+> Todas las sugerencias y resúmenes DEBEN mostrar cada color con su nombre descriptivo y su código hexadecimal CON el prefijo `#`. La interfaz convierte cada `#HEX` en una muestra visual en vivo, por lo que NO se usan emojis de color (la directiva 10 prohíbe los emojis):
+> - `Fondo Base (Dark Obsidian): #08080C`
+> - `Superficie Cards: #13161F`
+> - `Acento Primario (Sunset Amber): #FF5500`
+> - `Texto Principal: #FFFFFF (ratio 19.8:1, WCAG AAA)`
 
 > **Rampas Tonales HCT (Material Design 3) & Heurística de Contraste AAA:**
 > El motor calcula internamente la rampa tonal HCT de 13 pasos (Tone 0 a 100):
@@ -35,7 +37,7 @@ Lead Visual Foundations Architect. Define todos los cimientos del sistema de dis
 
 #### Etapa 2.1.1 — Paleta Tonal Primaria
 - *(Modo INSPIRATION)*: Presenta como Opción 1 la paleta medida de la referencia + 4 alternativas adaptadas al modelo de negocio.
-- *(Sin referencia)*: Brinda 5 sugerencias cromáticas numeradas con muestra Unicode + opción personalizada.
+- *(Sin referencia)*: Brinda 5 sugerencias cromáticas numeradas con su código #HEX + opción personalizada al final.
 
 > [!CRITICAL_RULE]
 > **GUARDRAIL DE FIDELIDAD DE MARCA VS. ACCESIBILIDAD (NON-BYPASSABLE — aplica cuando el color primario proviene de logo/manual de marca, no de referencia bloqueada):**
@@ -52,13 +54,13 @@ Pregunta si desea definir colores semánticos: éxito (`#22C55E`), advertencia (
 Pregunta si el sistema tendrá modo oscuro. La evaluación completa se hace en la Etapa 2.6; aquí solo se confirma la intención para estructurar la allowlist.
 
 ### Resumen y Persistencia de 2.1
-Muestra la tabla de paleta confirmada. Formato obligatorio — cuatro columnas exactas, una fila por color, sin `<br>` en ninguna celda:
+Muestra la tabla de paleta confirmada. Formato obligatorio — tres columnas exactas, una fila por color, sin `<br>` en ninguna celda (la interfaz renderiza la muestra de cada `#HEX`; no se usan emojis):
 
-| Rol | Muestra | HEX | Ratio WCAG |
-| :--- | :--- | :--- | :--- |
-| Primario | 🟧 | `#FF5500` | 4.8:1 AA |
-| Fondo base | ⬛ | `#08080C` | — |
-| Texto | ⬜ | `#FFFFFF` | 19.8:1 AAA |
+| Rol | HEX | Ratio WCAG |
+| :--- | :--- | :--- |
+| Primario | `#FF5500` | 4.8:1 AA |
+| Fondo base | `#08080C` | — |
+| Texto | `#FFFFFF` | 19.8:1 AAA |
 
 El Tono HCT y los neutrales se incluyen como filas adicionales en la misma tabla, nunca como columnas extra ni como texto comprimido en una celda. Pide confirmación explícita.
 
@@ -93,7 +95,8 @@ Si la referencia o el usuario desea cursiva editorial de acento, propone:
 2. **Fraunces (Italic 700/800)** (Editorial cálida)
 3. **Playfair Display (Italic)** (Clásica sofisticada)
 4. **Cormorant Garamond (Italic)** (Refinada de lujo)
-5. *(Omitir fuente de acento — solo fuente Display)*
+5. Omitir fuente de acento — solo fuente Display
+6. *(Escribir mi propia opción personalizada)*
 
 ### Etapa 2.2.3 — Tipografía de UI (Cuerpo / Controles)
 Sugiere 5 Google Fonts nítidas para UI (*Manrope*, *DM Sans*, *Instrument Sans*, *Figtree*, *Public Sans*) + opción escrita.
@@ -148,7 +151,8 @@ Presenta las siguientes opciones numeradas:
 5. `Organic & Warm` — Esquinas redondeadas 16–28px, tonos cálidos tintados, espaciado cómodo.
 6. `Cyber & Futuristic` — Fondo oscuro/nocturno, acentos neón, resplandores tintados.
 7. `Editorial & Premium` — Tipografía Display refinada, espaciado amplio, acabado de lujo.
-8. `[Defaults]` — Valores por defecto optimizados para el modelo de negocio.
+8. Valores por defecto optimizados para el modelo de negocio.
+9. *(Escribir mi propia opción personalizada)*
 
 > [!IMPORTANT]
 > **Instrucción de Carga Determinista:** Si el usuario elige `Calibración Manual`, el asistente DEBE leer de inmediato `references/brand-equalizer.md` mediante `view_file` y presentar los 14 ejes en 3 Bloques Temáticos:

@@ -5,7 +5,12 @@
  * inyectando la totalidad de tokens cromáticos, tipográficos, componentes vivos,
  * estados canónicos y auditoría WCAG para la marca activa.
  *
- * Uso: node scripts/compile_showcase.cjs [ruta-al-state.json] [ruta-al-showcase.html]
+ * Uso: node scripts/compile_showcase.cjs <ruta-al-state.json> [ruta-al-showcase.html]
+ *      (sin la segunda ruta escribe <Marca>_Design_System.html junto al state.json)
+ *
+ * Nota: parte del contenido de muestra (ecualizador de ejes, auditoría WCAG de ejemplo) sigue siendo fijo y no se
+ * calcula desde el state. Por eso el prompt de los agentes construye el showcase sobre templates/design-system.html
+ * en lugar de invocar este compilador.
  */
 
 'use strict';
@@ -24,13 +29,11 @@ function hexToRgb(hex) {
 }
 
 function compileShowcase(statePath, outputPath) {
+  // Sin ruta explícita no se adivina ningún proyecto (antes caía en uno concreto de ejemplo y compilaba su marca)
   if (!statePath) {
-    const defaultProject = path.join(os.homedir(), 'Downloads', 'homium_projects', 'viewdev');
-    statePath = path.join(defaultProject, 'design-system-state.json');
-    if (!outputPath) {
-      outputPath = path.join(defaultProject, 'ViewDev_Design_System.html');
-    }
+    throw new Error('Uso: node compile_showcase.cjs <ruta-al-state.json> [ruta-de-salida.html]');
   }
+  statePath = path.resolve(process.cwd(), statePath);
 
   if (!fs.existsSync(statePath)) {
     throw new Error(`Archivo state no encontrado en ${statePath}`);
@@ -53,7 +56,7 @@ function compileShowcase(statePath, outputPath) {
   let html = fs.readFileSync(templatePath, 'utf8');
 
   // 1. Extraer datos de marca sanitizados para prevenir inyecciones HTML/XSS
-  const rawBrandName = typeof state.brand === 'string' ? state.brand : (state.brand?.name || 'ViewDev');
+  const rawBrandName = typeof state.brand === 'string' ? state.brand : (state.brand?.name || 'Brand');
   const brandName = escapeHtml(rawBrandName);
   const rawBrandPurpose = state.mission || state.brand?.purpose || 'Arquitectura web y sistemas de diseño digital de alta precisión.';
   const brandPurpose = escapeHtml(rawBrandPurpose);
@@ -79,21 +82,26 @@ function compileShowcase(statePath, outputPath) {
   const khaki = palette['khaki-beige'] || {};
   const dust = palette['dust-grey'] || {};
 
-  const primaryHex = chestnut['500'] || '#d23a2d';
-  const primaryDarkHex = chestnut['600'] || '#a82f24';
-  const primaryLighterHex = chestnut['400'] || '#db6257';
+  // El esquema documentado de la paleta (primary/secondary/accent/bg_base/surface_card/text_primary) tiene prioridad;
+  // las rampas con nombre de la marca de ejemplo solo quedan como último recurso.
+  const isHex = (v) => typeof v === 'string' && /^#[0-9a-fA-F]{3,8}$/.test(v.trim());
+  const pick = (...candidates) => candidates.find(isHex);
 
-  const secondaryHex = khaki['500'] || '#8f8270';
-  const secondaryDarkHex = khaki['600'] || '#72685a';
+  const primaryHex = pick(palette.primary_hex, palette.primary, chestnut['500']) || '#d23a2d';
+  const primaryDarkHex = pick(palette.primary_dark, chestnut['600']) || '#a82f24';
+  const primaryLighterHex = pick(palette.primary_light, chestnut['400']) || '#db6257';
 
-  const accentHex = lightCyan['500'] || '#1dd1e2';
-  const accentLighterHex = lightCyan['400'] || '#4adae8';
+  const secondaryHex = pick(palette.secondary_hex, palette.secondary, khaki['500']) || '#8f8270';
+  const secondaryDarkHex = pick(palette.secondary_dark, khaki['600']) || '#72685a';
 
-  const bgPrimaryHex = alabaster['950'] || '#101313';
-  const bgElevatedHex = alabaster['900'] || '#171b1c';
+  const accentHex = pick(palette.accent_hex, palette.accent, lightCyan['500']) || '#1dd1e2';
+  const accentLighterHex = pick(palette.accent_light, lightCyan['400']) || '#4adae8';
+
+  const bgPrimaryHex = pick(palette.bg_base, palette.background, alabaster['950']) || '#101313';
+  const bgElevatedHex = pick(palette.surface_card, palette.surface, alabaster['900']) || '#171b1c';
   const bgSunkenHex = '#0c0f0f';
 
-  const textPrimaryHex = alabaster['50'] || '#f1f3f3';
+  const textPrimaryHex = pick(palette.text_primary, palette.text, alabaster['50']) || '#f1f3f3';
   const textDarkHex = '#101313';
 
   // Radios
@@ -122,38 +130,6 @@ function compileShowcase(statePath, outputPath) {
   `;
 
   html = html.replace(':root {', `:root {\n${clientVarsBlock}`);
-
-  // Asegurar sección #sec-sitemap si no existe
-  if (!html.includes('id="sec-sitemap"')) {
-    const sitemapSection = `
-      <!-- 2.5 ARQUITECTURA DE PÁGINAS Y MAPA DEL SITIO -->
-      <section id="sec-sitemap" class="doc-section">
-        <div class="section-eyebrow"><span class="eyebrow-num">1.3</span> ARQUITECTURA MPA</div>
-        <h2 class="section-title">Mapa de Navegación & 3 Pantallas Canónicas.</h2>
-        <p class="section-desc">Estructura de páginas vinculadas construidas en el prototipo interactivo.</p>
-        <div class="homium-card">
-          <div class="sitemap-grid" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:1rem;">
-            <div class="sitemap-card" style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.1); border-radius:10px; padding:1.25rem;">
-              <span class="chip chip-cyan" style="font-size:11px; margin-bottom:0.5rem; display:inline-block;">Página 1 · Home</span>
-              <h4 style="color:#fff; margin:0 0 0.5rem 0;">Principal & Hero Showcase</h4>
-              <p style="color:rgba(255,255,255,0.7); font-size:13px; margin:0;">Propuesta de valor de ${brandName}, arquitectura tecnológica y catálogo destacado.</p>
-            </div>
-            <div class="sitemap-card" style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.1); border-radius:10px; padding:1.25rem;">
-              <span class="chip chip-cyan" style="font-size:11px; margin-bottom:0.5rem; display:inline-block;">Página 2 · Portafolio</span>
-              <h4 style="color:#fff; margin:0 0 0.5rem 0;">Catálogo de Proyectos & Servicios</h4>
-              <p style="color:rgba(255,255,255,0.7); font-size:13px; margin:0;">Filtrado dinámico, métricas de rendimiento y fichas técnicas interactivas.</p>
-            </div>
-            <div class="sitemap-card" style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.1); border-radius:10px; padding:1.25rem;">
-              <span class="chip chip-cyan" style="font-size:11px; margin-bottom:0.5rem; display:inline-block;">Página 3 · Contacto</span>
-              <h4 style="color:#fff; margin:0 0 0.5rem 0;">Conversión & Cierre Técnico</h4>
-              <p style="color:rgba(255,255,255,0.7); font-size:13px; margin:0;">Formulario con 6 estados validados, cotizador y especificaciones de contacto.</p>
-            </div>
-          </div>
-        </div>
-      </section>
-    `;
-    html = html.replace('<!-- 3. DECONSTRUCCIÓN VISUAL & BLUEPRINT -->', `${sitemapSection}\n\n      <!-- 3. DECONSTRUCCIÓN VISUAL & BLUEPRINT -->`);
-  }
 
   // Generar filas de ecualizador de 14 ejes
   const equalizerRows = [
@@ -262,7 +238,7 @@ function compileShowcase(statePath, outputPath) {
         <div style="background:${bgElevatedHex}cc; backdrop-filter:blur(12px); border:1px solid rgba(255,255,255,0.12); border-radius:${radiusMd}; padding:1.5rem; position:relative; overflow:hidden;">
           <div style="position:absolute; top:0; left:0; right:0; height:2px; background:linear-gradient(90deg, ${primaryHex}, ${accentHex});"></div>
           <span style="font-size:11px; color:${accentHex}; font-weight:600; text-transform:uppercase;">Ficha de Proyecto</span>
-          <h3 style="font-family:'${fontDisplay}', sans-serif; color:#fff; margin:0.35rem 0 0.5rem; font-size:1.35rem;">Portal de Ingeniería ViewDev</h3>
+          <h3 style="font-family:'${fontDisplay}', sans-serif; color:#fff; margin:0.35rem 0 0.5rem; font-size:1.35rem;">Ficha de ${brandName}</h3>
           <p style="color:rgba(255,255,255,0.7); font-size:13.5px; margin:0 0 1rem;">Construcción modular de interfaces reactivas con tokens semánticos verificados.</p>
           <button type="button" style="background:transparent; border:1px solid ${accentHex}; color:${accentHex}; padding:6px 14px; border-radius:${radiusSm}; font-size:12.5px; font-weight:600; cursor:pointer;">
             Inspeccionar Tokens →
@@ -343,7 +319,7 @@ function compileShowcase(statePath, outputPath) {
     'BUSINESS_MODEL': businessModel,
     'CURRENT_DATE': new Date().toISOString().split('T')[0],
     'REFERENCE_URL': 'Fast-Track / Especificación Forense Canónica',
-    'PRIMARY_REFERENCE_NAME': 'ViewDev Forensics DNA',
+    'PRIMARY_REFERENCE_NAME': escapeHtml(state.visual_dna?.primary_reference?.name || state.visual_dna?.primary_reference || 'Referencia de la marca'),
     'FIDELITY_MODE_LABEL': 'Fidelidad Arquitectónica Total',
     'FONT_DISPLAY': fontDisplay,
     'FONT_DISPLAY_URL': fontDisplayUrl,
@@ -441,6 +417,13 @@ function compileShowcase(statePath, outputPath) {
 
   // Limpiar cualquier {{PLACEHOLDER}} no emparejado que quede
   html = html.replace(/\{\{[A-Z0-9_-]+\}\}/g, '');
+
+  if (!outputPath) {
+    // Convención del flujo: <Marca>_Design_System.html junto al state.json
+    const fileBrand = String(rawBrandName).replace(/[^A-Za-z0-9]+/g, '') || 'Brand';
+    outputPath = path.join(path.dirname(statePath), `${fileBrand}_Design_System.html`);
+  }
+  outputPath = path.resolve(process.cwd(), outputPath);
 
   fs.writeFileSync(outputPath, html, 'utf8');
   console.log(`✓ Showcase compilado exitosamente en: ${outputPath}`);

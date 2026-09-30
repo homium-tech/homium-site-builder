@@ -84,9 +84,41 @@ async function runSuite() {
 
   it('should still extract a name from the welcome-chip prompts and short brand answers', () => {
     assert.strictEqual(Workspace.extractProjectName('Quiero crear el sistema de diseño para una marca llamada Lumina, un SaaS de finanzas'), 'lumina');
-    assert.strictEqual(Workspace.extractProjectName('Tengo esta referencia de diseño: https://linear.app'), 'linear');
     assert.strictEqual(Workspace.extractProjectName('Studio Alpha'), 'studio-alpha');
     assert.strictEqual(Workspace.extractProjectName('asdfghjkl'), 'asdfghjkl');
+  });
+
+  it('should treat a URL inside a sentence as a design reference, not as the brand name', () => {
+    // El chip de bienvenida nombra el sitio de referencia, no la marca: no debe crear la carpeta "linear"
+    assert.strictEqual(Workspace.extractProjectName('Tengo esta referencia de diseño: https://linear.app'), null);
+    assert.strictEqual(Workspace.extractProjectName('Quiero algo como https://stripe.com para mi marca Lumina'), 'lumina');
+    // Si el mensaje es solo la URL, sí es el sitio de la marca
+    assert.strictEqual(Workspace.extractProjectName('https://lumina.io'), 'lumina');
+    assert.strictEqual(Workspace.extractProjectName('URL https://linear.app'), 'linear');
+    assert.strictEqual(Workspace.extractProjectName('https://app.linear.app/x?y=1'), 'linear');
+    assert.strictEqual(Workspace.extractProjectName('mitienda.co.uk'), 'mitienda');
+  });
+
+  it('should NOT create a project from commands, greetings, negations or descriptions of the site', () => {
+    const notBrands = [
+      'No sé', 'No lo sé', 'Sí, avancemos', 'Crear sitio web', 'Quisiera un sitio', 'Hi', 'Hey there',
+      'Buenos días', 'Buen día', 'Diseña mi sitio', 'Empezar', 'Empecemos', 'sitio para Acme.mx', 'sitio web de Acme',
+      'mi proyecto web', 'Continuar'
+    ];
+    for (const text of notBrands) {
+      assert.strictEqual(Workspace.extractProjectName(text), null, `no debe crear proyecto desde: ${text}`);
+    }
+  });
+
+  it('should give explicit brand patterns priority over URLs and never take generic nouns as the name', () => {
+    assert.strictEqual(Workspace.extractProjectName('mi marca se llama Zeta, inspirada en https://linear.app'), 'zeta');
+    assert.strictEqual(Workspace.extractProjectName('quiero un proyecto web para vender zapatos'), null);
+    assert.strictEqual(Workspace.extractProjectName('mi marca nueva'), null);
+  });
+
+  it('should cap folder slugs and accept accented names', () => {
+    assert.strictEqual(Workspace.extractProjectName('Ñandú Labs'), 'nandu-labs');
+    assert(Workspace.slugify('x'.repeat(100)).length <= 60);
   });
 
   it('should create project subfolder on setProject and emit projectChanged', () => {

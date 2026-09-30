@@ -59,53 +59,7 @@ it('should strictly maintain 5 canonical phases and refuse external phase 6 expa
 });
 
 // 2. Server-side Action Detection & Sanitization
-console.log('\n[2] Detección Semántica de Acciones y Compuertas:');
-it('should detect Step 1.3 (Modelo de Negocio) and return sanitized action', () => {
-  const pipeline = new Pipeline();
-  const text = 'Para continuar, ¿cuál es el modelo de negocio de tu marca (b2c, b2b, saas)?';
-  const action = pipeline.detectAction(text);
-  assert(action !== null);
-  assert.strictEqual(action.stepId, '1.3');
-  assert.strictEqual(action.type, 'chips');
-  assert.strictEqual(action.options.length, 6, 'Should contain 5 preset options + 1 custom option');
-  assert.strictEqual(action.triggerPattern, undefined, 'triggerPattern must NOT be exposed');
-
-  // Verificar que también detecte fraseos alternativos como "modelo comercial"
-  const altText = 'Paso 1.2 — Audiencia objetivo y modelo de negocio: ¿cuál es su modelo comercial?';
-  const altAction = pipeline.detectAction(altText);
-  assert(altAction !== null);
-  assert.strictEqual(altAction.stepId, '1.3');
-});
-
-it('should detect Step 1.4 (Logo / Isotipo)', () => {
-  const pipeline = new Pipeline();
-  const text = '¿Dispones de un logo existente o creamos un isotipo SVG minimalista?';
-  const action = pipeline.detectAction(text);
-  assert(action !== null);
-  assert.strictEqual(action.stepId, '1.4');
-  assert.strictEqual(action.options.length, 3, 'Should contain 2 preset options + 1 custom option');
-});
-
-it('should detect Step 1.5.a (Referencias Visuales)', () => {
-  const pipeline = new Pipeline();
-  const text = '¿Tienes sitios web de referencia visual o URLs para inspirar la identidad?';
-  const action = pipeline.detectAction(text);
-  assert(action !== null);
-  assert.strictEqual(action.stepId, '1.5.a');
-  assert.strictEqual(action.type, 'chips');
-  assert.strictEqual(action.options.length, 4, 'Should contain 3 preset options + 1 custom option');
-});
-
-it('should detect Step 1.5.b (Nivel de Fidelidad / Fast-Track)', () => {
-  const pipeline = new Pipeline();
-  const text = 'Indica el nivel de fidelidad deseado: [Fidelidad Arquitectónica Total] con Fast-Track o Inspiración?';
-  const action = pipeline.detectAction(text);
-  assert(action !== null);
-  assert.strictEqual(action.stepId, '1.5.b');
-  assert.strictEqual(action.type, 'cards');
-  assert.strictEqual(action.options[0].badge, 'Recomendado');
-});
-
+console.log('\n[2] Detección de Compuertas:');
 it('should detect Gate 1 (Validación Showcase) and Gate 2 (Aprobación Prototipo)', () => {
   const pipeline = new Pipeline();
   const gate1Text = 'He compilado el showcase. ¿Apruebas el design system para proceder con la fase 5?';
@@ -114,6 +68,7 @@ it('should detect Gate 1 (Validación Showcase) and Gate 2 (Aprobación Prototip
   assert.strictEqual(gate1.stepId, 'gate-1');
   assert.strictEqual(gate1.type, 'gate');
   assert.strictEqual(gate1.options.length, 2);
+  assert.strictEqual(gate1.triggerPattern, undefined, 'triggerPattern must NOT be exposed');
 
   const gate2Text = 'El prototipo interactivo de 3 pantallas está listo. ¿Apruebas el prototipo final?';
   const gate2 = pipeline.detectAction(gate2Text);
@@ -122,55 +77,86 @@ it('should detect Gate 1 (Validación Showcase) and Gate 2 (Aprobación Prototip
   assert.strictEqual(gate2.type, 'gate');
 });
 
-it('should NOT trigger Step 1.3 on Phase 1 summary table and should detect Phase 1 confirmation', () => {
+it('should detect the real gate wording from the phase docs and the mock engine', () => {
   const pipeline = new Pipeline();
-  const summaryText = `
-Resumen de la Fase 1: Identidad & Discovery
-
-| Parámetro | Valor Registrado |
-|---|---|
-| Marca | HomeDev |
-| Propósito & Misión | Diseño y desarrollo web |
-| Modelo de Negocio | Servicios Profesionales / Agencia / Consultoría |
-| Logo / Isotipo | Generar Isotipo SVG / Logo Tipográfico limpio |
-| Ruta de Trabajo | Ruta B (Entrevista Estándar) — Diseño original sin referencias |
-
-El estado ha sido guardado en design-system-state.json.
-
-¿Está correcta la información de la Fase 1 para avanzar a la Fase 2 (Tipo de Sitio & Arquitectura de Páginas), o deseas volver a ajustar algún paso anterior?
-  `;
-  const action = pipeline.detectAction(summaryText);
-  assert(action !== null);
-  assert.strictEqual(action.stepId, '1.summary');
-  assert.strictEqual(action.title, '¿Confirmar Fase 1 y avanzar a la Fase 2?');
-  assert.strictEqual(action.options.length, 2);
+  const gate1 = pipeline.detectAction('Showcase compilado.\n\n---\n\n#### Compuerta 1\n\n¿Apruebas el Design System y los tokens cromáticos para proceder a la construcción del Prototipo interactivo en HTML/CSS/JS?');
+  assert.strictEqual(gate1.stepId, 'gate-1');
+  const mock = pipeline.detectAction('Compuerta 1: ¿Apruebas el Design System y los tokens cromáticos para proceder a la construcción del Prototipo interactivo en HTML/CSS/JS?');
+  assert.strictEqual(mock.stepId, 'gate-1');
+  const gate2 = pipeline.detectAction('#### Compuerta 2\n\n¿Apruebas el Prototipo interactivo de 3 pantallas generado en prototype/?');
+  assert.strictEqual(gate2.stepId, 'gate-2');
 });
 
-it('should detect Phase 2 and Phase 3 confirmations', () => {
+it('should match regardless of accents, markdown emphasis and case', () => {
   const pipeline = new Pipeline();
-  const phase2Text = '¿Está correcta la información de la Fase 2 para avanzar a la Fase 3?';
-  const a2 = pipeline.detectAction(phase2Text);
-  assert(a2 !== null);
-  assert.strictEqual(a2.stepId, '2.summary');
-
-  const phase3Text = '¿Confirmar la fase 3 para compilar el showcase y design system?';
-  const a3 = pipeline.detectAction(phase3Text);
-  assert(a3 !== null);
-  assert.strictEqual(a3.stepId, '3.summary');
-
-  // Caso real reportado: transición a Fase 4 no debe disparar Gate 1
-  const screenshotText = '¿Confirmas estos cimientos visuales de la Fase 3 para avanzar a la Fase 4: Validación Visual (Generación desacoplada: Spec Markdown Maestro + Showcase HTML), o deseas ajustar algún detalle?';
-  const aScreenshot = pipeline.detectAction(screenshotText);
-  assert(aScreenshot !== null);
-  assert.strictEqual(aScreenshot.stepId, '3.summary');
-  assert.notStrictEqual(aScreenshot.stepId, 'gate-1');
+  assert.strictEqual(pipeline.detectAction('**¿APRUEBAS** el *Design System* para **proceder** a la **Fase 5**?').stepId, 'gate-1');
+  assert.strictEqual(pipeline.detectAction('¿Apruebas el prototipo de 3 pantallas?').stepId, 'gate-2');
+  assert.strictEqual(pipeline.detectAction('Compuerta 2 - Aprobacion final. Apruebas el prototipo?').stepId, 'gate-2');
 });
 
-it('should return null when text contains no structured triggers', () => {
+it('should NOT open a gate from a closed gate, a progress message or a statement', () => {
   const pipeline = new Pipeline();
-  const text = 'Entendido, analizando la estructura del proyecto y compilando dependencias...';
-  const action = pipeline.detectAction(text);
-  assert.strictEqual(action, null);
+  const texts = [
+    // Mensaje posterior a aprobar la compuerta 1
+    'Compuerta 1 aprobada. Construyendo las 3 pantallas de la Fase 5 del prototipo interactivo.',
+    'Compuerta 1 aprobada previamente. Avanzando a la Fase 5: prototipo interactivo de 3 pantallas en construcción.',
+    // Cierre tras aprobar la compuerta 2
+    'Prototipo aprobado. El prototipo interactivo de 3 pantallas es el entregable final del proyecto.',
+    // Avance de la Fase 4 sin pregunta
+    'Generando el showcase del Design System con las 14 secciones. El prototipo interactivo de 3 pantallas vendrá después.',
+    'Entendido, analizando la estructura del proyecto y compilando dependencias...'
+  ];
+  for (const text of texts) {
+    assert.strictEqual(pipeline.detectAction(text), null, `no debe abrir compuerta: ${text}`);
+  }
+});
+
+it('should NOT open a gate from phase confirmations or other approval questions', () => {
+  const pipeline = new Pipeline();
+  const texts = [
+    '¿Está correcta la información de la Fase 1 para avanzar a la Fase 2 (Foundations Visuales), o deseas volver a ajustar algún paso anterior?',
+    '¿Confirmar la fase 3 para compilar el showcase y design system?',
+    // Caso real: transición a Fase 4 no debe disparar la compuerta 1
+    '¿Confirmas estos cimientos visuales de la Fase 3 para avanzar a la Fase 4: Validación Visual (Generación desacoplada: Spec Markdown Maestro + Showcase HTML), o deseas ajustar algún detalle?',
+    '¿Apruebas esta paleta cromática para continuar con la tipografía?',
+    '¿Cuál es el modelo de negocio de tu marca (B2C, B2B, SaaS)?',
+    '¿Dispones de un logo existente o creamos un isotipo SVG minimalista?'
+  ];
+  for (const text of texts) {
+    assert.strictEqual(pipeline.detectAction(text), null, `no debe abrir compuerta: ${text}`);
+  }
+});
+
+it('should decide by the LAST question, so a mention of the other gate does not win', () => {
+  const pipeline = new Pipeline();
+  const text = 'Compuerta 1 aprobada previamente. ¿Apruebas el prototipo interactivo de 3 pantallas?';
+  assert.strictEqual(pipeline.detectAction(text).stepId, 'gate-2');
+  const back = 'El prototipo de 3 pantallas quedará después.\n\n¿Apruebas el Design System para construir el prototipo en la Fase 5?';
+  assert.strictEqual(pipeline.detectAction(back).stepId, 'gate-1');
+});
+
+it('should ignore the cumulative Blueprint block and summary tables when detecting', () => {
+  const pipeline = new Pipeline();
+  const blueprint = [
+    '> **Blueprint — Estado actual**',
+    '> - Marca: Acme',
+    '> - Fidelidad: Fast-Track',
+    '> - Logo: Isotipo SVG',
+    '> - Aprobado el prototipo: no',
+    '',
+    'Confirmado: paleta registrada.',
+    '',
+    '---',
+    '',
+    '#### Etapa 2.2: Tipografía',
+    '',
+    '| Campo | Valor |',
+    '|---|---|',
+    '| Apruebas el Design System | sí |',
+    '',
+    '¿Qué tipografía display prefieres?'
+  ].join('\n');
+  assert.strictEqual(pipeline.detectAction(blueprint), null);
 });
 
 // 3. Client Leakage Prevention & JSON Serialization Safety
@@ -179,14 +165,14 @@ it('should guarantee all steps from getAllSteps are 100% serializable without em
   const pipeline = new Pipeline();
   const steps = pipeline.getAllSteps();
   assert(Array.isArray(steps));
-  assert(steps.length >= 6);
+  assert.strictEqual(steps.length, 2, 'only the two approval gates are described by the server');
 
   const serialized = JSON.stringify(steps);
   const parsed = JSON.parse(serialized);
 
-  // Asegurar que ningún triggerPattern existe en el JSON emitido
   for (const step of parsed) {
     assert.strictEqual(step.triggerPattern, undefined, `Step ${step.stepId} must not have triggerPattern`);
+    assert.strictEqual(step.type, 'gate');
     assert(typeof step.title === 'string');
     assert(Array.isArray(step.options));
     assert(step.options.length > 0);
@@ -198,46 +184,48 @@ it('should retrieve individual gate descriptors via getGate()', () => {
   const gate1 = pipeline.getGate('gate-1');
   assert(gate1 !== null);
   assert.strictEqual(gate1.title, 'Compuerta 1: Aprobación del Design System');
+  assert.strictEqual(pipeline.getGate('gate-2').options.length, 2);
   assert.strictEqual(pipeline.getGate('unknown-gate'), null);
 });
 
-// 3. Turnos desviados: la detección no debe dispararse por explicaciones ajenas
-console.log('\n[3] Detección en turnos desviados:');
-it('should NOT trigger flow actions from an off-topic answer that only mentions flow terms', () => {
+// 4. Turnos desviados: la detección no debe dispararse por explicaciones ajenas
+console.log('\n[4] Detección en turnos desviados:');
+it('should NOT open a gate from an off-topic answer that only mentions flow terms', () => {
   const pipeline = new Pipeline();
   const cases = [
-    ['explícame qué es fast-track', 'El fast-track en logística es un carril de despacho prioritario para envíos urgentes.'],
-    ['¿qué es un isotipo?', 'Un isotipo es la parte simbólica de un logo; por ejemplo el de Nike.'],
-    ['dime qué es un prototipo interactivo', 'Un prototipo interactivo de 3 pantallas es común en UX para validar ideas.'],
-    ['dame ideas de negocio', 'Para el tipo de negocio de una pizzería, el modelo de negocio suele ser B2C.']
+    ['dime qué es un prototipo interactivo', '¿Apruebas que un prototipo interactivo de 3 pantallas es común en UX para validar ideas?'],
+    ['explícame qué es un design system', 'Un design system es un conjunto de tokens. ¿Apruebas el Design System para proceder a la Fase 5 de tu propio proyecto?']
   ];
   for (const [userMessage, reply] of cases) {
     assert.strictEqual(pipeline.detectAction(reply, { userMessage }), null, `no debe detectar acción para: ${userMessage}`);
-    // Sin contexto de turno el comportamiento histórico se conserva (la detección es por patrón)
-    assert.notStrictEqual(pipeline.detectAction(reply), null, `sin userMessage debe seguir detectando: ${reply.slice(0, 30)}`);
   }
 });
 
-it('should detect only the restated flow step after a deviation answer, ignoring the explanation before ---', () => {
+it('should detect the restated gate after a deviation answer when it carries the step heading', () => {
   const pipeline = new Pipeline();
-  const reply = 'El fast-track en logística es un carril prioritario.\n\n---\n\n### Fase 1: Discovery y Marca\n\n#### Etapa 1.4: Logo\n\n¿Tienes un logo existente o generamos un isotipo?\n1. Logo existente\n2. Generar isotipo';
-  const action = pipeline.detectAction(reply, { userMessage: 'explícame qué es fast-track' });
+  const reply = 'Un prototipo es una maqueta navegable.\n\n---\n\n### Fase 4: Validación Visual\n\n#### Etapa 4.3: Compuerta 1\n\n¿Apruebas el Design System para proceder a la construcción del prototipo en la Fase 5?';
+  const action = pipeline.detectAction(reply, { userMessage: 'explícame qué es un prototipo' });
   assert(action !== null);
-  assert.strictEqual(action.stepId, '1.4');
+  assert.strictEqual(action.stepId, 'gate-1');
 });
 
-it('should keep detecting normal answers when the user message is not a question or request', () => {
+it('should ignore an explanation before --- even when the user message is a normal answer', () => {
   const pipeline = new Pipeline();
-  const reply = 'Modelo registrado.\n\n---\n\n#### Etapa 1.4: Logo\n\n¿Dispones de un logo existente o creamos un isotipo SVG?';
-  assert.strictEqual(pipeline.detectAction(reply, { userMessage: '2' }).stepId, '1.4');
-  assert.strictEqual(pipeline.detectAction('¿Dispones de un logo existente o creamos un isotipo SVG?', { userMessage: 'B2B' }).stepId, '1.4');
+  const reply = '¿Apruebas el prototipo? es una pregunta que hacemos al final.\n\n---\n\n#### Etapa 2.2: Tipografía\n\n¿Qué tipografía display prefieres?';
+  assert.strictEqual(pipeline.detectAction(reply, { userMessage: '2' }), null);
+});
+
+it('should keep detecting normal gate questions when the user message is not a question or request', () => {
+  const pipeline = new Pipeline();
+  const reply = 'Aprobado y registrado.\n\n---\n\n#### Compuerta 2\n\n¿Apruebas el prototipo de 3 pantallas?';
+  assert.strictEqual(pipeline.detectAction(reply, { userMessage: 'Aprobado. Continúa.' }).stepId, 'gate-2');
 });
 
 it('PhaseDescriptors.detectAction should delegate to the same logic', () => {
   const { PhaseDescriptors } = require('../core/pipeline');
-  const reply = 'Un isotipo es la parte simbólica de un logo.';
-  assert.strictEqual(PhaseDescriptors.detectAction(reply, { userMessage: '¿qué es un isotipo?' }), null);
-  assert.strictEqual(PhaseDescriptors.detectAction('¿Dispones de un logo existente o creamos un isotipo?').stepId, '1.4');
+  const reply = '¿Apruebas el Design System para proceder con la Fase 5?';
+  assert.strictEqual(PhaseDescriptors.detectAction(reply).stepId, 'gate-1');
+  assert.strictEqual(PhaseDescriptors.detectAction(reply, { userMessage: '¿qué es un design system?' }), null);
 });
 
 console.log(`\n========================================`);

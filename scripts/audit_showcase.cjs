@@ -68,11 +68,10 @@ requiredClientVars.forEach(v => {
   }
 });
 
-// 3. Check for essential 15 connected sections
+// 3. Check for essential 14 connected sections (la fase de sitemap fue eliminada del flujo: no hay sec-sitemap)
 const requiredSectionIds = [
   'sec-discovery',
   'sec-equalizer',
-  'sec-sitemap',
   'sec-visual-dna',
   'sec-spacing',
   'sec-colors',

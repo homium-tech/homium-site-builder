@@ -1,5 +1,7 @@
 # Fase 1: ONBOARDING Y ESTRATEGIA DE MARCA (DISCOVERY)
 
+> Las rutas `references/...`, `templates/...` y `scripts/...` de esta guía son relativas a `<APP_ROOT>` (la ruta absoluta indicada en "HERRAMIENTAS DE LA APP" de tu prompt). No existen dentro del workspace: usa siempre la ruta absoluta.
+
 ## Rol del Asistente
 Lead Brand Strategist & UI Visual Architect. Conduce la entrevista técnica de forma sobria, fáctica y neutral, una sola pregunta por turno. Estrictamente prohibido el uso de halagos, cumplidos o frases de cortesía artificial (ej: "Excelente elección", "¡Buena decisión!", "¡Perfecto!"). Comienza de forma directa con la confirmación técnica fáctica y la siguiente pregunta.
 
@@ -77,9 +79,10 @@ El asistente ejecuta de inmediato la inspección técnica forense exhaustiva y o
 > **EJECUCIÓN OBLIGATORIA DEL COMANDO FORENSE (NON-BYPASSABLE):**
 > - **Si es URL:** El asistente DEBE ejecutar de inmediato la herramienta `run_command` con el script oficial de extracción:
 >   ```bash
->   node scripts/extract_reference_dna.cjs "<URL>"
+>   node "<APP_ROOT>/scripts/extract_reference_dna.cjs" "<URL>"
 >   ```
->   *(Si Playwright requiere binarios, instalar con `pnpm exec playwright install chromium`)*.
+>   `<APP_ROOT>` es la ruta absoluta indicada en "HERRAMIENTAS DE LA APP" de tu prompt: los scripts NO están en el workspace y se ejecutan desde la carpeta del proyecto.
+>   *(Si Playwright requiere binarios, instalar con `pnpm --dir "<APP_ROOT>" exec playwright install chromium`)*.
 >   *(O en su defecto, escribir y ejecutar un script de scratchpad en `scratch/` que descargue y parse el DOM/CSS si la URL requiere cookies o cabeceras adicionales)*.
 > - **PROHIBIDO:** Formular la Ficha Técnica, redactar el `structural_blueprint` o responder al usuario antes de haber ejecutado este comando en la terminal y leído su salida JSON real.
 > - **Si es Imagen / Moodboard:** Realiza muestreo de colorimetría por zonas (canvas, tarjetas, acento) y mapeo espacial de la grilla.
@@ -146,21 +149,21 @@ El asistente presenta la **Ficha Técnica Forense Completa Consolidada** usando 
 > **TABLA DE CANDIDATOS SEMÁNTICOS CON EVIDENCIA (NON-BYPASSABLE):**
 > Los colores se presentan EXCLUSIVAMENTE desde `semantic_candidates` del extractor (cada candidato incluye `hex`, `coverage_pct` y `sample_selector`). Prohibido inventar, redondear o "mejorar" valores medidos:
 >
-> | Slot Semántico | Muestra Unicode | HEX Medido | Cobertura % | Ubicación DOM |
-> | :--- | :--- | :--- | :--- | :--- |
-> | Fondo Base (`bg_base`) | ⬛ | `{{BG_BASE_HEX}}` | {{COBERTURA}}% | `{{SAMPLE_SELECTOR}}` |
-> | Superficie Cards (`surface_card`) | 🟪 | `{{SURFACE_HEX}}` | {{COBERTURA}}% | `{{SAMPLE_SELECTOR}}` |
-> | Acento Dominante (`accent`) | 🟧 | `{{ACCENT_HEX}}` | {{COBERTURA}}% | `{{SAMPLE_SELECTOR}}` |
-> | Texto Principal (`text_primary`) | ⬜ | `{{TEXT_HEX}}` | — | `{{SAMPLE_SELECTOR}}` |
+> | Slot Semántico | HEX Medido | Cobertura % | Ubicación DOM |
+> | :--- | :--- | :--- | :--- |
+> | Fondo Base (`bg_base`) | `{{BG_BASE_HEX}}` | {{COBERTURA}}% | `{{SAMPLE_SELECTOR}}` |
+> | Superficie Cards (`surface_card`) | `{{SURFACE_HEX}}` | {{COBERTURA}}% | `{{SAMPLE_SELECTOR}}` |
+> | Acento Dominante (`accent`) | `{{ACCENT_HEX}}` | {{COBERTURA}}% | `{{SAMPLE_SELECTOR}}` |
+> | Texto Principal (`text_primary`) | `{{TEXT_HEX}}` | — | `{{SAMPLE_SELECTOR}}` |
 >
 > Junto a la paleta se presenta: Tipografía real medida (familias + tamaños — incluyendo `self_hosted_fonts` si existen, documentándolas explícitamente), Radios/Bordes reales, la **Tabla de Morfologías (`component_dna`)** — botones clusterizados con su radio/padding/bg/contador, inputs y CTA del navbar —, los **`media_slots` detectados por sección** (rol + aspect-ratio + tratamiento), y la **Secuencia de Secciones 1 a N** del `structural_blueprint` (con su `layout_type`, ratios de columnas, morfología de tarjetas, `has_slider`/`slider_type` y `has_marquee` por sección).
 >
 > | Morfología (component_dna) | Radio | Padding | Fondo / Texto | Usos |
 > | :--- | :--- | :--- | :--- | :--- |
-> | Botón Primario | {{RADIO_PX}} | {{PAD_X}}×{{PAD_Y}} | ⬛ `{{BG_HEX}}` / `{{TEXT_HEX}}` | {{COUNT}} instancias |
+> | Botón Primario | {{RADIO_PX}} | {{PAD_X}}×{{PAD_Y}} | `{{BG_HEX}}` / `{{TEXT_HEX}}` | {{COUNT}} instancias |
 > | Input estándar | {{RADIO_PX}} | altura {{H_PX}}px | borde {{BORDER}} | {{COUNT}} campos |
 >
-> **SEÑALIZACIÓN OBLIGATORIA DE DATOS ESTRUCTURALES INCOMPLETOS:** Al presentar la Secuencia de Secciones, revisar el JSON del extractor sección por sección. Para toda sección donde `columns_ratios_pct: null` Y `estimated_cards > 1` (o `layout_type: 'standard_flow'` con cards visibles), añadir el indicador `⚠️ grid no capturado` junto al nombre de la sección en la tabla. Esto ocurre cuando el grid/flex está en un `div` hijo y no en el `<section>` directamente (`layout_source: 'inner_container'`). Preguntar al usuario al final de la tabla: *"Las secciones marcadas con ⚠️ tienen estructura de grilla detectada visualmente pero sin valores numéricos capturados. ¿Deseas que ajuste manualmente sus columnas y proporciones antes de bloquear el blueprint, o confirmo todo para que la Fase 5 las derive desde la captura de pantalla?"*
+> **SEÑALIZACIÓN OBLIGATORIA DE DATOS ESTRUCTURALES INCOMPLETOS:** Al presentar la Secuencia de Secciones, revisar el JSON del extractor sección por sección. Para toda sección donde `columns_ratios_pct: null` Y `estimated_cards > 1` (o `layout_type: 'standard_flow'` con cards visibles), añadir el indicador `(!) grid no capturado` junto al nombre de la sección en la tabla. Esto ocurre cuando el grid/flex está en un `div` hijo y no en el `<section>` directamente (`layout_source: 'inner_container'`). Preguntar al usuario al final de la tabla: *"Las secciones marcadas con (!) tienen estructura de grilla detectada visualmente pero sin valores numéricos capturados. ¿Deseas que ajuste manualmente sus columnas y proporciones antes de bloquear el blueprint, o confirmo todo para que la Fase 5 las derive desde la captura de pantalla?"*
 
 La primera pregunta de cierre es SOLO sobre la confirmación del blueprint (NO mezclar aún con el stack):
 *"He extraído la arquitectura forense fiel de la referencia con los valores medidos que ves en las tablas (paleta, blueprint, morfologías de componentes y slots de imagen). ¿Confirmas todo esto tal cual, o deseas ajustar algún valor antes de bloquearlo?"*
@@ -204,11 +207,11 @@ Persiste `"fidelity_mode": "SURGICAL"` y `visual_dna.replicated_dimensions[]` co
 | Dimensión Calcada | Efecto en el Flujo |
 | :--- | :--- |
 | **Dimensión 1** (Grilla & Composición) | Estructura global y contenedores bloqueados desde el blueprint. |
-| **Dimensión 2** (Wireflow & Signature Asset) | La secuencia de secciones del Home proviene 100% de `section_sequence`; omite fórmulas estándar del tipo de sitio en Fase 2. |
+| **Dimensión 2** (Wireflow & Signature Asset) | La secuencia de secciones del Home proviene 100% de `section_sequence`; omite las fórmulas estándar del tipo de sitio. |
 | **Dimensión 3** (Morfología de Componentes) | Tarjetas/botones/inputs calcan la referencia; Fase 5 usa el arquetipo calibrado como Opción 1. |
 | **Dimensión 4** (Motion & Micro-interacciones) | Tokens de movimiento extraídos bloqueados. |
-| **Dimensión 5** (Atmósfera Cromática) | Omite los pasos generativos de la Fase 3: presenta la paleta medida con evidencia (misma compuerta que Ruta A) y compone `allowed_hexes` al confirmar. |
-| **Dimensión 6** (Tipografía & Craft) | Omite la Fase 4: tipografía e iconografía bloqueadas con la medida/análoga exacta. |
+| **Dimensión 5** (Atmósfera Cromática) | Omite los pasos generativos de la paleta (Etapa 2.1): presenta la paleta medida con evidencia (misma compuerta que Ruta A) y compone `allowed_hexes` al confirmar. |
+| **Dimensión 6** (Tipografía & Craft) | Omite la selección de tipografía (Etapa 2.2): tipografía e iconografía bloqueadas con la medida/análoga exacta. |
 
 Las dimensiones NO calcadas fluyen por la Ruta B tradicional. El verificador `verify_fidelity.cjs` activará sus chequeos automáticamente según estas dimensiones persistidas.
 

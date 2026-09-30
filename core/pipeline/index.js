@@ -1,9 +1,12 @@
 /**
  * Pipeline — Módulo profundo del Pipeline de Construcción y Compuertas Interactivas
  *
- * Unifica el catálogo de fases (5 canónicas expansibles a 11), compuertas de aprobación,
- * descriptores de pasos interactivos y la detección semántica de acciones en el servidor,
+ * Unifica el catálogo de las 5 fases canónicas, las compuertas de aprobación y su detección en el servidor,
  * eliminando la fuga de expresiones regulares crudas y lógica de dominio hacia el cliente.
+ *
+ * Solo las compuertas se detectan en el servidor. Las opciones numeradas de cada pregunta las escribe el propio
+ * agente en su respuesta y el cliente las muestra tal cual, por lo que no hay descriptores fijos que puedan
+ * desincronizarse del texto.
  */
 
 const MessageHeuristics = require('../text/message-heuristics');
@@ -25,7 +28,7 @@ const CANONICAL_PHASES = [
     description: 'Paleta cromática WCAG 2.2 AAA (HCT), tipografía display/UI, personalidad y modo oscuro.',
     hasFastTrack: false,
     approvalGate: false,
-    deliverables: ['palette', 'typography', 'radii']
+    deliverables: ['palette', 'typography', 'border_radius']
   },
   {
     id: 3,
@@ -34,7 +37,7 @@ const CANONICAL_PHASES = [
     description: 'Catálogo de botones, tarjetas, inputs, navegación y estados interactivos.',
     hasFastTrack: false,
     approvalGate: false,
-    deliverables: ['component_dna']
+    deliverables: ['components']
   },
   {
     id: 4,
@@ -56,7 +59,7 @@ const CANONICAL_PHASES = [
     approvalGate: true,
     gateTitle: 'Compuerta 2: Aprobación del Prototipo Final',
     gatePrompt: '¿Apruebas el Prototipo interactivo de 3 pantallas generado en prototype/?',
-    deliverables: ['prototype/index.html', 'prototype/page-2.html', 'prototype/page-3.html']
+    deliverables: ['prototype/index.html']
   }
 ];
 
@@ -64,128 +67,10 @@ const CANONICAL_PHASES = [
 const ADVANCED_EXPANSION_PHASES = [];
 
 const STEP_ACTIONS = [
-  // Cierre de Fase 1 — Confirmación para avanzar a Fase 2
-  {
-    stepId: '1.summary',
-    name: 'Confirmación de Fase 1',
-    triggerPattern: /(avanzar a la fase 2|avanzar a la fase.*tipo de sitio|información de la fase 1.*correcta|deseas volver a ajustar algún paso anterior|confirmas.*pasar a la fase 2)/i,
-    type: 'chips',
-    title: '¿Confirmar Fase 1 y avanzar a la Fase 2?',
-    options: [
-      { label: 'Sí, avanzar a la Fase 2', value: 'La información de la Fase 1 es correcta. Proceder a la Fase 2 (Foundations Visuales).', icon: 'check' },
-      { label: 'Ajustar un paso anterior', value: 'Deseo ajustar un parámetro de la Fase 1 antes de avanzar.', icon: 'edit' }
-    ]
-  },
-
-  // Cierre de Fase 2 — Confirmación para avanzar a Fase 3
-  {
-    stepId: '2.summary',
-    name: 'Confirmación de Fase 2',
-    triggerPattern: /(avanzar a la fase 3|información de la fase 2.*correcta|confirmar.*pasar a la fase 3|proceder.*fase 3)/i,
-    type: 'chips',
-    title: '¿Confirmar Fase 2 y avanzar a la Fase 3?',
-    options: [
-      { label: 'Sí, avanzar a la Fase 3', value: 'La información de la Fase 2 es correcta. Proceder a la Fase 3 (Diseño de Componentes).', icon: 'check' },
-      { label: 'Ajustar arquitectura de páginas', value: 'Deseo ajustar la estructura de páginas antes de continuar.', icon: 'edit' }
-    ]
-  },
-
-  // Cierre de Fase 3 — Confirmación para avanzar a Fase 4
-  {
-    stepId: '3.summary',
-    name: 'Confirmación de Fase 3',
-    triggerPattern: /(avanzar a la fase 4|información de la fase 3.*correcta|pasar a la fase 4.*validación|compilar.*showcase.*design system|cimientos visuales.*avanzar a la fase 4)/i,
-    type: 'chips',
-    title: '¿Confirmar y avanzar a la Fase 4 (Validación)?',
-    options: [
-      { label: 'Sí, generar Showcase (Fase 4)', value: 'Confirmado. Proceder a la Fase 4 para compilar el Showcase HTML y la especificación del Design System.', icon: 'check' },
-      { label: 'Ajustar detalles', value: 'Deseo revisar los tokens o detalles antes de avanzar.', icon: 'edit' }
-    ]
-  },
-
-  // Paso 1.3 — Modelo de Negocio
-  {
-    stepId: '1.3',
-    name: 'Modelo de Negocio',
-    triggerPattern: /(cuál es.*modelo (de negocio|comercial)|propuesta de monetización|tipo de negocio|audiencia objetivo y modelo|perfil de clientes.*modelo|selecciona.*modelo (de negocio|comercial)|\?.*(modelo de negocio|modelo comercial|b2c|b2b)|modelo (de negocio|comercial).*marca)/i,
-    type: 'chips',
-    title: 'Selecciona tu Modelo de Negocio:',
-    options: [
-      { label: 'B2C (Consumidor)', value: '1. B2C — Venta directa al consumidor', icon: 'shopping-bag' },
-      { label: 'B2B (Empresas)', value: '2. B2B — Venta a empresas / corporativo', icon: 'briefcase' },
-      { label: 'Marketplace', value: '3. Marketplace — Plataforma multivendedor', icon: 'grid' },
-      { label: 'Freemium / SaaS', value: '4. Freemium — Servicio base gratuito con opción Pro', icon: 'zap' },
-      { label: 'Servicios / Agencia', value: '5. Servicios Profesionales / Agencia / Consultoría', icon: 'award' },
-      { label: 'Personalizado', value: '6. Opción personalizada: ', icon: 'edit' }
-    ]
-  },
-
-  // Paso 1.4 — Logo / Isotipo
-  {
-    stepId: '1.4',
-    name: 'Logo de la Marca',
-    triggerPattern: /(logo existente|isotipo|identidad gráfica del logo|logo tipográfico)/i,
-    type: 'chips',
-    title: 'Disponibilidad de Logo:',
-    options: [
-      { label: 'Tengo Logo Existente', value: '1. Tengo un logo existente (proporcionaré el archivo o SVG)', icon: 'image' },
-      { label: 'Generar Isotipo SVG Limpio', value: '2. Generar un Isotipo SVG / Logo Tipográfico limpio utilizando las fuentes y colores de la marca', icon: 'sparkles' },
-      { label: 'Personalizado', value: '3. Opción personalizada: ', icon: 'edit' }
-    ]
-  },
-
-  // Paso 1.5.a — Referencias Visuales
-  {
-    stepId: '1.5.a',
-    name: 'Referencias Visuales',
-    triggerPattern: /(referencias visuales|sitios web de referencia|enlaces.*referencia|tienes referencias)/i,
-    type: 'chips',
-    title: 'Referencias Visuales:',
-    options: [
-      { label: 'Tengo URLs de Referencia', value: '1. Tengo enlaces/URLs de sitios web de referencia', icon: 'link' },
-      { label: 'Tengo Imágenes / Moodboard', value: '2. Tengo imágenes / capturas de pantalla / moodboards', icon: 'file-text' },
-      { label: 'Sin Referencias (Diseño Original)', value: '3. Sin referencias específicas (diseño original basado en el tipo de negocio)', icon: 'compass' },
-      { label: 'Personalizado', value: '4. Opción personalizada: ', icon: 'edit' }
-    ]
-  },
-
-  // Paso 1.5.b — Nivel de Fidelidad (Bifurcación Fast-Track)
-  {
-    stepId: '1.5.b',
-    name: 'Nivel de Fidelidad',
-    triggerPattern: /(nivel de fidelidad|fidelidad arquitectónica total|inspiración conceptual|fast-track)/i,
-    type: 'cards',
-    title: 'Nivel de Fidelidad respecto a la Referencia:',
-    options: [
-      {
-        label: 'Fidelidad Total (Fast-Track)',
-        value: '1. Fidelidad Arquitectónica Total: Replicación Fiel de Estructura y Estética (Recomendado — Modo Fast-Track)',
-        description: 'Bloqueo inmutable de arquitectura, paleta real y grilla. Salta Fases 2 y 3 directamente a Validación.',
-        badge: 'Recomendado',
-        icon: 'zap'
-      },
-      {
-        label: 'Inspiración Conceptual',
-        value: '2. Inspiración Conceptual / Vibe',
-        description: 'Extrae atmósfera y tipografía pero avanza por el flujo completo de Fases 2 a 5.',
-        badge: 'Ruta B',
-        icon: 'palette'
-      },
-      {
-        label: 'Quirúrgica / Personalizada',
-        value: '3. Personalizada / Quirúrgica',
-        description: 'Especificar manualmente qué dimensiones calcar y cuáles diseñar a medida.',
-        badge: 'Avanzado',
-        icon: 'tool'
-      }
-    ]
-  },
-
   // Compuerta de Aprobación 1 (Fase 4 - Showcase Validado para avanzar a Fase 5)
   {
     stepId: 'gate-1',
     name: 'Compuerta 1: Validación de Design System',
-    triggerPattern: /(compuerta.*1|showcase.*listo.*apruebas|apruebas.*(?:el\s+)?design system.*(?:para|y)?.*(?:proceder|avanzar|construir).*(?:fase 5|prototipo)|proceder.*(?:a la\s+)?fase 5|avanzar.*(?:a la\s+)?fase 5|construir.*prototipo.*fase 5)/i,
     type: 'gate',
     title: 'Compuerta 1: Aprobación del Design System',
     description: 'El Showcase HTML del Design System está listo para revisión en la pestaña "Showcase".',
@@ -199,7 +84,6 @@ const STEP_ACTIONS = [
   {
     stepId: 'gate-2',
     name: 'Compuerta 2: Aprobación del Prototipo',
-    triggerPattern: /(compuerta.*2|apruebas el prototipo|entregable final|prototipo interactivo de 3 pantallas)/i,
     type: 'gate',
     title: 'Compuerta 2: Aprobación del Prototipo Final',
     description: 'Las 3 pantallas interactivas han sido compiladas en prototype/ y verificadas.',
@@ -234,28 +118,70 @@ function scopeToCurrentStep(agentText) {
 }
 
 /**
- * Evalúa un texto contra los patrones de pasos y compuertas (sin contexto de turno).
+ * Texto en minúsculas, sin acentos ni marcas de énfasis Markdown, y sin las partes del mensaje que repiten
+ * decisiones previas: el bloque Blueprint acumulativo (citas ">") y las filas de tablas de resumen.
  */
-function detectStepAction(agentText) {
-  // Eliminar filas de tablas markdown (e.g. | Parámetro | Valor |) para no provocar falsos positivos
-  // al resumir selecciones de pasos previos
-  const nonTableText = agentText.replace(/^\s*\|.*\|.*$/gm, '');
+function prepareForDetection(text) {
+  return MessageHeuristics.normalize(
+    String(text)
+      .replace(/^\s*>.*$/gm, '')
+      .replace(/^\s*\|.*\|.*$/gm, '')
+      .replace(/[*_`]+/g, '')
+  );
+}
 
-  // 1. Primero evaluamos contra el texto limpio sin tablas (prioridad para preguntas activas y transiciones)
-  for (const step of STEP_ACTIONS) {
-    if (step.triggerPattern && step.triggerPattern.test(nonTableText)) {
-      return sanitizeStep(step);
-    }
-  }
+/**
+ * Última pregunta del texto (de "¿" a "?"); sin signo de apertura, desde el salto de línea anterior.
+ */
+function lastQuestion(normalizedText) {
+  const closeIdx = normalizedText.lastIndexOf('?');
+  if (closeIdx === -1) return null;
+  const before = normalizedText.slice(0, closeIdx);
+  const openIdx = before.lastIndexOf('¿');
+  const lineIdx = before.lastIndexOf('\n');
+  const startIdx = openIdx !== -1 && openIdx > lineIdx - 400 ? openIdx : lineIdx + 1;
+  return normalizedText.slice(Math.max(startIdx, 0), closeIdx + 1);
+}
 
-  // 2. Fallback al texto completo si no hubo match en el texto sin tablas
-  for (const step of STEP_ACTIONS) {
-    if (step.triggerPattern && step.triggerPattern.test(agentText)) {
-      return sanitizeStep(step);
-    }
-  }
+// Verbos de aprobación explícita. "confirmas" (cierres de fase) no cuenta: no son compuertas.
+const STRONG_APPROVAL = /\b(apruebas|apruebes|aprueba|aprobar|apruebe|aprobacion)\b/;
+const SOFT_APPROVAL = /\b(conforme|de acuerdo|visto bueno)\b/;
+const FORWARD_TO_PROTOTYPE = /(proceder|avanzar|pasar|construir|construccion|iniciar|generar|continuar|seguir).{0,60}(fase 5|prototipo)/;
 
+/**
+ * Clasifica la pregunta de aprobación en compuerta 1 (Design System -> construir prototipo) o compuerta 2
+ * (prototipo terminado). Solo una pregunta cuenta: nombrar el Design System, el showcase o el prototipo en
+ * prosa, o una compuerta ya aprobada, no abre ninguna.
+ */
+function classifyGateQuestion(question, tail) {
+  const isApproval = STRONG_APPROVAL.test(question) || SOFT_APPROVAL.test(question);
+  if (!isApproval) return null;
+
+  if (/compuerta\s*(?:n\S*\s*)?2\b/.test(question)) return 'gate-2';
+  if (/compuerta\s*(?:n\S*\s*)?1\b/.test(question)) return 'gate-1';
+
+  const strong = STRONG_APPROVAL.test(question);
+  const forward = FORWARD_TO_PROTOTYPE.test(question);
+  if (strong && /(prototipo|prototype|pantallas)/.test(question) && !forward) return 'gate-2';
+  if (forward || (strong && /(design system|showcase|sistema de diseno)/.test(question))) return 'gate-1';
+
+  // Sin pistas en la pregunta: el encabezado "Compuerta N" inmediatamente anterior decide
+  const heading = tail.match(/compuerta\s*(?:n\S*\s*)?([12])\b[^?]*$/);
+  if (heading) return heading[1] === '2' ? 'gate-2' : 'gate-1';
   return null;
+}
+
+/**
+ * Detecta si el tramo vigente de la respuesta abre una compuerta de aprobación.
+ */
+function detectGate(agentText) {
+  const tail = prepareForDetection(scopeToCurrentStep(agentText));
+  const question = lastQuestion(tail);
+  if (!question) return null;
+  const gateId = classifyGateQuestion(question, tail);
+  if (!gateId) return null;
+  const step = STEP_ACTIONS.find(candidate => candidate.stepId === gateId);
+  return step ? sanitizeStep(step) : null;
 }
 
 class Pipeline {
@@ -330,15 +256,36 @@ class Pipeline {
     if (!agentText || typeof agentText !== 'string') return null;
 
     // Turno desviado (pregunta, pedido o charla del usuario): la respuesta suele traer una explicación ajena
-    // que nombra términos del flujo (fast-track, isotipo, prototipo...). Solo cuenta el tramo final, tras el
-    // último separador, y únicamente si es un paso del flujo (título de Etapa/Fase) que repite la pregunta pendiente.
+    // que nombra términos del flujo (design system, prototipo...). Solo cuenta el tramo final tras el último
+    // separador, y únicamente si es un paso del flujo (título de Etapa/Fase) que repite la pregunta pendiente.
     if (userMessage && MessageHeuristics.isRequestOrQuestion(userMessage)) {
-      const currentStep = scopeToCurrentStep(agentText);
-      if (!MessageHeuristics.isFlowMessage(currentStep)) return null;
-      return detectStepAction(currentStep);
+      if (!MessageHeuristics.isFlowMessage(scopeToCurrentStep(agentText))) return null;
     }
 
-    return detectStepAction(agentText);
+    return detectGate(agentText);
+  }
+
+  /**
+   * ¿El mensaje del usuario responde a una compuerta? Reconoce el valor exacto de los botones del gate
+   * (aprobar / solicitar ajustes) y, si hay una compuerta pendiente, un "Aprobado" escrito a mano.
+   *
+   * @param {string} message
+   * @param {Object} [options]
+   * @param {string|null} [options.pendingGateId] Compuerta abierta en el último mensaje del agente
+   * @returns {{ gateId: string, approved: boolean } | null}
+   */
+  matchGateResponse(message, { pendingGateId = null } = {}) {
+    if (!message || typeof message !== 'string') return null;
+    const normalized = MessageHeuristics.normalize(message);
+    for (const gate of STEP_ACTIONS) {
+      const [approve, adjust] = gate.options;
+      if (approve && MessageHeuristics.normalize(approve.value) === normalized) return { gateId: gate.stepId, approved: true };
+      if (adjust && MessageHeuristics.normalize(adjust.value) === normalized) return { gateId: gate.stepId, approved: false };
+    }
+    if (pendingGateId && /^(aprobado|apruebo|aprobar)\b/.test(normalized)) {
+      return { gateId: pendingGateId, approved: true };
+    }
+    return null;
   }
 
   /**

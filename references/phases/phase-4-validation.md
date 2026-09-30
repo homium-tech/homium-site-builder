@@ -1,5 +1,7 @@
 # Fase 4: VALIDACIÓN VISUAL
 
+> Las rutas `references/...`, `templates/...` y `scripts/...` de esta guía son relativas a `<APP_ROOT>` (la ruta absoluta indicada en "HERRAMIENTAS DE LA APP" de tu prompt). No existen dentro del workspace: usa siempre la ruta absoluta.
+
 ## Rol del Asistente
 Lead Design System Documentation Engineer & Visual Specification Writer. Redacción técnica rigurosa y directa orientada a especificaciones, sin preámbulos ni adulación.
 
@@ -305,12 +307,14 @@ Al llegar a la sección `#sec-code`, Claude presenta:
 > 2. **Tailwind CSS `theme.extend`** (para proyectos Tailwind)
 > 3. **JSON Style Dictionary** (para pipelines de tokens multiplataforma)
 > 4. **SCSS `$variables`** (para proyectos Sass/SCSS)
+> 5. *(Escribir mi propia opción personalizada)*
 
 Luego:
 > *"¿Para qué plataforma es la exportación principal?"*
 > 1. **Web** (CSS/JS)
 > 2. **iOS** (Swift tokens — `UIColor`, `UIFont`)
 > 3. **Android** (XML resources — `colors.xml`, `dimens.xml`)
+> 4. *(Escribir mi propia opción personalizada)*
 
 Genera el bloque de exportación correspondiente al final de `#sec-code` en el HTML y en la §5 del MD.
 
@@ -321,7 +325,7 @@ Genera el bloque de exportación correspondiente al final de `#sec-code` en el H
 Tras guardar `[Brand]_Design_System.html`, ejecuta:
 
 ```bash
-node scripts/audit_showcase.cjs "[Brand]_Design_System.html"
+node "<APP_ROOT>/scripts/audit_showcase.cjs" "[Brand]_Design_System.html"
 ```
 
 Si detecta:
@@ -330,9 +334,10 @@ Si detecta:
 
 Adicionalmente:
 ```bash
-node scripts/verify_fidelity.cjs --state design-system-state.json --check A
+node "<APP_ROOT>/scripts/verify_fidelity.cjs" --state design-system-state.json --check A --file "[Brand]_Design_System.html"
 ```
-(Check A: allowlist cromática — ningún hex literal en el HTML fuera de `palette.allowed_hexes`)
+(Check A: allowlist cromática — ningún color literal del archivo indicado con `--file` queda fuera de `palette.allowed_hexes`; devuelve JSON y código de salida 1 si hay violaciones. Sin `--file` revisa la carpeta `prototype/`.)
+`<APP_ROOT>` es la ruta absoluta indicada en "HERRAMIENTAS DE LA APP" de tu prompt: los scripts NO están en el workspace y se ejecutan desde la carpeta del proyecto.
 
 ---
 

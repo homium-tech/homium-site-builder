@@ -123,5 +123,35 @@ it('should escape attachment names and tracker file names', () => {
   assert(pills.includes('&lt;img'));
 });
 
+console.log('\n[3] Inferencia del Blueprint desde mensajes del usuario:');
+
+function infer(...messages) {
+  const app = loadApp();
+  app.context.__messages = messages;
+  app.run('__messages.forEach(m => inspectUserMessageForState(m)); dynamicBlueprintState');
+  return app.run('JSON.parse(JSON.stringify(dynamicBlueprintState))');
+}
+
+it('should take a short answer as the brand but never commands, greetings or requests', () => {
+  assert.strictEqual(infer('Acme').brand_name, 'Acme');
+  assert.strictEqual(infer('Studio Alpha').brand_name, 'Studio Alpha');
+  for (const text of ['No sé', 'Sí, avancemos', 'Buenos días', 'Crear sitio web', 'Empezar', '¿Qué es un isotipo?']) {
+    assert.strictEqual(infer(text).brand_name, undefined, `no debe tomar como marca: ${text}`);
+  }
+});
+
+it('should infer the business model only from short option-like answers, with the canonical label', () => {
+  assert.strictEqual(infer('Acme', '2. B2B — Venta a empresas').business_model, 'B2B — Venta a empresas / corporativo');
+  assert.strictEqual(infer('Acme', 'Marketplace').business_model, 'Marketplace — Plataforma multivendedor');
+  const sentences = [
+    'Somos una agencia de SaaS',
+    'Vendemos software SaaS para agencias de marketing digital en toda Latinoamérica',
+    'No quiero una agencia'
+  ];
+  for (const text of sentences) {
+    assert.strictEqual(infer('Acme', text).business_model, undefined, `no debe inferir modelo de negocio de: ${text}`);
+  }
+});
+
 console.log(`\nSummary: ${passedTests}/${totalTests} tests passed.`);
 if (passedTests !== totalTests) process.exit(1);

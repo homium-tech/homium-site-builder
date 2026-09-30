@@ -1,5 +1,7 @@
 # Fase 5: PROTOTIPO INTERACTIVO (3 Pantallas Clave en HTML, CSS, JS)
 
+> Las rutas `references/...`, `templates/...` y `scripts/...` de esta guía son relativas a `<APP_ROOT>` (la ruta absoluta indicada en "HERRAMIENTAS DE LA APP" de tu prompt). No existen dentro del workspace: usa siempre la ruta absoluta.
+
 ## Rol del Asistente
 Lead Creative Technologist & UI Prototyper. Conduce la construcción del prototipo interactivo de 3 pantallas navegables en `prototype/` con enfoque estrictamente técnico, pragmático y libre de condescendencia o halagos. Este es el entregable final del sistema de diseño.
 
@@ -161,7 +163,7 @@ Antes de iniciar la codificación, consulta [`references/frontend-design.md`](re
   >
   > **(e) VERIFICACIÓN INCREMENTAL:**
   > ```bash
-  > node scripts/verify_fidelity.cjs --state design-system-state.json --dir prototype/ --visual --only-section N
+  > node "<APP_ROOT>/scripts/verify_fidelity.cjs" --state design-system-state.json --dir prototype/ --visual --only-section N
   > ```
   > Corregir críticos ANTES de pasar a la sección N+1.
 
@@ -317,7 +319,7 @@ Antes de iniciar la codificación, consulta [`references/frontend-design.md`](re
 > Tras escribir cada página, ANTES de presentar la Compuerta de Aprobación:
 >
 > ```bash
-> node scripts/verify_fidelity.cjs --state design-system-state.json --dir prototype/ --visual
+> node "<APP_ROOT>/scripts/verify_fidelity.cjs" --state design-system-state.json --dir prototype/ --visual
 > ```
 >
 > El verificador valida:

@@ -929,25 +929,38 @@ function recordStepChoice(stepId, val) {
 function inspectUserMessageForState(msg) {
   if (!msg || typeof msg !== 'string') return;
   const clean = msg.trim();
-  const lower = clean.toLowerCase();
 
   // Preguntas, pedidos, saludos o mensajes sin relación con el flujo no deben alterar el Blueprint
   // (heurística compartida con el servidor: core/text/message-heuristics.js)
   if (MessageHeuristics.isRequestOrQuestion(clean) || clean.length > 160) return;
 
-  const commandWords = ['si', 'no', 'continua', 'continuar', 'adelante', 'siguiente', 'ok', 'listo', 'hola', 'buenas'];
   if (!dynamicBlueprintState.brand_name && !dynamicBlueprintState.brand?.name) {
-    if (!commandWords.includes(lower) && MessageHeuristics.isPlausibleBrandAnswer(clean)) {
+    // isPlausibleBrandAnswer ya descarta comandos ("sí", "no sé", "continuar") y pedidos (misma lógica que el servidor)
+    if (!MessageHeuristics.isCommandAnswer(clean) && MessageHeuristics.isPlausibleBrandAnswer(clean)) {
       updateDynamicBlueprintState({ brand_name: clean, brand: { name: clean } });
     }
   }
 
-  if (/b2b|b2c|marketplace|freemium|saas|servicios profesionales|agencia|consultor/i.test(clean)) {
-    updateDynamicBlueprintState({ business_model: clean.replace(/^[0-9]+\.\s*/, '') });
+  // Las decisiones del Blueprint solo se infieren de respuestas breves que eligen una opción ("2", "B2B",
+  // "Generar isotipo"): una frase larga que menciona "SaaS" o "logo" describe el negocio, no responde a la pregunta.
+  if (clean.split(/\s+/).length > 8) return;
+  const optionText = clean.replace(/^[0-9]+[.)]\s*/, '');
+
+  const businessModels = [
+    [/\bb2c\b/i, 'B2C — Venta directa al consumidor'],
+    [/\bb2b\b/i, 'B2B — Venta a empresas / corporativo'],
+    [/marketplace/i, 'Marketplace — Plataforma multivendedor'],
+    [/freemium|\bsaas\b/i, 'Freemium / SaaS — Servicio base gratuito con opción Pro'],
+    [/servicios profesionales|agencia|consultor/i, 'Servicios Profesionales / Agencia / Consultoría']
+  ];
+  // Una negación ("no quiero una agencia") descarta la opción en lugar de elegirla
+  const model = /^(no|ni)\s/i.test(optionText) ? null : businessModels.find(([pattern]) => pattern.test(optionText));
+  if (model) {
+    updateDynamicBlueprintState({ business_model: model[1] });
   }
 
   if (/isotipo|logo existente|svg|logotipo/i.test(clean)) {
-    updateDynamicBlueprintState({ logo: clean.replace(/^[0-9]+\.\s*/, ''), logo_type: clean.replace(/^[0-9]+\.\s*/, '') });
+    updateDynamicBlueprintState({ logo: optionText, logo_type: optionText });
   }
 
   if (/sin referencia|desde cero|diseño original/i.test(clean)) {

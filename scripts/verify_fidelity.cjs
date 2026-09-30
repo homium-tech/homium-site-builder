@@ -229,24 +229,37 @@ function scanFileForColors(filePath) {
   return findings;
 }
 
-function runColorCheck() {
+/**
+ * Verifica que ningún color literal quede fuera de la allowlist cromática.
+ * @param {Object} [options]
+ * @param {string} [options.file] Un único archivo a revisar (p. ej. el showcase HTML). Sin él se recorre PROTO_DIR.
+ */
+function runColorCheck({ file = null } = {}) {
   const exts = ['.html', '.css', '.js'];
   let files = [];
-  (function walk(dir) {
-    if (!fs.existsSync(dir)) return;
-    for (const name of fs.readdirSync(dir)) {
-      if (name === 'node_modules' || name.startsWith('.')) continue;
-      const full = path.join(dir, name);
-      const st = fs.statSync(full);
-      if (st.isDirectory()) walk(full);
-      else if (exts.includes(path.extname(name).toLowerCase())) files.push(full);
-    }
-  })(PROTO_DIR);
+  let baseDir = PROTO_DIR;
+  if (file) {
+    const resolved = path.resolve(process.cwd(), file);
+    if (!fs.existsSync(resolved)) fail(`Archivo no encontrado para --file: ${resolved}`);
+    files = [resolved];
+    baseDir = path.dirname(resolved);
+  } else {
+    (function walk(dir) {
+      if (!fs.existsSync(dir)) return;
+      for (const name of fs.readdirSync(dir)) {
+        if (name === 'node_modules' || name.startsWith('.')) continue;
+        const full = path.join(dir, name);
+        const st = fs.statSync(full);
+        if (st.isDirectory()) walk(full);
+        else if (exts.includes(path.extname(name).toLowerCase())) files.push(full);
+      }
+    })(PROTO_DIR);
+  }
 
   const violations = [];
   const totalTokens = { count: 0 };
   for (const file of files) {
-    const rel = path.relative(PROTO_DIR, file);
+    const rel = path.relative(baseDir, file);
     for (const f of scanFileForColors(file)) {
       totalTokens.count++;
       const ok = [...allowed.keys()].some(a => withinTolerance(f.hex, a));
@@ -1319,6 +1332,15 @@ function aggregateSeverity(checks) {
 // Main
 // ---------------------------------------------------------------------------
 (async function main() {
+  // Modo rápido "--check A": solo la allowlist cromática, sobre un archivo concreto (--file, p. ej. el showcase de
+  // la Fase 4, donde aún no existe prototype/) o, sin --file, sobre la carpeta del prototipo.
+  if (argValue('--check') === 'A') {
+    const colors = runColorCheck({ file: argValue('--file') });
+    console.log(JSON.stringify({ tool: 'verify_fidelity', executed_at: new Date().toISOString(), ...colors, check: 'A', check_name: colors.check }, null, 2));
+    console.error(`[Verify] Check A (allowlist cromática): ${colors.status} (${colors.violation_count} violaciones en ${colors.scanned_files} archivo(s))`);
+    process.exit(colors.status === 'PASS' ? 0 : 1);
+  }
+
   console.error(`[Verify] Modo de fidelidad: ${mode}`);
   console.error(`[Verify] Prototipo: ${PROTO_DIR}`);
   console.error(`[Verify] Tolerancia cromática: ±${TOLERANCE} por canal${ONLY_SECTION ? ` | Solo sección ${ONLY_SECTION}` : ''}`);

@@ -614,6 +614,30 @@ app.post('/api/reset', (req, res) => {
   res.json({ ok: true, message: 'Sesión, proyecto y estado reseteados' });
 });
 
+// 7a. Empezar otro proyecto conservando el actual intacto en disco (a diferencia de /api/reset, que archiva su
+// estado e historial). Al escribir después el nombre de una marca existente se retoma su carpeta.
+app.post('/api/project/new', (req, res) => {
+  const { sessionId } = req.body || {};
+  const previousProject = workspace.getProjectName();
+
+  agentEngine.cancelAll();
+  activeTurns.clear();
+  if (typeof sessionId === 'string') {
+    agentEngine.resetSession(sessionId);
+  }
+
+  workspace.resetProject();
+  deliverableStore.refresh();
+
+  res.json({
+    ok: true,
+    previousProject,
+    message: previousProject
+      ? `El proyecto "${previousProject}" se conserva en disco. Escribe el nombre de la nueva marca para empezar otro proyecto.`
+      : 'No había un proyecto activo.'
+  });
+});
+
 // 7b. Historial y estado conversacional persistido para reanudación inmediata (F5 / reconexión)
 app.get('/api/chat/history', (req, res) => {
   if (!workspace.hasProject()) {
@@ -628,13 +652,19 @@ app.get('/api/chat/history', (req, res) => {
   const currentStage = stateObj.state?.current_stage || '';
   const brandName = stateObj.state?.brand?.name || stateObj.state?.brand || workspace.getProjectName();
 
+  const gates = history.gates || {};
   let pendingAction = history.lastAction || null;
 
-  // Si no hay acción pendiente registrada explícita pero los entregables indican compuerta:
+  // Una compuerta que el usuario ya resolvió (aprobada, o con ajustes en curso) no vuelve a ofrecerse
+  if (pendingAction && pendingAction.type === 'gate' && gates[pendingAction.stepId]) {
+    pendingAction = null;
+  }
+
+  // Si no hay acción pendiente registrada explícita pero los entregables indican compuerta sin resolver:
   if (!pendingAction) {
-    if (snapshot.status?.showcaseExists && currentPhase >= 4 && !snapshot.status?.prototypeExists) {
+    if (snapshot.status?.showcaseExists && currentPhase >= 4 && !snapshot.status?.prototypeExists && !gates['gate-1']) {
       pendingAction = pipeline.getGate('gate-1');
-    } else if (snapshot.status?.prototypeExists && currentPhase >= 5) {
+    } else if (snapshot.status?.prototypeExists && currentPhase >= 5 && !gates['gate-2']) {
       pendingAction = pipeline.getGate('gate-2');
     }
   }
@@ -649,6 +679,7 @@ app.get('/api/chat/history', (req, res) => {
     messages: history.messages || [],
     lastAssistantMessage: history.lastAssistantMessage || null,
     pendingAction,
+    gates,
     deliverables: snapshot.status,
     // Hay un turno en curso: la respuesta aún no está en el historial (p. ej. el cliente se reconectó a mitad de turno)
     busy: agentEngine.isBusy()
@@ -712,16 +743,36 @@ app.post('/api/chat', (req, res) => {
   const userMessage = { role: 'user', content: message, timestamp: Date.now() };
   if (target) workspace.addChatMessage(userMessage, target);
 
+  // ¿El mensaje resuelve una compuerta abierta? (botón Aprobar / Solicitar ajustes, o un "Aprobado" escrito a mano).
+  // Se recuerda para que, tras recargar, la compuerta no se vuelva a inferir de los entregables en disco.
+  let gateBefore = null;
+  if (target) {
+    const lastAction = workspace.getLastAction(target);
+    const gateResponse = pipeline.matchGateResponse(message, {
+      pendingGateId: lastAction && lastAction.type === 'gate' ? lastAction.stepId : null
+    });
+    if (gateResponse) {
+      gateBefore = { gates: workspace.getGateStatuses(target), lastAction };
+      workspace.setGateStatus(gateResponse.gateId, gateResponse.approved ? 'approved' : 'adjusting', target);
+    }
+  }
+
+  // Un turno fallido o cancelado no dejó rastro: se retira el mensaje (para poder reenviarlo) y se restaura la compuerta
+  const undoTurn = () => {
+    if (!target) return;
+    workspace.removeChatMessage(userMessage, target);
+    if (gateBefore) workspace.restoreGateState(gateBefore, target);
+  };
+
   const turnKey = stream.sessionId;
-  activeTurns.set(turnKey, { stream, target, userMessage });
+  activeTurns.set(turnKey, { stream, undoTurn });
   const releaseTurn = () => {
     if (activeTurns.get(turnKey)?.stream === stream) activeTurns.delete(turnKey);
   };
 
-  // Si el turno falla, el mensaje queda sin respuesta: se retira del historial para que el cliente pueda reenviarlo
   stream.on('error', () => {
     releaseTurn();
-    if (target) workspace.removeChatMessage(userMessage, target);
+    undoTurn();
   });
   stream.on('cancelled', releaseTurn);
 
@@ -729,6 +780,10 @@ app.post('/api/chat', (req, res) => {
     transformDone: (doneData, fullText) => {
       releaseTurn();
       const action = pipeline.detectAction(fullText, { userMessage: message });
+      if (target && action && action.type === 'gate') {
+        // El agente (re)abrió la compuerta: deja de estar resuelta
+        workspace.setGateStatus(action.stepId, null, target);
+      }
       if (target && fullText.trim()) {
         workspace.addChatMessage({
           role: 'assistant',
@@ -754,7 +809,7 @@ app.post('/api/chat/cancel', (req, res) => {
   }
   activeTurns.delete(sessionId);
   active.stream.kill();
-  if (active.target) workspace.removeChatMessage(active.userMessage, active.target);
+  active.undoTurn();
   res.json({ ok: true, cancelled: true });
 });
 
