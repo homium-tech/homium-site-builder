@@ -1,9 +1,7 @@
 const assert = require('assert');
 const fs = require('fs');
-const os = require('os');
 const path = require('path');
-const net = require('net');
-const { spawn } = require('child_process');
+const { startServer, sleep, waitFor, parseSSE } = require('./helpers/server-harness');
 
 // Prueba de integración: arranca server.js real (motor mock) y ejercita el flujo HTTP/SSE de /api/chat.
 
@@ -21,89 +19,6 @@ async function it(desc, fn) {
     console.error(err);
     process.exitCode = 1;
   }
-}
-
-function freePort() {
-  return new Promise((resolve, reject) => {
-    const srv = net.createServer();
-    srv.listen(0, '127.0.0.1', () => {
-      const { port } = srv.address();
-      srv.close(() => resolve(port));
-    });
-    srv.on('error', reject);
-  });
-}
-
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-
-async function waitFor(predicate, { timeoutMs = 5000, stepMs = 25 } = {}) {
-  const start = Date.now();
-  for (;;) {
-    const value = await predicate();
-    if (value) return value;
-    if (Date.now() - start > timeoutMs) throw new Error('waitFor: timeout');
-    await sleep(stepMs);
-  }
-}
-
-function parseSSE(text) {
-  const events = [];
-  for (const block of text.split('\n\n')) {
-    const match = block.match(/^event: (\w+)\ndata: (.*)$/m);
-    if (match) events.push({ name: match[1], data: JSON.parse(match[2]) });
-  }
-  return events;
-}
-
-async function startServer({ mockDelayMs = 15 } = {}) {
-  const port = await freePort();
-  const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'server-chat-'));
-  const child = spawn(process.execPath, ['server.js'], {
-    cwd: path.join(__dirname, '..'),
-    env: {
-      ...process.env,
-      PORT: String(port),
-      HOST: '127.0.0.1',
-      AUTH_USER: 'tester',
-      AUTH_PASS: 'secret-pass',
-      SESSION_SECRET: 'test-secret',
-      WORKSPACE_DIR: workspaceDir,
-      MOCK_DELAY_MS: String(mockDelayMs)
-    },
-    stdio: ['ignore', 'pipe', 'pipe']
-  });
-
-  let logs = '';
-  child.stdout.on('data', (d) => { logs += d; });
-  child.stderr.on('data', (d) => { logs += d; });
-  await waitFor(() => logs.includes('activo en'), { timeoutMs: 10000 });
-
-  const base = `http://127.0.0.1:${port}`;
-  const loginRes = await fetch(`${base}/api/auth/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: 'tester', password: 'secret-pass' })
-  });
-  assert.strictEqual(loginRes.status, 200);
-  const cookie = loginRes.headers.getSetCookie().map(c => c.split(';')[0]).join('; ');
-
-  const api = (route, { method = 'GET', body, signal } = {}) => fetch(`${base}${route}`, {
-    method,
-    headers: { 'Content-Type': 'application/json', Cookie: cookie },
-    body: body ? JSON.stringify(body) : undefined,
-    signal
-  });
-
-  return {
-    api,
-    workspaceDir,
-    logs: () => logs,
-    stop: async () => {
-      child.kill('SIGTERM');
-      await new Promise((resolve) => child.once('close', resolve));
-      fs.rmSync(workspaceDir, { recursive: true, force: true });
-    }
-  };
 }
 
 function historyOf(workspaceDir, project) {
@@ -154,7 +69,7 @@ async function runSuite() {
   }
 
   console.log('\n[3] Concurrencia, desconexión y cancelación:');
-  srv = await startServer({ mockDelayMs: 150 });
+  srv = await startServer({ env: { MOCK_DELAY_MS: '150' } });
   try {
     await it('should answer 409 to a concurrent turn without leaving a phantom user message', async () => {
       const first = await srv.api('/api/chat', { method: 'POST', body: { message: 'Acme', engine: 'mock', sessionId: 'session-busy-1' } });

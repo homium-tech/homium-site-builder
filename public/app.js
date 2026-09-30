@@ -441,6 +441,30 @@ if (btnClearChat) {
 
 // 6. Formateo limpio de Markdown / Texto (Sin Corchetes)
 // Escapa comillas y ángulos (no &) en valores que ya pasaron por el escape inicial y luego se decodificaron
+// Colores CSS aceptados en atributos style: #hex, nombres simples y rgb()/hsl(). Cualquier otra cosa se descarta
+// (los valores vienen del estado, escrito por un LLM que ingiere URLs y archivos de terceros).
+function safeCssColor(value) {
+  if (typeof value !== 'string') return '';
+  const v = value.trim();
+  return /^(#[0-9a-fA-F]{3,8}|[a-zA-Z]{3,25}|(?:rgb|hsl)a?\(\s*[0-9.,%\s\/deg]+\))$/.test(v) ? v : '';
+}
+
+// Nombres de fuente: solo letras, números, espacios, guiones y puntos (van dentro de font-family)
+function safeFontName(value) {
+  if (typeof value !== 'string') return '';
+  return value.replace(/[^\w\s\-.]/g, '').trim();
+}
+
+// Copia profunda con todas las cadenas escapadas para interpolarlas en innerHTML
+function escapeDeep(value, depth = 0) {
+  if (typeof value === 'string') return escapeHtml(value);
+  if (depth > 6 || value === null || typeof value !== 'object') return value;
+  if (Array.isArray(value)) return value.map(v => escapeDeep(v, depth + 1));
+  const out = {};
+  for (const [k, v] of Object.entries(value)) out[k] = escapeDeep(v, depth + 1);
+  return out;
+}
+
 function escapeAttrValue(value) {
   return String(value)
     .replace(/</g, '&lt;')
@@ -458,16 +482,19 @@ function formatText(text) {
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
 
-  // Swatches visuales automáticos para códigos HEX (#RRGGBB, #RGB, o bare RRGGBB en contexto de paleta)
-  safe = safe.replace(/`?#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b`?/g, (match, hex) => {
-    const fullHex = '#' + hex;
-    return `<span class="hex-swatch-pill"><span class="hex-dot" style="background-color:${fullHex};"></span>${fullHex}</span>`;
-  });
-  // Bare hex sin # — solo cuando va precedido de espacio/bullet y seguido de espacio/puntuación (evita falsos positivos)
-  safe = safe.replace(/(?<=[\s•·\-])([0-9A-F]{6}|[0-9a-f]{6})\b(?=[\s,·•<])/g, (match, hex) => {
-    const fullHex = '#' + hex;
-    return `<span class="hex-swatch-pill"><span class="hex-dot" style="background-color:${fullHex};"></span>${fullHex}</span>`;
-  });
+  // Swatches visuales automáticos para códigos HEX (#RRGGBB, #RGB, o bare RRGGBB en contexto de paleta).
+  // Los destinos de enlaces Markdown "](...)" se dejan intactos: un "#123456" dentro de una URL es un fragmento, no un color.
+  const swatch = (fullHex) => `<span class="hex-swatch-pill"><span class="hex-dot" style="background-color:${fullHex};"></span>${fullHex}</span>`;
+  safe = safe.split(/(\]\([^)]*\))/).map((segment, i) => {
+    if (i % 2 === 1) return segment;
+    return segment
+      .replace(/`?#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b`?/g, (match, hex) => swatch('#' + hex))
+      // Bare hex sin # — solo cuando va precedido de espacio/bullet y seguido de espacio/puntuación, y mezcla
+      // dígitos y letras: así no convierte palabras ("decade", "facade") ni números ("100000", "202601") en colores
+      .replace(/(?<=[\s•·\-])([0-9A-F]{6}|[0-9a-f]{6})\b(?=[\s,·•<])/g, (match, hex) => (
+        /\d/.test(hex) && /[a-f]/i.test(hex) ? swatch('#' + hex) : match
+      ));
+  }).join('');
 
   // 1. Enlaces a archivos en disco [text](file:///...) -> chips interactivos con icono
   safe = safe.replace(/\[([^\]]*)\]\(file:\/\/\/(.*?)\)/g, (match, label, filePath) => {
@@ -490,8 +517,9 @@ function formatText(text) {
   // 2. Enlaces web normales [text](http...) -> links limpios
   safe = safe.replace(/\[([^\]]*)\]\(([^)]*)\)/g, (match, label, url) => {
     const target = url.trim();
-    // Solo http(s) o rutas absolutas del propio sitio: bloquea javascript:, data:, vbscript: y URLs //host
-    if (!/^(?:https?:\/\/|\/(?!\/))/i.test(target)) return label;
+    // Solo http(s) o rutas absolutas del propio sitio: bloquea javascript:, data:, vbscript: y URLs //host.
+    // "/\host" también se rechaza: los navegadores tratan la barra invertida como "/" y lo leen como //host
+    if (!/^(?:https?:\/\/|\/(?![\/\\]))/i.test(target)) return label;
     return `<a href="${target}" target="_blank" rel="noopener noreferrer" style="color:var(--homium-cyan);text-decoration:none;border-bottom:1px dotted var(--homium-cyan);font-weight:500;">${label}</a>`;
   });
 
@@ -685,7 +713,7 @@ if (chatForm) {
           if (!fullResponse.trim()) {
             const engineLabel = engineSelect.options[engineSelect.selectedIndex]?.text || engineSelect.value;
             if (doneData.code && doneData.code !== 0) {
-              agentBody.innerHTML = `<p style="color:#ffb86c;display:flex;align-items:center;gap:6px;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg><span>El motor <strong>${engineLabel}</strong> finalizó con código de error ${doneData.code} sin emitir texto. Revisa la pestaña Consola para verificar el registro técnico o cambia de motor en el menú superior.</span></p>`;
+              agentBody.innerHTML = `<p style="color:#ffb86c;display:flex;align-items:center;gap:6px;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg><span>El motor <strong>${escapeHtml(engineLabel)}</strong> finalizó con código de error ${escapeHtml(doneData.code)} sin emitir texto. Revisa la pestaña Consola para verificar el registro técnico o cambia de motor en el menú superior.</span></p>`;
             } else {
               agentBody.innerHTML = formatText('Respuesta completada.');
             }
@@ -721,7 +749,7 @@ if (chatForm) {
               activeGateContainer.innerHTML = '';
             }
             const engineLabel = engineSelect.options[engineSelect.selectedIndex]?.text || engineSelect.value;
-            agentBody.innerHTML = `<p style="color:#ff5555;display:flex;align-items:center;gap:6px;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg><span>Error en ${engineLabel}: ${payload.error}. Verifica que el servicio esté disponible o selecciona otro motor.</span></p>`;
+            agentBody.innerHTML = `<p style="color:#ff5555;display:flex;align-items:center;gap:6px;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg><span>Error en ${escapeHtml(engineLabel)}: ${escapeHtml(payload.error)}. Verifica que el servicio esté disponible o selecciona otro motor.</span></p>`;
           }
         }
       }
@@ -734,7 +762,7 @@ if (chatForm) {
       activeGateContainer.style.display = 'none';
       activeGateContainer.innerHTML = '';
     }
-    agentBody.innerHTML = `<p style="color:#ff5555;">Error de conexión: ${err.message}</p>`;
+    agentBody.innerHTML = `<p style="color:#ff5555;">Error de conexión: ${escapeHtml(err.message)}</p>`;
     appendLog('[Error] ' + err.message, 'error');
   } finally {
     btnSend.disabled = false;
@@ -1015,7 +1043,7 @@ function renderBlueprintRaw(s) {
   const brandFidelity = resolveFidelityLabel(s) ||
     _cKey(['Fidelidad', 'fidelidad', 'fidelity', 'Fidelity']) || '';
 
-  const brand = {
+  let brand = {
     name: brandName,
     purpose: brandPurpose,
     business_model: brandBusinessModel,
@@ -1028,7 +1056,7 @@ function renderBlueprintRaw(s) {
   const step21 = s.completed_steps?.['2.1'] || {};
   const step22 = s.completed_steps?.['2.2'] || {};
   const typoRaw = s.typography || f.typography || {};
-  const typo = {
+  let typo = {
     font_display: typoRaw.font_display || typoRaw.display || step22.typography_display || step22.display || '',
     font_ui: typoRaw.font_ui || typoRaw.body || typoRaw.font_body || step22.typography_ui || step22.ui || step22.body || '',
     font_body: typoRaw.font_body || typoRaw.body || typoRaw.font_ui || step22.typography_ui || step22.body || '',
@@ -1036,12 +1064,12 @@ function renderBlueprintRaw(s) {
     character: typoRaw.character || '',
     h1_size_px: typoRaw.h1_size_px || 64
   };
-  const sitemap = s.sitemap || f.sitemap || {};
-  const modularScale = s.modular_scale || f.modular_scale || {};
-  const densityMode = s.density_mode || f.density_mode || {};
-  const personality = s.personality || f.personality || {};
-  const geometry = s.geometry_tokens || f.geometry_elevations || {};
-  const components = s.components || {};
+  let sitemap = s.sitemap || f.sitemap || {};
+  let modularScale = s.modular_scale || f.modular_scale || {};
+  let densityMode = s.density_mode || f.density_mode || {};
+  let personality = s.personality || f.personality || {};
+  let geometry = s.geometry_tokens || f.geometry_elevations || {};
+  let components = s.components || {};
 
   // Extraer allowedHexes (soporta array plano, rampas de objetos, campos individuales o completed_steps)
   let allowedHexes = palette.allowed_hexes || [];
@@ -1125,8 +1153,45 @@ function renderBlueprintRaw(s) {
   if (typo.font_body) loadGoogleFont(typo.font_body);
   if (typo.font_mono) loadGoogleFont(typo.font_mono);
 
-  const displayFontFamily = typo.font_display ? `'${typo.font_display}', sans-serif` : 'inherit';
-  const bodyFontFamily = (typo.font_ui || typo.font_body) ? `'${typo.font_ui || typo.font_body}', sans-serif` : 'inherit';
+  // Saneamiento de salida: a partir de aquí los valores del estado solo se usan para construir HTML.
+  // Las cadenas se escapan, los colores y nombres de fuente se validan antes de llegar a atributos style/data-*.
+  primaryHex = safeCssColor(primaryHex);
+  secondaryHex = safeCssColor(secondaryHex);
+  accentHex = safeCssColor(accentHex);
+  bgBase = safeCssColor(bgBase);
+  surfaceCard = safeCssColor(surfaceCard);
+  surfaceCardHover = safeCssColor(surfaceCardHover);
+  textPrimary = safeCssColor(textPrimary);
+  textSecondary = safeCssColor(textSecondary);
+  allowedHexes = (Array.isArray(allowedHexes) ? allowedHexes : []).filter(h => typeof h === 'string' && /^#[0-9a-fA-F]{3,8}$/.test(h));
+
+  const fontDisplay = safeFontName(typo.font_display);
+  const fontBody = safeFontName(typo.font_ui || typo.font_body);
+  const fontMono = safeFontName(typo.font_mono);
+  typo = {
+    font_display: fontDisplay,
+    font_ui: safeFontName(typo.font_ui),
+    font_body: safeFontName(typo.font_body),
+    font_mono: fontMono,
+    character: escapeHtml(typo.character),
+    h1_size_px: Number(typo.h1_size_px) || 64
+  };
+  brand = {
+    name: escapeHtml(brand.name),
+    purpose: escapeHtml(brand.purpose),
+    business_model: escapeHtml(brand.business_model),
+    logo_type: escapeHtml(brand.logo_type),
+    fidelity_mode: escapeHtml(brand.fidelity_mode)
+  };
+  sitemap = escapeDeep(sitemap);
+  modularScale = escapeDeep(modularScale);
+  densityMode = escapeDeep(densityMode);
+  personality = escapeDeep(personality);
+  geometry = escapeDeep(geometry);
+  components = escapeDeep(components);
+
+  const displayFontFamily = fontDisplay ? `'${fontDisplay}', sans-serif` : 'inherit';
+  const bodyFontFamily = fontBody ? `'${fontBody}', sans-serif` : 'inherit';
 
   // 1. Swatches de allowlist
   let hexCards = '';
@@ -1165,7 +1230,7 @@ function renderBlueprintRaw(s) {
   }
 
   // 3. Mini Canvas de UI en Vivo (Visual Preview de la identidad)
-  const borderSubtle = isLightScheme ? 'rgba(0, 0, 0, 0.08)' : (palette.border_subtle || 'rgba(255, 255, 255, 0.12)');
+  const borderSubtle = isLightScheme ? 'rgba(0, 0, 0, 0.08)' : (safeCssColor(palette.border_subtle) || 'rgba(255, 255, 255, 0.12)');
 
   const liveSpecimenHtml = (primaryHex || allowedHexes.length > 0) ? `
     <div class="blueprint-card">
@@ -1601,18 +1666,18 @@ function updateDeliverablesTracker(snapshot) {
   trackerPills.innerHTML = items.map(item => {
     if (item.ready) {
       return `
-        <span class="tracker-pill pill-ready" data-deliverable-id="${item.id}" title="${item.hint}: Creado en disco">
+        <span class="tracker-pill pill-ready" data-deliverable-id="${item.id}" title="${escapeHtml(item.hint)}: Creado en disco">
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="20 6 9 17 4 12"></polyline>
           </svg>
-          <span>${item.label}</span>
+          <span>${escapeHtml(item.label)}</span>
         </span>
       `;
     } else {
       return `
-        <span class="tracker-pill pill-pending" data-deliverable-id="${item.id}" title="${item.hint}: Pendiente de creación">
+        <span class="tracker-pill pill-pending" data-deliverable-id="${item.id}" title="${escapeHtml(item.hint)}: Pendiente de creación">
           <span class="tracker-pending-dot"></span>
-          <span>${item.label}</span>
+          <span>${escapeHtml(item.label)}</span>
         </span>
       `;
     }
@@ -1638,7 +1703,7 @@ function notifyTrackerBuilding(activityText) {
       const labelText = pill.querySelector('span:last-child')?.textContent || targetId;
       pill.innerHTML = `
         <span class="tracker-building-dot"></span>
-        <span>${labelText}</span>
+        <span>${escapeHtml(labelText)}</span>
       `;
       pill.title = `${labelText}: Generando en este momento...`;
     }
@@ -1972,7 +2037,7 @@ function renderActionCards(step) {
 }
 
 function escapeHtml(str) {
-  if (!str) return '';
+  if (str === null || str === undefined) return '';
   return String(str)
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -2099,7 +2164,7 @@ if (btnDownloadWorkspace) {
 function appendSystemEvent(text) {
   const div = document.createElement('div');
   div.className = 'message system-event';
-  div.innerHTML = `<span>[ ${text} ]</span>`;
+  div.innerHTML = `<span>[ ${escapeHtml(text)} ]</span>`;
   chatMessages.appendChild(div);
   chatMessages.scrollTop = chatMessages.scrollHeight;
 }
@@ -2114,7 +2179,7 @@ function renderAttachmentsTray() {
   attachmentsTray.hidden = false;
   attachmentsTray.innerHTML = pendingAttachments.map((file, index) => `
     <span class="attachment-chip">
-      ${file.name}
+      ${escapeHtml(file.name)}
       <button type="button" class="attachment-chip-remove" data-index="${index}" title="Quitar adjunto" aria-label="Quitar adjunto">&times;</button>
     </span>
   `).join('');

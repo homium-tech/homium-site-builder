@@ -9,6 +9,7 @@ const archiver = require('archiver');
 const { AgentEngine } = require('./lib/agent-engine');
 const DeliverableStore = require('./lib/deliverable-store');
 const Workspace = require('./lib/workspace');
+const { escapeHtml, renderBlueprintPage } = require('./lib/preview-pages');
 
 // Load .env if present (no dotenv dependency needed)
 const envPath = path.join(__dirname, '.env');
@@ -25,6 +26,16 @@ if (fs.existsSync(envPath)) {
 }
 
 const app = express();
+
+// Detrás de un túnel o proxy inverso (opt-in): permite que req.ip y la cookie `secure` usen X-Forwarded-*.
+// Sin esto todos los usuarios remotos comparten la IP del túnel y el límite de intentos de login es global.
+// TRUST_PROXY admite "true", un número de saltos (ej. 1) o una lista de IPs/subredes.
+if (process.env.TRUST_PROXY) {
+  const raw = process.env.TRUST_PROXY.trim();
+  const value = raw === 'true' ? true : raw === 'false' ? false : (/^\d+$/.test(raw) ? parseInt(raw, 10) : raw);
+  app.set('trust proxy', value);
+}
+
 const PORT = process.env.PORT || 8080;
 const HOST = process.env.HOST || '0.0.0.0';
 
@@ -40,6 +51,14 @@ if (!process.env.SESSION_SECRET) {
 }
 if (!process.env.AUTH_USER) {
   console.warn('[Auth] ADVERTENCIA: AUTH_USER usa el valor por defecto "admin". Define AUTH_USER en .env');
+}
+// Valores de ejemplo de .env.example copiados tal cual: cualquiera que conozca el repositorio los conoce
+const EXAMPLE_SECRET_PATTERNS = [/^tu_contraseña/i, /^cambia_esto/i];
+if (AUTH_PASS && EXAMPLE_SECRET_PATTERNS.some(re => re.test(AUTH_PASS))) {
+  console.warn('[Auth] ADVERTENCIA: AUTH_PASS sigue con el valor de ejemplo de .env.example. Cámbiala por una contraseña propia.');
+}
+if (process.env.SESSION_SECRET && EXAMPLE_SECRET_PATTERNS.some(re => re.test(process.env.SESSION_SECRET))) {
+  console.warn('[Auth] ADVERTENCIA: SESSION_SECRET sigue con el valor de ejemplo de .env.example. Genera uno aleatorio.');
 }
 
 // Comparación en tiempo constante para evitar timing attacks
@@ -65,6 +84,10 @@ function checkRateLimit(ip) {
   if (rec && now < rec.resetAt && rec.count >= LOGIN_MAX) return false;
   if (rec && now >= rec.resetAt) loginAttempts.delete(ip);
   return true;
+}
+
+function clearFailedAttempts(ip) {
+  loginAttempts.delete(ip);
 }
 
 function recordFailedAttempt(ip) {
@@ -134,13 +157,12 @@ if (process.env.ALLOWED_ORIGINS) {
     .forEach(o => allowedOrigins.add(o));
 }
 
-// CORS restringido: únicamente permite localhost, 127.0.0.1 o peticiones same-origin (sin encabezado Origin)
+// CORS restringido: únicamente permite localhost, 127.0.0.1, ALLOWED_ORIGINS o peticiones same-origin (sin encabezado Origin).
+// Un origen no listado simplemente no recibe cabeceras CORS (en vez de un 500 que además rompe los estáticos);
+// las rutas /api/* lo rechazan con un 403 explícito en requireSameOrigin.
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin || allowedOrigins.has(origin)) {
-      return callback(null, true);
-    }
-    return callback(new Error('Acceso bloqueado por política de seguridad CORS'));
+    callback(null, !origin || allowedOrigins.has(origin));
   },
   credentials: true
 }));
@@ -164,6 +186,21 @@ function requireSameOrigin(req, res, next) {
   const origin = req.headers.origin;
   if (origin && !allowedOrigins.has(origin)) {
     return res.status(403).json({ error: 'Acceso no autorizado: origen no permitido' });
+  }
+
+  // Las previews (/preview/*) muestran HTML generado por el agente en el mismo origen que la app.
+  // Sus scripts no deben poder invocar la API con la sesión del usuario (p. ej. /api/chat o /api/reset).
+  // /preview/blueprint es una página propia de la app y sí la usa.
+  const referer = req.headers.referer;
+  if (referer) {
+    try {
+      const refPath = new URL(referer).pathname;
+      if (refPath.startsWith('/preview/') && refPath !== '/preview/blueprint') {
+        return res.status(403).json({ error: 'Acceso no autorizado: las vistas previas no pueden invocar la API' });
+      }
+    } catch (e) {
+      // Referer ilegible: se trata como ausente
+    }
   }
   next();
 }
@@ -192,6 +229,7 @@ app.post('/api/auth/login', (req, res) => {
       if (err) return res.status(500).json({ error: 'Error interno de sesión' });
       req.session.authenticated = true;
       req.session.user = email;
+      clearFailedAttempts(ip);
       res.json({ ok: true });
     });
   } else {
@@ -326,22 +364,10 @@ function renderWaitingPage({ phase, title, highlight, description, statusText })
   `;
 }
 
-// Función para escapar caracteres especiales HTML
-function escapeHtml(str) {
-  if (typeof str !== 'string') return '';
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
-// Aislamiento CSP Sandbox para todas las vistas previas de entregables
-// allow-scripts + allow-same-origin combinados permiten que el contenido sandboxeado
-// se libere del sandbox (via window.frameElement, al ser mismo origen que el padre).
-// Los prototipos/showcase generados son HTML/CSS/JS autocontenidos que no usan
-// fetch/localStorage/cookies, así que se puede omitir allow-same-origin sin romperlos.
+// Aislamiento CSP Sandbox para todas las vistas previas de entregables.
+// Se mantiene allow-same-origin: la cookie de sesión es SameSite=Strict, y sin ese permiso el iframe tendría
+// un origen opaco y sus subrecursos (CSS, JS, imágenes) llegarían sin cookie y serían rechazados por requireAuth.
+// El riesgo de que el HTML generado invoque la API con la sesión se mitiga en requireSameOrigin (Referer /preview/*).
 app.use('/preview', (req, res, next) => {
   res.setHeader(
     'Content-Security-Policy',
@@ -354,7 +380,8 @@ app.use('/preview', (req, res, next) => {
 app.get(['/preview/prototype', '/preview/prototype/', '/preview/prototype/index.html'], (req, res) => {
   const indexPath = path.join(workspace.getPrototypeDir(), 'index.html');
   if (fs.existsSync(indexPath)) {
-    return res.sendFile(indexPath);
+    // Con `root`, una carpeta con punto en la ruta del workspace (ej. ~/.homium) no provoca un 404
+    return res.sendFile('index.html', { root: workspace.getPrototypeDir() });
   }
   res.send(renderWaitingPage({
     phase: 'Fase 5 Pendiente',
@@ -364,7 +391,27 @@ app.get(['/preview/prototype', '/preview/prototype/', '/preview/prototype/index.
     statusText: 'Esperando confirmación en el chat…'
   }));
 });
+// Los enlaces simbólicos creados dentro de prototype/ no pueden exponer archivos fuera de esa carpeta
+function withinDir(rootDir, requestedPath) {
+  try {
+    const realRoot = fs.realpathSync(rootDir);
+    const realTarget = fs.realpathSync(path.join(rootDir, requestedPath));
+    return realTarget === realRoot || realTarget.startsWith(realRoot + path.sep);
+  } catch (e) {
+    return true; // no existe: que express.static responda 404
+  }
+}
+
 app.use('/preview/prototype', (req, res, next) => {
+  let requested;
+  try {
+    requested = decodeURIComponent(req.path);
+  } catch (e) {
+    return res.status(400).send('Ruta inválida');
+  }
+  if (!withinDir(workspace.getPrototypeDir(), requested)) {
+    return res.status(403).send('Acceso denegado');
+  }
   express.static(workspace.getPrototypeDir())(req, res, next);
 });
 
@@ -376,7 +423,7 @@ app.get('/preview/showcase', (req, res) => {
     const showcaseFile = files.find(f => f.endsWith('_Design_System.html'));
 
     if (showcaseFile) {
-      return res.sendFile(path.join(currentDir, showcaseFile));
+      return res.sendFile(showcaseFile, { root: currentDir });
     }
 
     // Si aún no existe, mostramos la pantalla de espera estandarizada
@@ -388,7 +435,7 @@ app.get('/preview/showcase', (req, res) => {
       statusText: 'Esperando confirmación en el chat…'
     }));
   } catch (err) {
-    res.status(500).send('Error al buscar el showcase: ' + err.message);
+    res.status(500).send('Error al buscar el showcase: ' + escapeHtml(err.message));
   }
 });
 
@@ -408,38 +455,9 @@ app.get('/preview/blueprint', (req, res) => {
       }));
     }
 
-    res.send(`<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Blueprint · ${escapeHtml(brandName)} · Homium Site Builder</title>
-  <link rel="stylesheet" href="/styles.css">
-  <link rel="stylesheet" href="/homium/colors_and_type.css">
-  <link href="https://fonts.googleapis.com/css2?family=Rubik:ital,wght@0,300..900;1,300..900&family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet">
-  <style>
-    body { background: #09010e; color: #fff; margin: 0; padding: 2rem 1.5rem; font-family: 'Rubik', sans-serif; min-height: 100vh; box-sizing: border-box; }
-    .blueprint-standalone-wrapper { max-width: 1200px; margin: 0 auto; }
-    .standalone-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 1rem; }
-    .standalone-title { display: flex; align-items: center; gap: 0.6rem; font-size: 15px; font-weight: 600; color: var(--homium-cyan, #00ffff); }
-  </style>
-</head>
-<body>
-  <div class="blueprint-standalone-wrapper">
-    <div class="standalone-header">
-      <div class="standalone-title">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
-        <span>HOMIUM SITE BUILDER · BLUEPRINT ARCHITECTURAL SPEC</span>
-      </div>
-      <span style="font-family: 'Fira Code', monospace; font-size: 12px; color: rgba(255,255,255,0.6);">${brandName}</span>
-    </div>
-    <div class="blueprint-view" id="blueprintView"></div>
-  </div>
-  <script src="/app.js"></script>
-</body>
-</html>`);
+    res.send(renderBlueprintPage(brandName));
   } catch (err) {
-    res.status(500).send('Error al generar vista de Blueprint: ' + err.message);
+    res.status(500).send('Error al generar vista de Blueprint: ' + escapeHtml(err.message));
   }
 });
 

@@ -105,6 +105,31 @@ it('should keep legitimate links, file chips, hex swatches and basic markdown wo
   assert(formatText('texto con <b>html</b>').includes('&lt;b&gt;html&lt;/b&gt;'));
 });
 
+it('should reject backslash host links that browsers read as protocol-relative URLs', () => {
+  for (const p of ['[x](/\\evil.example.com)', '[x](/\\/evil.example.com)', '[x](\\\\evil.example.com)']) {
+    const html = formatText(p);
+    assert(!html.includes('<a '), `no debe generar enlace para: ${p}`);
+  }
+  assert(formatText('[ok](/preview/showcase)').includes('<a href="/preview/showcase"'));
+});
+
+it('should not turn plain words or numbers into hex swatches, but still color real hex codes', () => {
+  for (const text of ['el decade pasado', 'un facade moderno', 'total 100000 usuarios', 'periodo 202601 cerrado']) {
+    assert(!formatText(text).includes('hex-swatch-pill'), `falso positivo en: ${text}`);
+  }
+  assert(formatText('Primario 0B2E5E listo').includes('hex-swatch-pill'));
+  assert(formatText('- 0B2E5E, secundario').includes('hex-swatch-pill'));
+  assert(formatText('Fondo `#fafafa` claro').includes('hex-swatch-pill'));
+});
+
+it('should not inject swatch markup into the URL of a markdown link', () => {
+  const html = formatText('[spec](https://example.com/page#123456) y [otra](/preview/showcase#abcdef)');
+  assert(html.includes('<a href="https://example.com/page#123456"'), html);
+  assert(html.includes('<a href="/preview/showcase#abcdef"'), html);
+  assert(!html.includes('hex-swatch-pill'));
+  assertNoActiveContent(html, 'link con fragmento hex');
+});
+
 it('should tolerate non-string input', () => {
   assert.doesNotThrow(() => formatText(undefined));
   assert.doesNotThrow(() => formatText(null));
