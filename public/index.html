@@ -415,6 +415,12 @@
             </svg>
             <span>Consola</span>
           </button>
+
+          <button type="button" class="follow-toggle" id="btnFollowLive" aria-pressed="true"
+            title="Siguiendo el avance: la vista cambia sola según la fase. Clic para desactivar.">
+            <span class="follow-dot" aria-hidden="true"></span>
+            <span id="followLiveLabel">En vivo</span>
+          </button>
         </div>
 
         <div class="viewport-controls" id="viewportControls">
@@ -580,6 +586,7 @@
     </div>
   </div>
 
+  <script src="/message-heuristics.js"></script>
   <script src="/app.js"></script>
 </body>
 

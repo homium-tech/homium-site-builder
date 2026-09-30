@@ -202,6 +202,52 @@ async function runSuite() {
     store.close();
   });
 
+  await it('should emit change and new version when an existing showcase/prototype file is rewritten', async () => {
+    const store = new DeliverableStore({
+      rootDir: testTmpDir,
+      prototypeDir: testProtoDir,
+      debounceMs: 50,
+      autoStartWatcher: true
+    });
+
+    const before = store.getStatus();
+    assert(before.showcaseVersion, 'showcaseVersion debe existir');
+    assert(before.prototypeVersion, 'prototypeVersion debe existir');
+
+    const changes = [];
+    store.on('change', (snap) => changes.push(snap));
+
+    fs.writeFileSync(path.join(testTmpDir, 'Acme_Design_System.html'), '<html>Showcase regenerado con mas contenido</html>');
+    await new Promise(r => setTimeout(r, 200));
+    assert(changes.length >= 1, 'reescribir el showcase debe emitir change');
+    assert.notStrictEqual(store.getStatus().showcaseVersion, before.showcaseVersion);
+
+    const beforeProto = store.getStatus().prototypeVersion;
+    fs.writeFileSync(path.join(testProtoDir, 'index.html'), '<html>Prototype v2 con mas contenido</html>');
+    await new Promise(r => setTimeout(r, 200));
+    assert.notStrictEqual(store.getStatus().prototypeVersion, beforeProto);
+
+    store.close();
+  });
+
+  await it('should not stack prototype watchers across refreshes', async () => {
+    const store = new DeliverableStore({
+      rootDir: testTmpDir,
+      prototypeDir: testProtoDir,
+      debounceMs: 20,
+      autoStartWatcher: true
+    });
+
+    const initial = store.watchers.length;
+    for (let i = 0; i < 3; i++) {
+      fs.writeFileSync(path.join(testProtoDir, 'index.html'), `<html>iter ${i} ${'x'.repeat(i * 10)}</html>`);
+      await new Promise(r => setTimeout(r, 80));
+    }
+    assert.strictEqual(store.watchers.length, initial);
+
+    store.close();
+  });
+
   console.log('\n[6] Cierre Limpio de Watchers:');
   it('should cleanly close watchers and stop listening', () => {
     const store = new DeliverableStore({

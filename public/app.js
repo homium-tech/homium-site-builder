@@ -154,12 +154,77 @@ function updateExternalPreviewLink(tabId) {
   }
 }
 
-// 3. Tab switching
-let userExplicitTab = false;
+// 3. Tab switching y seguimiento en vivo
+// Modo "En vivo": la vista sigue la fase del flujo (1-3 Blueprint, 4 Showcase, 5 Prototipo).
+// Un clic manual en una pestaña lo pausa hasta que cambie la fase o se pulse el interruptor.
+const FOLLOW_LIVE_KEY = 'homium_follow_live';
+const FOLLOW_TABS = ['tab-blueprint', 'tab-showcase', 'tab-prototype'];
+const FOLLOW_LABELS = { 'tab-blueprint': 'Blueprint', 'tab-showcase': 'Showcase', 'tab-prototype': 'Prototipo' };
+let followLive = true;
+try { followLive = localStorage.getItem(FOLLOW_LIVE_KEY) !== 'off'; } catch (e) {}
+let followPaused = false;
+let lastFollowTarget = null;
+
+function activateTab(tabId) {
+  const btn = document.querySelector('.tab-btn[data-tab="' + tabId + '"]');
+  if (btn && !btn.classList.contains('active')) btn.click();
+}
+
+function renderFollowButton() {
+  const btn = document.getElementById('btnFollowLive');
+  if (!btn) return;
+  const label = document.getElementById('followLiveLabel');
+  const mode = !followLive ? 'off' : (followPaused ? 'paused' : 'live');
+  btn.classList.toggle('is-paused', mode === 'paused');
+  btn.classList.toggle('is-off', mode === 'off');
+  btn.setAttribute('aria-pressed', String(mode === 'live'));
+  if (label) label.textContent = { live: 'En vivo', paused: 'Pausado', off: 'Manual' }[mode];
+  btn.title = {
+    live: 'Siguiendo el avance: la vista cambia sola según la fase. Clic para desactivar.',
+    paused: 'Seguimiento pausado por tu selección. Clic para retomar el avance.',
+    off: 'Seguimiento manual. Clic para que la vista siga el avance del flujo.'
+  }[mode];
+}
+
+function resolveFollowTarget({ phase, showcaseExists, prototypeExists }) {
+  const phaseRank = phase >= 5 ? 2 : (phase >= 4 ? 1 : 0);
+  const fileRank = prototypeExists ? 2 : (showcaseExists ? 1 : 0);
+  return FOLLOW_TABS[Math.max(phaseRank, fileRank)];
+}
+
+function followLiveTab(ctx) {
+  const target = resolveFollowTarget(ctx);
+  const changed = target !== lastFollowTarget;
+  const firstRun = lastFollowTarget === null;
+  lastFollowTarget = target;
+  if (changed) followPaused = false;
+  renderFollowButton();
+  if (!followLive || followPaused) return;
+  activateTab(target);
+  if (changed && !firstRun) appendLog('[En vivo] Mostrando ' + FOLLOW_LABELS[target] + ' según el avance del flujo.');
+}
+
+const btnFollowLive = document.getElementById('btnFollowLive');
+if (btnFollowLive) {
+  btnFollowLive.addEventListener('click', () => {
+    if (followLive && followPaused) {
+      followPaused = false;
+    } else {
+      followLive = !followLive;
+      followPaused = false;
+      try { localStorage.setItem(FOLLOW_LIVE_KEY, followLive ? 'on' : 'off'); } catch (e) {}
+    }
+    renderFollowButton();
+    if (followLive && lastFollowTarget) activateTab(lastFollowTarget);
+  });
+}
+renderFollowButton();
+
 document.querySelectorAll('.tab-btn').forEach(btn => {
   btn.addEventListener('click', (e) => {
-    if (e && e.isTrusted) {
-      userExplicitTab = true;
+    if (e && e.isTrusted && followLive && !followPaused) {
+      followPaused = true;
+      renderFollowButton();
     }
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
@@ -294,6 +359,12 @@ if (btnConfirmReset) {
 
     // Limpiar iframes y vista de blueprint
     dynamicBlueprintState = {};
+    followPaused = false;
+    lastFollowTarget = null;
+    lastPendingAction = null;
+    renderFollowButton();
+    prevPrototypeVersion = null;
+    prevShowcaseVersion = null;
     prototypeFrame.src = '/preview/prototype/index.html';
     showcaseFrame.src = '/preview/showcase';
     blueprintView.innerHTML = `
@@ -369,11 +440,23 @@ if (btnClearChat) {
 }
 
 // 6. Formateo limpio de Markdown / Texto (Sin Corchetes)
+// Escapa comillas y ángulos (no &) en valores que ya pasaron por el escape inicial y luego se decodificaron
+function escapeAttrValue(value) {
+  return String(value)
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function formatText(text) {
-  let safe = text
+  // Las comillas también se escapan: el texto del modelo termina dentro de atributos (href, data-*, title)
+  let safe = String(text ?? '')
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 
   // Swatches visuales automáticos para códigos HEX (#RRGGBB, #RGB, o bare RRGGBB en contexto de paleta)
   safe = safe.replace(/`?#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b`?/g, (match, hex) => {
@@ -387,8 +470,15 @@ function formatText(text) {
   });
 
   // 1. Enlaces a archivos en disco [text](file:///...) -> chips interactivos con icono
-  safe = safe.replace(/\[(.*?)\]\(file:\/\/\/(.*?)\)/g, (match, label, filePath) => {
-    const cleanPath = decodeURIComponent(filePath);
+  safe = safe.replace(/\[([^\]]*)\]\(file:\/\/\/(.*?)\)/g, (match, label, filePath) => {
+    let decodedPath;
+    try {
+      decodedPath = decodeURIComponent(filePath);
+    } catch (err) {
+      decodedPath = filePath; // % mal formado: se conserva tal cual en vez de romper el render del chat
+    }
+    // Tras decodificar pueden reaparecer comillas o ángulos (%22, %3C): se escapan antes de entrar a atributos
+    const cleanPath = escapeAttrValue(decodedPath);
     const fileName = cleanPath.split('/').pop();
     const cleanLabel = label.replace(/[\[\]]/g, '').trim();
     return `<button type="button" class="inline-file-chip" data-file="${fileName}" data-path="/${cleanPath}" title="Archivo persistido en disco: /${cleanPath}\n(Clic para ver en Blueprint o copiar ruta)">
@@ -398,7 +488,12 @@ function formatText(text) {
   });
 
   // 2. Enlaces web normales [text](http...) -> links limpios
-  safe = safe.replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" style="color:var(--homium-cyan);text-decoration:none;border-bottom:1px dotted var(--homium-cyan);font-weight:500;">$1</a>');
+  safe = safe.replace(/\[([^\]]*)\]\(([^)]*)\)/g, (match, label, url) => {
+    const target = url.trim();
+    // Solo http(s) o rutas absolutas del propio sitio: bloquea javascript:, data:, vbscript: y URLs //host
+    if (!/^(?:https?:\/\/|\/(?!\/))/i.test(target)) return label;
+    return `<a href="${target}" target="_blank" rel="noopener noreferrer" style="color:var(--homium-cyan);text-decoration:none;border-bottom:1px dotted var(--homium-cyan);font-weight:500;">${label}</a>`;
+  });
 
   // 3. Separadores horizontales Markdown ---
   safe = safe.replace(/^---+$/gm, '<hr style="border:none;border-top:1px solid rgba(0,255,255,0.15);margin:0.85rem 0;">');
@@ -600,7 +695,17 @@ if (chatForm) {
           // Re-enable input immediately so chips/manual input work before reader.read() resolves
           btnSend.disabled = false;
           userInput.focus();
-          evaluateInteractiveActions(fullResponse, doneData.action);
+          // Acción pendiente: si la respuesta fue un desvío (sin título de Etapa/Fase) la pregunta del flujo
+          // sigue vigente, así que se restauran sus controles en vez de dejar la bandeja vacía
+          let nextAction = doneData.action || null;
+          if (nextAction) {
+            lastPendingAction = nextAction;
+          } else if (!MessageHeuristics.isFlowMessage(fullResponse) && lastPendingAction) {
+            nextAction = lastPendingAction;
+          } else {
+            lastPendingAction = null;
+          }
+          evaluateInteractiveActions(fullResponse, nextAction);
           loadWorkspaceInfo();
           syncSessionCache();
         } else if (line.startsWith('event: error')) {
@@ -662,8 +767,9 @@ if (btnMobileToggle) {
 
 // 8. Chequeo y actualización de Entregables
 // 8. Gestión Reactiva de Entregables vía DeliverableStore (SSE)
-let prevPrototypeExists = false;
-let prevShowcaseExists = false;
+// Última versión (mtime+tamaño) cargada en cada iframe; al cambiar, la vista previa se recarga sola
+let prevPrototypeVersion = null;
+let prevShowcaseVersion = null;
 
 // Carga dinámica de fuentes de Google Fonts bajo demanda para renderizado fiel
 const loadedFonts = new Set();
@@ -797,9 +903,13 @@ function inspectUserMessageForState(msg) {
   const clean = msg.trim();
   const lower = clean.toLowerCase();
 
+  // Preguntas, pedidos, saludos o mensajes sin relación con el flujo no deben alterar el Blueprint
+  // (heurística compartida con el servidor: core/text/message-heuristics.js)
+  if (MessageHeuristics.isRequestOrQuestion(clean) || clean.length > 160) return;
+
   const commandWords = ['si', 'no', 'continua', 'continuar', 'adelante', 'siguiente', 'ok', 'listo', 'hola', 'buenas'];
   if (!dynamicBlueprintState.brand_name && !dynamicBlueprintState.brand?.name) {
-    if (!commandWords.includes(lower) && clean.length < 50 && !clean.includes('\n')) {
+    if (!commandWords.includes(lower) && MessageHeuristics.isPlausibleBrandAnswer(clean)) {
       updateDynamicBlueprintState({ brand_name: clean, brand: { name: clean } });
     }
   }
@@ -830,7 +940,52 @@ function inspectUserMessageForState(msg) {
   }
 }
 
+// Resalta en el Blueprint lo que cambió entre dos renders consecutivos
+const BP_LEAF_SELECTOR = '.brand-meta-item, [data-copy-hex]';
+
+function blueprintCardKeys() {
+  const seen = new Map();
+  return Array.from(blueprintView.querySelectorAll('.blueprint-card')).map((card, i) => {
+    const base = card.querySelector('.category-eyebrow')?.textContent.trim() || ('card-' + i);
+    const n = seen.get(base) || 0;
+    seen.set(base, n + 1);
+    return { card, key: n ? (base + '#' + n) : base };
+  });
+}
+
 function renderBlueprint(s) {
+  if (!s) return;
+  const before = new Map(blueprintCardKeys().map(({ card, key }) => [key, card.innerHTML]));
+  renderBlueprintRaw(s);
+  if (before.size === 0) return; // primer render o restauración: nada que resaltar
+
+  let firstChanged = null;
+  for (const { card, key } of blueprintCardKeys()) {
+    const prevHtml = before.get(key);
+    if (prevHtml === card.innerHTML) continue;
+
+    let flashTargets = [];
+    if (prevHtml !== undefined) {
+      const tpl = document.createElement('template');
+      tpl.innerHTML = prevHtml;
+      const prevLeaves = new Set(Array.from(tpl.content.querySelectorAll(BP_LEAF_SELECTOR)).map(el => el.outerHTML));
+      flashTargets = Array.from(card.querySelectorAll(BP_LEAF_SELECTOR)).filter(el => !prevLeaves.has(el.outerHTML));
+    }
+    if (flashTargets.length === 0) flashTargets = [card];
+
+    flashTargets.forEach(el => {
+      el.classList.add('bp-changed');
+      el.addEventListener('animationend', () => el.classList.remove('bp-changed'), { once: true });
+    });
+    if (!firstChanged) firstChanged = flashTargets[0];
+  }
+
+  if (firstChanged && blueprintView.offsetParent !== null) {
+    firstChanged.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+}
+
+function renderBlueprintRaw(s) {
   if (!s) return;
   // Helper: lee s.confirmed con keys en español (schema de OpenCode/Muse Spark)
   const c = s.confirmed || {};
@@ -1529,16 +1684,18 @@ function applyDeliverableSnapshot(snapshot) {
     badgeProto.style.borderColor = 'rgba(90, 234, 162, 0.35)';
     badgeProto.style.color = 'var(--homium-green)';
     badgeProto.textContent = 'Listo';
-    if (!prevPrototypeExists) {
-      prototypeFrame.src = '/preview/prototype/index.html';
-      prevPrototypeExists = true;
+    const protoVersion = data.prototypeVersion || '1';
+    if (protoVersion !== prevPrototypeVersion) {
+      prototypeFrame.src = '/preview/prototype/index.html?v=' + encodeURIComponent(protoVersion);
+      if (prevPrototypeVersion !== null) appendLog('[En vivo] Prototipo actualizado en disco, recargando vista.');
+      prevPrototypeVersion = protoVersion;
     }
   } else {
     badgeProto.style.background = 'rgba(255, 255, 255, 0.08)';
     badgeProto.style.borderColor = 'rgba(255, 255, 255, 0.15)';
     badgeProto.style.color = 'rgba(255, 255, 255, 0.7)';
     badgeProto.textContent = '3 Pantallas';
-    prevPrototypeExists = false;
+    prevPrototypeVersion = null;
   }
 
   // 2. Showcase
@@ -1547,16 +1704,18 @@ function applyDeliverableSnapshot(snapshot) {
     badgeShowcase.style.borderColor = 'rgba(90, 234, 162, 0.35)';
     badgeShowcase.style.color = 'var(--homium-green)';
     badgeShowcase.textContent = 'Listo';
-    if (!prevShowcaseExists) {
-      showcaseFrame.src = '/preview/showcase';
-      prevShowcaseExists = true;
+    const showcaseVersion = data.showcaseVersion || '1';
+    if (showcaseVersion !== prevShowcaseVersion) {
+      showcaseFrame.src = '/preview/showcase?v=' + encodeURIComponent(showcaseVersion);
+      if (prevShowcaseVersion !== null) appendLog('[En vivo] Showcase actualizado en disco, recargando vista.');
+      prevShowcaseVersion = showcaseVersion;
     }
   } else {
     badgeShowcase.style.background = 'rgba(255, 255, 255, 0.08)';
     badgeShowcase.style.borderColor = 'rgba(255, 255, 255, 0.15)';
     badgeShowcase.style.color = 'rgba(255, 255, 255, 0.7)';
     badgeShowcase.textContent = 'HTML';
-    prevShowcaseExists = false;
+    prevShowcaseVersion = null;
   }
 
   // 3. Blueprint State reactivo y unificado
@@ -1589,25 +1748,12 @@ function applyDeliverableSnapshot(snapshot) {
     badgeState.textContent = 'JSON';
   }
 
-  // Conmutar automáticamente según el avance del flujo si el usuario no ha seleccionado una pestaña explícitamente
-  if (!userExplicitTab) {
-    if (data.prototypeExists) {
-      const protoBtn = document.querySelector('.tab-btn[data-tab="tab-prototype"]');
-      if (protoBtn && !protoBtn.classList.contains('active')) {
-        protoBtn.click();
-      }
-    } else if (data.showcaseExists) {
-      const showcaseBtn = document.querySelector('.tab-btn[data-tab="tab-showcase"]');
-      if (showcaseBtn && !showcaseBtn.classList.contains('active')) {
-        showcaseBtn.click();
-      }
-    } else {
-      const blueprintBtn = document.querySelector('.tab-btn[data-tab="tab-blueprint"]');
-      if (blueprintBtn && !blueprintBtn.classList.contains('active')) {
-        blueprintBtn.click();
-      }
-    }
-  }
+  // Seguir el avance del flujo (fase + entregables) salvo que el usuario lo haya pausado
+  followLiveTab({
+    phase: Number(snapshot.state?.current_phase || snapshot.state?.phase) || 1,
+    showcaseExists: data.showcaseExists,
+    prototypeExists: data.prototypeExists
+  });
 }
 
 // Canal reactivo SSE para entrega instantánea de cambios en disco
@@ -1667,7 +1813,12 @@ async function loadStepDescriptors() {
   }
 }
 
-async function evaluateInteractiveActions(text, serverAction = null) {
+// Última acción (chips, tarjetas o compuerta) pendiente de respuesta en el flujo
+let lastPendingAction = null;
+
+// serverAction: descriptor ya resuelto por el servidor (null = sin acción). Solo si no se conoce (undefined)
+// se pide una evaluación del texto; repetirla tras un null reintroduciría los falsos positivos de los desvíos.
+async function evaluateInteractiveActions(text, serverAction) {
   const dynamicActionTray = document.getElementById('dynamicActionTray');
   const approvalGateContainer = document.getElementById('approvalGateContainer');
   if (dynamicActionTray) {
@@ -1680,7 +1831,7 @@ async function evaluateInteractiveActions(text, serverAction = null) {
   }
 
   let action = serverAction;
-  if (!action && text) {
+  if (!action && text && serverAction === undefined) {
     try {
       const res = await fetch('/api/pipeline/evaluate', {
         method: 'POST',
@@ -2234,6 +2385,7 @@ function renderResumedChatState(data, fromCache = false) {
 
   // 3. Renderizar compuerta de aprobación o acción interactiva pendiente
   if (data.pendingAction) {
+    lastPendingAction = data.pendingAction;
     evaluateInteractiveActions('', data.pendingAction);
   }
 
@@ -2244,15 +2396,11 @@ function renderResumedChatState(data, fromCache = false) {
   }
 
   // 5. Conmutar a la pestaña visual relevante
-  if (!userExplicitTab) {
-    if (data.deliverables?.prototypeExists) {
-      const protoTab = document.querySelector('.tab-btn[data-tab="tab-prototype"]');
-      if (protoTab && !protoTab.classList.contains('active')) protoTab.click();
-    } else if (data.deliverables?.showcaseExists) {
-      const showcaseTab = document.querySelector('.tab-btn[data-tab="tab-showcase"]');
-      if (showcaseTab && !showcaseTab.classList.contains('active')) showcaseTab.click();
-    }
-  }
+  followLiveTab({
+    phase: Number(data.currentPhase) || 1,
+    showcaseExists: data.deliverables?.showcaseExists,
+    prototypeExists: data.deliverables?.prototypeExists
+  });
 }
 
 async function syncSessionCache() {
