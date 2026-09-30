@@ -276,6 +276,8 @@ if (btnConfirmReset) {
     const data = await res.json();
     sessionId = generateUUID();
     localStorage.setItem('homium_site_builder_session_id', sessionId);
+    localStorage.removeItem('homium_resumed_project_cache');
+    lastRenderedResumeHash = '';
 
     chatMessages.innerHTML = `
       <div class="message system-event">
@@ -600,6 +602,7 @@ if (chatForm) {
           userInput.focus();
           evaluateInteractiveActions(fullResponse, doneData.action);
           loadWorkspaceInfo();
+          syncSessionCache();
         } else if (line.startsWith('event: error')) {
           const match = line.match(/data: (.*)/);
           if (match) {
@@ -1489,7 +1492,7 @@ function notifyTrackerBuilding(activityText) {
 
 function updatePhasePipeline(snapshot) {
   const state = snapshot?.state || {};
-  let currentPhase = Number(state.phase) || 1;
+  let currentPhase = Number(state.current_phase || state.phase) || 1;
   const isFinalized = state.status === 'PROYECTO_FINALIZADO';
 
   for (let i = 1; i <= 5; i++) {
@@ -1586,17 +1589,23 @@ function applyDeliverableSnapshot(snapshot) {
     badgeState.textContent = 'JSON';
   }
 
-  // Mantener la pestaña Blueprint como la pantalla predeterminada activa mientras dura el flujo
-  if (!data.prototypeExists && !userExplicitTab) {
-    const blueprintBtn = document.querySelector('.tab-btn[data-tab="tab-blueprint"]');
-    const blueprintPane = document.getElementById('tab-blueprint');
-    if (blueprintBtn && !blueprintBtn.classList.contains('active')) {
-      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-      document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
-      blueprintBtn.classList.add('active');
-      if (blueprintPane) blueprintPane.classList.add('active');
-      const vp = document.getElementById('viewportControls');
-      if (vp) vp.style.display = 'none';
+  // Conmutar automáticamente según el avance del flujo si el usuario no ha seleccionado una pestaña explícitamente
+  if (!userExplicitTab) {
+    if (data.prototypeExists) {
+      const protoBtn = document.querySelector('.tab-btn[data-tab="tab-prototype"]');
+      if (protoBtn && !protoBtn.classList.contains('active')) {
+        protoBtn.click();
+      }
+    } else if (data.showcaseExists) {
+      const showcaseBtn = document.querySelector('.tab-btn[data-tab="tab-showcase"]');
+      if (showcaseBtn && !showcaseBtn.classList.contains('active')) {
+        showcaseBtn.click();
+      }
+    } else {
+      const blueprintBtn = document.querySelector('.tab-btn[data-tab="tab-blueprint"]');
+      if (blueprintBtn && !blueprintBtn.classList.contains('active')) {
+        blueprintBtn.click();
+      }
     }
   }
 }
@@ -2087,6 +2096,204 @@ if (engineSelect) {
   });
 }
 
+// =============================================================
+// 10. REANUDACIÓN DE PROYECTO Y PERSISTENCIA DE ESTADO (F5 / RELOAD)
+// =============================================================
+
+let lastRenderedResumeHash = '';
+
+function renderResumedChatState(data, fromCache = false) {
+  if (!data || !data.hasProject) return;
+
+  const messages = Array.isArray(data.messages) ? data.messages : [];
+  const hash = `${data.projectName}_${data.currentPhase}_${data.currentStage}_${messages.length}_${Boolean(data.pendingAction)}`;
+  if (fromCache) {
+    lastRenderedResumeHash = hash;
+  } else if (lastRenderedResumeHash === hash && document.querySelector('.resume-banner')) {
+    return;
+  }
+  lastRenderedResumeHash = hash;
+
+  // 1. Identificar mensajes anteriores y mensaje del asistente activo
+  let priorMessages = [];
+  let activeAssistantMessage = typeof data.lastAssistantMessage === 'string'
+    ? data.lastAssistantMessage
+    : (data.lastAssistantMessage?.content || data.lastAssistantMessage?.text || '');
+
+  if (messages.length > 0) {
+    let lastAsstIdx = -1;
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === 'assistant') {
+        lastAsstIdx = i;
+        break;
+      }
+    }
+
+    if (lastAsstIdx !== -1) {
+      priorMessages = messages.slice(0, lastAsstIdx);
+      if (!activeAssistantMessage) {
+        activeAssistantMessage = messages[lastAsstIdx].content || messages[lastAsstIdx].text || '';
+      }
+    } else {
+      priorMessages = messages.slice(0, -1);
+      if (!activeAssistantMessage) {
+        activeAssistantMessage = messages[messages.length - 1].content || messages[messages.length - 1].text || '';
+      }
+    }
+  }
+
+  const brandDisplay = data.brandName || data.projectName || 'Proyecto Activo';
+  if (!activeAssistantMessage) {
+    activeAssistantMessage = `He reanudado el proyecto **${brandDisplay}** desde el almacenamiento local persistido.`;
+  }
+
+  // 2. Construir HTML con el banner de reanudación y mensaje activo
+  let chatHtml = '';
+
+  chatHtml += `
+    <div class="resume-banner">
+      <div class="resume-banner-header">
+        <div class="resume-banner-title">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+          <span>Proyecto Activo: <strong>${escapeHtml(brandDisplay)}</strong></span>
+        </div>
+        <span class="card-opt-badge badge-recommended">Fase ${data.currentPhase || 1} / 5</span>
+      </div>
+      <p class="resume-banner-meta">Sesión restaurada desde disco. Tu progreso y entregables están sincronizados.</p>
+    </div>
+  `;
+
+  // Historial colapsable de turnos previos (si hay mensajes anteriores)
+  if (priorMessages.length > 0) {
+    chatHtml += `
+      <button type="button" class="btn-toggle-history" id="btnToggleHistory" aria-expanded="false">
+        <svg class="chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        <span id="btnToggleHistoryLabel">Ver historial anterior (${priorMessages.length} mensaje${priorMessages.length > 1 ? 's' : ''})</span>
+      </button>
+      <div class="collapsible-history" id="collapsibleHistory" style="display: none;">
+    `;
+
+    priorMessages.forEach(msg => {
+      const isUser = msg.role === 'user';
+      const senderName = isUser ? 'Tú' : 'Lead Engineer';
+      const msgText = msg.content || msg.text || '';
+      const timeStr = msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+      chatHtml += `
+        <div class="message ${isUser ? 'user-message' : 'agent-message'}">
+          <div class="message-meta">
+            ${isUser ? '' : `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path></svg>`}
+            <span class="sender-name">${senderName}</span>
+            ${timeStr ? `<span class="message-time">${timeStr}</span>` : ''}
+          </div>
+          <div class="message-body">${formatText(msgText)}</div>
+        </div>
+      `;
+    });
+
+    chatHtml += `</div>`;
+  }
+
+  // Mensaje activo del asistente
+  chatHtml += `
+    <div class="message agent-message">
+      <div class="message-meta">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <circle cx="12" cy="12" r="10"></circle>
+          <path d="M12 16v-4"></path>
+          <path d="M12 8h.01"></path>
+        </svg>
+        <span class="sender-name">Lead Engineer</span>
+        <span class="message-time">Estado restaurado</span>
+      </div>
+      <div class="message-body">
+        ${formatText(activeAssistantMessage)}
+      </div>
+    </div>
+  `;
+
+  chatMessages.innerHTML = chatHtml;
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+
+  // Manejar despliegue de historial colapsable
+  const btnToggle = document.getElementById('btnToggleHistory');
+  const collHistory = document.getElementById('collapsibleHistory');
+  const btnLabel = document.getElementById('btnToggleHistoryLabel');
+  if (btnToggle && collHistory) {
+    btnToggle.addEventListener('click', () => {
+      const isHidden = collHistory.style.display === 'none';
+      collHistory.style.display = isHidden ? 'flex' : 'none';
+      btnToggle.classList.toggle('is-open', isHidden);
+      btnToggle.setAttribute('aria-expanded', String(isHidden));
+      if (btnLabel) {
+        btnLabel.textContent = isHidden
+          ? 'Ocultar historial anterior'
+          : `Ver historial anterior (${priorMessages.length} mensaje${priorMessages.length > 1 ? 's' : ''})`;
+      }
+    });
+  }
+
+  // 3. Renderizar compuerta de aprobación o acción interactiva pendiente
+  if (data.pendingAction) {
+    evaluateInteractiveActions('', data.pendingAction);
+  }
+
+  // 4. Sincronizar metadatos de cabecera
+  const metaBrand = document.getElementById('metaBrandValue');
+  if (metaBrand && brandDisplay) {
+    metaBrand.textContent = brandDisplay;
+  }
+
+  // 5. Conmutar a la pestaña visual relevante
+  if (!userExplicitTab) {
+    if (data.deliverables?.prototypeExists) {
+      const protoTab = document.querySelector('.tab-btn[data-tab="tab-prototype"]');
+      if (protoTab && !protoTab.classList.contains('active')) protoTab.click();
+    } else if (data.deliverables?.showcaseExists) {
+      const showcaseTab = document.querySelector('.tab-btn[data-tab="tab-showcase"]');
+      if (showcaseTab && !showcaseTab.classList.contains('active')) showcaseTab.click();
+    }
+  }
+}
+
+async function syncSessionCache() {
+  try {
+    const res = await fetch('/api/chat/history');
+    if (res.ok) {
+      const data = await res.json();
+      if (data.ok && data.hasProject) {
+        localStorage.setItem('homium_resumed_project_cache', JSON.stringify(data));
+      }
+    }
+  } catch (e) {}
+}
+
+async function restoreSessionState() {
+  try {
+    const cached = localStorage.getItem('homium_resumed_project_cache');
+    if (cached) {
+      try {
+        const cachedData = JSON.parse(cached);
+        if (cachedData && cachedData.hasProject) {
+          renderResumedChatState(cachedData, true);
+        }
+      } catch (e) {}
+    }
+
+    const res = await fetch('/api/chat/history');
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data.ok && data.hasProject) {
+      localStorage.setItem('homium_resumed_project_cache', JSON.stringify(data));
+      renderResumedChatState(data, false);
+    } else {
+      localStorage.removeItem('homium_resumed_project_cache');
+    }
+  } catch (err) {
+    console.warn('[Session] Error restaurando sesión:', err);
+  }
+}
+
 loadStepDescriptors();
 loadWorkspaceInfo();
+restoreSessionState();
 

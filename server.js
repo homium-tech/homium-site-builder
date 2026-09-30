@@ -340,7 +340,7 @@ function escapeHtml(str) {
 app.use('/preview', (req, res, next) => {
   res.setHeader(
     'Content-Security-Policy',
-    "default-src 'self' 'unsafe-inline' data:; frame-ancestors 'self'; sandbox allow-scripts allow-forms;"
+    "default-src 'self' 'unsafe-inline' data: https://fonts.googleapis.com https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; frame-ancestors 'self'; sandbox allow-scripts allow-forms allow-same-origin;"
   );
   next();
 });
@@ -521,7 +521,8 @@ app.get('/api/workspace/download', requireActiveProject, (req, res) => {
 const ALLOWED_UPLOAD_EXTENSIONS = new Set([
   '.pdf', '.txt', '.md', '.docx',
   '.ttf', '.otf', '.woff', '.woff2',
-  '.csv', '.json', '.xlsx'
+  '.csv', '.json', '.xlsx',
+  '.png', '.jpg', '.jpeg', '.webp', '.svg', '.gif', '.avif'
 ]);
 
 const uploadStorage = multer.diskStorage({
@@ -585,6 +586,45 @@ app.post('/api/reset', (req, res) => {
   res.json({ ok: true, message: 'Sesión, proyecto y estado reseteados' });
 });
 
+// 7b. Historial y estado conversacional persistido para reanudación inmediata (F5 / reconexión)
+app.get('/api/chat/history', (req, res) => {
+  if (!workspace.hasProject()) {
+    return res.json({ ok: true, hasProject: false, messages: [] });
+  }
+
+  const history = workspace.getChatHistory();
+  const stateObj = deliverableStore.getState();
+  const snapshot = deliverableStore.getSnapshot();
+
+  const currentPhase = stateObj.state?.current_phase || 1;
+  const currentStage = stateObj.state?.current_stage || '';
+  const brandName = stateObj.state?.brand?.name || stateObj.state?.brand || workspace.getProjectName();
+
+  let pendingAction = history.lastAction || null;
+
+  // Si no hay acción pendiente registrada explícita pero los entregables indican compuerta:
+  if (!pendingAction) {
+    if (snapshot.status?.showcaseExists && currentPhase >= 4 && !snapshot.status?.prototypeExists) {
+      pendingAction = pipeline.getGate('gate-1');
+    } else if (snapshot.status?.prototypeExists && currentPhase >= 5) {
+      pendingAction = pipeline.getGate('gate-2');
+    }
+  }
+
+  res.json({
+    ok: true,
+    hasProject: true,
+    projectName: workspace.getProjectName(),
+    brandName,
+    currentPhase,
+    currentStage,
+    messages: history.messages || [],
+    lastAssistantMessage: history.lastAssistantMessage || null,
+    pendingAction,
+    deliverables: snapshot.status
+  });
+});
+
 // 8. Streaming de chat mediante SSE (Server-Sent Events) delegando en TurnStream.pipeToSSE
 app.post('/api/chat', (req, res) => {
   const { message, sessionId, engine: engineType } = req.body;
@@ -601,6 +641,15 @@ app.post('/api/chat', (req, res) => {
     }
   }
 
+  // Registrar mensaje del usuario en el historial físico del proyecto
+  if (workspace.hasProject()) {
+    workspace.addChatMessage({
+      role: 'user',
+      content: message,
+      timestamp: Date.now()
+    });
+  }
+
   try {
     const stream = agentEngine.executeTurn({
       sessionId,
@@ -609,10 +658,21 @@ app.post('/api/chat', (req, res) => {
     });
 
     stream.pipeToSSE(res, {
-      transformDone: (doneData, fullText) => ({
-        ...doneData,
-        action: pipeline.detectAction(fullText)
-      })
+      transformDone: (doneData, fullText) => {
+        const action = pipeline.detectAction(fullText);
+        if (workspace.hasProject()) {
+          workspace.addChatMessage({
+            role: 'assistant',
+            content: fullText,
+            action,
+            timestamp: Date.now()
+          });
+        }
+        return {
+          ...doneData,
+          action
+        };
+      }
     });
   } catch (err) {
     const statusCode = err.message && err.message.includes('en ejecución') ? 409 : 500;

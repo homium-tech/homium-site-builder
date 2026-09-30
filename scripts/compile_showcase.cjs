@@ -430,7 +430,7 @@ function compileShowcase(statePath, outputPath) {
     'CONTRAST_PAIRS_VISUAL': '<div style="display:flex;gap:1rem;flex-wrap:wrap;"><div style="background:#101313;color:#f1f3f3;padding:8px 12px;border-radius:6px;border:1px solid #1dd1e2;">AAA 14.8:1</div><div style="background:#d23a2d;color:#ffffff;padding:8px 12px;border-radius:6px;">AAA 7.2:1</div><div style="background:#101313;color:#1dd1e2;padding:8px 12px;border-radius:6px;">AAA 11.2:1</div></div>',
     'TOKENS_CSS_EXPORT': `:root {\n  --color-primary: ${primaryHex};\n  --color-secondary: ${secondaryHex};\n  --color-accent: ${accentHex};\n  --color-bg: ${bgPrimaryHex};\n  --color-surface: ${bgElevatedHex};\n  --color-text: ${textPrimaryHex};\n  --font-display: '${fontDisplay}', sans-serif;\n  --font-ui: '${fontUi}', sans-serif;\n  --radius-sm: ${radiusSm};\n  --radius-md: ${radiusMd};\n  --radius-lg: ${radiusLg};\n}`,
     'MEDIA_PLAN_SUMMARY': 'Imágenes optimizadas en WebP y SVG vectorial para logotipos e isotipos.',
-    'KNOWN_GAPS': 'Todos los 55 tokens HCT han sido validados. Sin vacíos cromáticos pendientes.',
+    'KNOWN_GAPS': '<li><span>Todos los 55 tokens HCT han sido validados. Sin vacíos cromáticos pendientes.</span></li>',
     'BRAND_LOGO_BLOCK': `<div style="display:flex;align-items:center;gap:10px;"><div style="width:32px;height:32px;background:${primaryHex};border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:bold;font-size:16px;">V</div><span style="font-weight:700;font-size:18px;color:#fff;letter-spacing:-0.02em;">${brandName}</span></div>`
   };
 

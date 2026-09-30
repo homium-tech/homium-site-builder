@@ -132,6 +132,35 @@ async function runSuite() {
     assert.strictEqual(backupPath, null);
   });
 
+  console.log('\n[5] Persistencia de Historial Conversacional:');
+  it('should save and retrieve chat messages in project subfolder', () => {
+    const ws = new Workspace({ baseDir: testTempDir, projectName: 'chat-brand' });
+    ws.addChatMessage({ role: 'user', content: 'Hola, quiero crear una marca.' });
+    ws.addChatMessage({ role: 'assistant', content: 'Entendido. ¿Cuál es el nombre?', action: { type: 'chips' } });
+
+    const history = ws.getChatHistory();
+    assert.strictEqual(history.messages.length, 2);
+    assert.strictEqual(history.messages[0].role, 'user');
+    assert.strictEqual(history.messages[1].role, 'assistant');
+    assert.strictEqual(history.lastAssistantMessage.content, 'Entendido. ¿Cuál es el nombre?');
+    assert.strictEqual(history.lastAction.type, 'chips');
+    assert(fs.existsSync(ws.getChatHistoryPath()), 'chat_history.json should exist on disk');
+  });
+
+  it('should synthesize resume state when design-system-state.json exists without chat_history.json', () => {
+    const ws = new Workspace({ baseDir: testTempDir, projectName: 'synth-brand' });
+    fs.writeFileSync(
+      path.join(ws.getDir(), 'design-system-state.json'),
+      JSON.stringify({ brand: { name: 'SynthBrand' }, current_phase: 4 }),
+      'utf-8'
+    );
+
+    const history = ws.getChatHistory();
+    assert.strictEqual(history.brandName, 'SynthBrand');
+    assert.strictEqual(history.currentPhase, 4);
+    assert(history.lastAssistantMessage.content.includes('Showcase del Design System'));
+  });
+
   // Limpieza de directorio temporal
   try {
     fs.rmSync(testTempDir, { recursive: true, force: true });
