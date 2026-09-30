@@ -26,6 +26,7 @@ if (fs.existsSync(envPath)) {
 }
 
 const app = express();
+const APP_VERSION = require('./package.json').version;
 
 // Detrás de un túnel o proxy inverso (opt-in): permite que req.ip y la cookie `secure` usen X-Forwarded-*.
 // Sin esto todos los usuarios remotos comparten la IP del túnel y el límite de intentos de login es global.
@@ -488,25 +489,20 @@ app.get('/api/pipeline', (req, res) => {
   });
 });
 
-app.post('/api/pipeline/expand', (req, res) => {
-  const { enable } = req.body;
-  const updated = pipeline.enableAdvancedPhases(enable !== false);
-  res.json({ ok: true, phases: updated, isExpanded: pipeline.isExpanded });
-});
-
-app.get('/api/pipeline/descriptors', (req, res) => {
+// Descriptores de las compuertas (las opciones de cada pregunta las escribe el agente en su respuesta)
+app.get('/api/pipeline/gates', (req, res) => {
   res.json({ steps: pipeline.getAllSteps() });
 });
 
 app.post('/api/pipeline/evaluate', (req, res) => {
-  const { text } = req.body;
+  const { text } = req.body || {};
   const action = pipeline.detectAction(text);
   res.json({ ok: true, action });
 });
 
 // 6d. Información y Operaciones del Espacio de Trabajo (Workspace) activo
 app.get('/api/workspace', (req, res) => {
-  res.json(workspace.getInfo());
+  res.json({ ...workspace.getInfo(), version: APP_VERSION });
 });
 
 app.get('/api/workspace/files', (req, res) => {
@@ -638,10 +634,16 @@ app.post('/api/project/new', (req, res) => {
   });
 });
 
+// sessionId opcional de ?sessionId=: permite saber si el turno en curso es de esta sesión y no de otra persona
+function requestedSessionId(req) {
+  const value = req.query && req.query.sessionId;
+  return typeof value === 'string' && SESSION_ID_PATTERN.test(value) ? value : null;
+}
+
 // 7b. Historial y estado conversacional persistido para reanudación inmediata (F5 / reconexión)
 app.get('/api/chat/history', (req, res) => {
   if (!workspace.hasProject()) {
-    return res.json({ ok: true, hasProject: false, messages: [], busy: agentEngine.isBusy() });
+    return res.json({ ok: true, hasProject: false, messages: [], busy: agentEngine.isBusy(requestedSessionId(req)) });
   }
 
   const history = workspace.getChatHistory();
@@ -682,7 +684,7 @@ app.get('/api/chat/history', (req, res) => {
     gates,
     deliverables: snapshot.status,
     // Hay un turno en curso: la respuesta aún no está en el historial (p. ej. el cliente se reconectó a mitad de turno)
-    busy: agentEngine.isBusy()
+    busy: agentEngine.isBusy(requestedSessionId(req))
   });
 });
 

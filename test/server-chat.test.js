@@ -43,6 +43,16 @@ async function runSuite() {
       assert.strictEqual(res.status, 400);
     });
 
+    await it('should never reach a real engine under the test harness (sandboxed PATH and HOME)', async () => {
+      const res = await srv.api('/api/chat', { method: 'POST', body: { message: 'Acme', engine: 'claude', sessionId: 'session-sandbox-1' } });
+      const raw = await res.text();
+      // Fallo de arranque: o bien una excepción síncrona (500 JSON) o bien un evento SSE de error
+      const reason = res.status === 200 ? (parseSSE(raw).find(e => e.name === 'error') || {}).data?.error : JSON.parse(raw).error;
+      assert(/ENOENT|no se puede|not found/i.test(reason || ''), `el motor real no debe ejecutarse: ${reason} / ${raw.slice(0, 200)}`);
+      const history = historyOf(srv.workspaceDir, 'acme');
+      assert(!history || !history.messages.some(m => m.role === 'assistant'), 'sin respuesta de un agente real');
+    });
+
     console.log('\n[2] Turno completo:');
     await it('should stream a full turn, create the project and persist both messages once', async () => {
       const res = await srv.api('/api/chat', { method: 'POST', body: { message: 'Acme', engine: 'mock', sessionId: 'session-full-1' } });

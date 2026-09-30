@@ -23,8 +23,24 @@ function generateUUID() {
   });
 }
 
-let sessionId = localStorage.getItem('homium_site_builder_session_id') || generateUUID();
-localStorage.setItem('homium_site_builder_session_id', sessionId);
+// localStorage puede faltar o lanzar (ventana privada, datos de sitio bloqueados, cuota): nunca debe romper la app
+const store = {
+  get(key) {
+    try { return localStorage.getItem(key); } catch (e) { return null; }
+  },
+  set(key, value) {
+    try { localStorage.setItem(key, value); } catch (e) {}
+  },
+  remove(key) {
+    try { localStorage.removeItem(key); } catch (e) {}
+  }
+};
+
+const SESSION_KEY = 'homium_site_builder_session_id';
+const RESUME_CACHE_KEY = 'homium_resumed_project_cache';
+
+let sessionId = store.get(SESSION_KEY) || generateUUID();
+store.set(SESSION_KEY, sessionId);
 
 const chatMessages = document.getElementById('chatMessages');
 const chatForm = document.getElementById('chatForm');
@@ -84,11 +100,12 @@ if (userInput) {
     userInput.style.height = Math.min(userInput.scrollHeight, 140) + 'px';
   });
 
-  // Enviar con Enter (sin Shift)
+  // Enviar con Enter (sin Shift). isComposing: Enter también confirma una composición IME (japonés, chino...)
+  // y entonces no debe enviar el mensaje.
   userInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
       e.preventDefault();
-      if (chatForm) chatForm.dispatchEvent(new Event('submit'));
+      sendMessage();
     }
   });
 }
@@ -161,7 +178,7 @@ const FOLLOW_LIVE_KEY = 'homium_follow_live';
 const FOLLOW_TABS = ['tab-blueprint', 'tab-showcase', 'tab-prototype'];
 const FOLLOW_LABELS = { 'tab-blueprint': 'Blueprint', 'tab-showcase': 'Showcase', 'tab-prototype': 'Prototipo' };
 let followLive = true;
-try { followLive = localStorage.getItem(FOLLOW_LIVE_KEY) !== 'off'; } catch (e) {}
+followLive = store.get(FOLLOW_LIVE_KEY) !== 'off';
 let followPaused = false;
 let lastFollowTarget = null;
 
@@ -212,7 +229,7 @@ if (btnFollowLive) {
     } else {
       followLive = !followLive;
       followPaused = false;
-      try { localStorage.setItem(FOLLOW_LIVE_KEY, followLive ? 'on' : 'off'); } catch (e) {}
+      store.set(FOLLOW_LIVE_KEY, followLive ? 'on' : 'off');
     }
     renderFollowButton();
     if (followLive && lastFollowTarget) activateTab(lastFollowTarget);
@@ -226,10 +243,14 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
       followPaused = true;
       renderFollowButton();
     }
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => {
+      b.classList.remove('active');
+      b.setAttribute('aria-selected', 'false');
+    });
     document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
 
     btn.classList.add('active');
+    btn.setAttribute('aria-selected', 'true');
     const tabId = btn.getAttribute('data-tab');
     const targetPane = document.getElementById(tabId);
     if (targetPane) targetPane.classList.add('active');
@@ -292,121 +313,18 @@ document.addEventListener('click', (e) => {
   }
 });
 
-// 5. Botón Reset con Modal Homium
+// 5. Reinicio de sesión y proyecto nuevo (modal accesible)
 const resetModal = document.getElementById('resetModal');
 const btnCancelReset = document.getElementById('btnCancelReset');
 const btnConfirmReset = document.getElementById('btnConfirmReset');
+const btnNewProject = document.getElementById('btnNewProject');
 const btnLogout = document.getElementById('btnLogout');
 
-if (btnLogout) {
-  btnLogout.addEventListener('click', async () => {
-    await fetch('/api/auth/logout', { method: 'POST' });
-    window.location.href = '/login';
-  });
-}
-
-if (btnReset) {
-  btnReset.addEventListener('click', (e) => {
-    e.preventDefault();
-    if (resetModal) resetModal.style.display = 'flex';
-  });
-}
-
-if (btnCancelReset) {
-  btnCancelReset.addEventListener('click', () => {
-    if (resetModal) resetModal.style.display = 'none';
-  });
-}
-
-// Cerrar modal al hacer clic en el backdrop
-if (resetModal) {
-  resetModal.addEventListener('click', (e) => {
-    if (e.target === resetModal) {
-      resetModal.style.display = 'none';
-    }
-  });
-}
-
-if (btnConfirmReset) {
-  btnConfirmReset.addEventListener('click', async () => {
-    if (resetModal) resetModal.style.display = 'none';
-    if (btnReset) btnReset.disabled = true;
-
-  try {
-    const res = await fetch('/api/reset', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sessionId })
-    });
-    const data = await res.json();
-    sessionId = generateUUID();
-    localStorage.setItem('homium_site_builder_session_id', sessionId);
-    localStorage.removeItem('homium_resumed_project_cache');
-    lastRenderedResumeHash = '';
-
-    chatMessages.innerHTML = `
-      <div class="message system-event">
-        <span>[ Nueva sesión iniciada. Estado limpio ]</span>
-      </div>
-      <div class="message agent-message">
-        <div class="message-meta"><span class="sender-name">Lead Engineer</span></div>
-        <div class="message-body">
-          <p>Hola, soy tu <strong>Lead Design Systems Engineer</strong>. Vamos a construir tu sistema de diseño paso a paso.</p>
-          <p>Para comenzar: <em>¿cuál es el nombre de tu marca o empresa, o tienes una URL de referencia para extraer su DNA visual forense?</em></p>
-        </div>
-      </div>
-    `;
-
-    // Limpiar iframes y vista de blueprint
-    dynamicBlueprintState = {};
-    followPaused = false;
-    lastFollowTarget = null;
-    lastPendingAction = null;
-    renderFollowButton();
-    prevPrototypeVersion = null;
-    prevShowcaseVersion = null;
-    prototypeFrame.src = '/preview/prototype/index.html';
-    showcaseFrame.src = '/preview/showcase';
-    blueprintView.innerHTML = `
-      <div class="blueprint-empty">
-        <span class="bracket-tag">[ ESTADO EN DISCO ]</span>
-        <h4>Esperando datos de la Fase 1</h4>
-        <p>Cuando el agente ejecute el análisis o avance de fase, aquí se visualizará en tiempo real la paleta <code>allowed_hexes</code>, la tipografía y el <code>structural_blueprint</code>.</p>
-      </div>
-    `;
-
-    // Resetear pills del pipeline de fases
-    document.querySelectorAll('.phase-pill').forEach(p => p.classList.remove('completed', 'active'));
-    document.getElementById('phase-1').classList.add('active');
-
-    // Ocultar compuertas y bandejas de acción
-    const actionTray = document.getElementById('dynamicActionTray');
-    if (actionTray) { actionTray.style.display = 'none'; actionTray.innerHTML = ''; }
-    const gateContainer = document.getElementById('approvalGateContainer');
-    if (gateContainer) { gateContainer.style.display = 'none'; gateContainer.innerHTML = ''; }
-
-    const metaBrand = document.getElementById('metaBrandValue');
-    if (metaBrand) metaBrand.textContent = 'Sin iniciar';
-    updateProjectDate();
-
-    checkStatus();
-    loadWorkspaceInfo();
-    appendLog('[System] Sesión reseteada exitosamente. Estado listo para nueva marca.');
-  } catch (err) {
-    appendLog('[Error] Error al resetear: ' + err.message, 'error');
-  } finally {
-    btnReset.disabled = false;
-  }
-});
-}
-
-if (btnClearChat) {
-  btnClearChat.addEventListener('click', () => {
-    if (!chatMessages) return;
-  chatMessages.innerHTML = `
+// Mensaje de bienvenida: el mismo al iniciar, al limpiar la pantalla y tras un reinicio
+const WELCOME_MESSAGE_HTML = `
     <div class="message agent-message">
       <div class="message-meta">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
           <circle cx="12" cy="12" r="10"></circle>
           <path d="M12 16v-4"></path>
           <path d="M12 8h.01"></path>
@@ -436,7 +354,205 @@ if (btnClearChat) {
       </div>
     </div>
   `;
+
+const BLUEPRINT_EMPTY_HTML = `
+    <div class="blueprint-empty">
+      <div class="waiting-card">
+        <span class="category-eyebrow">Fase 1 Pendiente</span>
+        <h2>Blueprint <em>en espera.</em></h2>
+        <p>La paleta de colores, tipografía y blueprint estructural se compilarán en disco automáticamente a medida que el Lead Engineer avance en el chat.</p>
+        <div class="status-pill">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polyline points="12 6 12 12 16 14"></polyline>
+          </svg>
+          Esperando confirmación en el chat…
+        </div>
+      </div>
+    </div>
+  `;
+
+let modalReturnFocus = null;
+
+function openResetModal() {
+  if (!resetModal) return;
+  modalReturnFocus = document.activeElement;
+  resetModal.style.display = 'flex';
+  if (btnCancelReset) btnCancelReset.focus();
+}
+
+function closeResetModal() {
+  if (!resetModal) return;
+  resetModal.style.display = 'none';
+  if (modalReturnFocus && typeof modalReturnFocus.focus === 'function') modalReturnFocus.focus();
+  modalReturnFocus = null;
+}
+
+// Escape cierra el modal y Tab se queda dentro de él
+document.addEventListener('keydown', (e) => {
+  if (!resetModal || resetModal.style.display === 'none') return;
+  if (e.key === 'Escape') {
+    e.preventDefault();
+    closeResetModal();
+    return;
+  }
+  if (e.key === 'Tab') {
+    const focusables = Array.from(resetModal.querySelectorAll('button:not([disabled])'));
+    if (focusables.length === 0) return;
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  }
 });
+
+if (btnLogout) {
+  btnLogout.addEventListener('click', async () => {
+    // La caché del chat pertenece a quien inició sesión: no debe verla la siguiente persona de este navegador
+    store.remove(RESUME_CACHE_KEY);
+    abortTurnSilently();
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch (e) {}
+    window.location.href = '/login';
+  });
+}
+
+if (btnReset) {
+  btnReset.addEventListener('click', (e) => {
+    e.preventDefault();
+    openResetModal();
+  });
+}
+
+if (btnCancelReset) btnCancelReset.addEventListener('click', closeResetModal);
+
+// Cerrar modal al hacer clic en el backdrop
+if (resetModal) {
+  resetModal.addEventListener('click', (e) => {
+    if (e.target === resetModal) closeResetModal();
+  });
+}
+
+// Deja la interfaz como en una sesión recién abierta (sin tocar el servidor)
+function resetClientView(systemText) {
+  pendingAttachments = [];
+  renderAttachmentsTray();
+
+  chatMessages.innerHTML = `
+      <div class="message system-event">
+        <span>[ ${escapeHtml(systemText)} ]</span>
+      </div>
+    ` + WELCOME_MESSAGE_HTML;
+
+  // Limpiar iframes y vista de blueprint
+  dynamicBlueprintState = {};
+  followPaused = false;
+  lastFollowTarget = null;
+  lastPendingAction = null;
+  renderFollowButton();
+  prevPrototypeVersion = null;
+  prevShowcaseVersion = null;
+  prototypeFrame.src = '/preview/prototype/index.html';
+  showcaseFrame.src = '/preview/showcase';
+  blueprintView.innerHTML = BLUEPRINT_EMPTY_HTML;
+
+  // Resetear pills del pipeline de fases
+  document.querySelectorAll('.phase-pill').forEach(p => p.classList.remove('completed', 'active'));
+  const phase1 = document.getElementById('phase-1');
+  if (phase1) phase1.classList.add('active');
+
+  const gateContainer = document.getElementById('approvalGateContainer');
+  if (gateContainer) { gateContainer.style.display = 'none'; gateContainer.innerHTML = ''; }
+
+  // Telemetría y seguimiento de entregables del proyecto anterior
+  [statInputTokens, statOutputTokens, statThinkingTokens, statCacheTokens, statDuration].forEach(el => {
+    if (el) el.textContent = '—';
+  });
+  if (telemetryModelBadge) telemetryModelBadge.textContent = 'Modelo: —';
+  const trackerBar = document.getElementById('deliverablesTrackerBar');
+  if (trackerBar) trackerBar.style.display = 'none';
+
+  const metaBrand = document.getElementById('metaBrandValue');
+  if (metaBrand) metaBrand.textContent = 'Sin iniciar';
+  updateProjectDate();
+}
+
+/**
+ * Reinicia la sesión en el servidor y en la interfaz.
+ * @param {Object} options
+ * @param {string} options.endpoint '/api/reset' (archiva estado e historial) o '/api/project/new' (conserva el proyecto)
+ */
+async function performSessionReset({ endpoint, systemText, logText }) {
+  closeResetModal();
+  if (btnReset) btnReset.disabled = true;
+  // Un turno en curso escribiría en el proyecto que se descarta: se corta antes y sin mostrar su final
+  abortTurnSilently();
+
+  try {
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionId })
+    });
+    if (res.status === 401) {
+      window.location.href = '/login';
+      return;
+    }
+    if (!res.ok) throw new Error(`El servidor respondió con el código ${res.status}`);
+    await res.json();
+
+    sessionId = generateUUID();
+    store.set(SESSION_KEY, sessionId);
+    store.remove(RESUME_CACHE_KEY);
+    lastRenderedResumeHash = '';
+
+    resetClientView(systemText);
+    checkStatus();
+    loadWorkspaceInfo();
+    appendLog(logText);
+  } catch (err) {
+    appendLog('[Error] Error al reiniciar: ' + err.message, 'error');
+    appendSystemEvent('No se pudo reiniciar la sesión: ' + err.message);
+  } finally {
+    if (btnReset) btnReset.disabled = false;
+  }
+}
+
+if (btnConfirmReset) {
+  btnConfirmReset.addEventListener('click', () => performSessionReset({
+    endpoint: '/api/reset',
+    systemText: 'Nueva sesión iniciada. Estado limpio',
+    logText: '[System] Sesión reseteada exitosamente. Estado listo para nueva marca.'
+  }));
+}
+
+if (btnNewProject) {
+  btnNewProject.addEventListener('click', () => performSessionReset({
+    endpoint: '/api/project/new',
+    systemText: 'Proyecto anterior conservado en disco. Nueva sesión iniciada',
+    logText: '[System] Proyecto nuevo: el anterior se conserva en disco. Escribe el nombre de una marca para empezar (o el de una existente para retomarla).'
+  }));
+}
+
+// Otra pestaña reinició la sesión: esta comparte el mismo almacenamiento, así que se adopta el nuevo id
+window.addEventListener('storage', (e) => {
+  if (e.key === SESSION_KEY && e.newValue && e.newValue !== sessionId) {
+    sessionId = e.newValue;
+    appendSystemEvent('La sesión cambió en otra pestaña. Recarga esta página para ver la conversación actualizada.');
+  }
+});
+
+if (btnClearChat) {
+  btnClearChat.addEventListener('click', () => {
+    if (!chatMessages) return;
+    chatMessages.innerHTML = WELCOME_MESSAGE_HTML;
+  });
 }
 
 // 6. Formateo limpio de Markdown / Texto (Sin Corchetes)
@@ -554,22 +670,384 @@ function appendLog(line, type = 'info') {
   consoleOutput.scrollTop = consoleOutput.scrollHeight;
 }
 
+// 6b. Opciones numeradas dentro de la burbuja
+// El agente escribe sus propias opciones ("1. B2C", "2. B2B"...). En vez de repetirlas en una bandeja aparte,
+// la última pregunta del flujo las muestra como botones en lugar del listado de texto: una sola fuente de verdad.
+const OPTION_LINE = /^\s*(\d{1,2})[.)]\s+(\S.*)$/;
+const CUSTOM_OPTION = /personalizad|escribir mi propia|otra opci[oó]n/i;
+
+function stripInlineMarkdown(text) {
+  return String(text).replace(/[*_`]/g, '').trim();
+}
+
+/**
+ * Detecta al final del mensaje un bloque de opciones numeradas (1., 2., 3...) que responde a una pregunta.
+ * @returns {{ before: string, options: Array<{ number: number, label: string, isCustom: boolean }>, after: string } | null}
+ */
+function parseOptionBlock(text) {
+  const lines = String(text || '').split('\n');
+
+  let end = -1;
+  for (let i = lines.length - 1; i >= 0; i--) {
+    if (OPTION_LINE.test(lines[i])) { end = i; break; }
+  }
+  if (end === -1) return null;
+
+  let start = end;
+  while (start - 1 >= 0 && OPTION_LINE.test(lines[start - 1])) start--;
+
+  const options = [];
+  for (let i = start; i <= end; i++) {
+    const match = lines[i].match(OPTION_LINE);
+    options.push({ number: Number(match[1]), label: match[2].trim() });
+  }
+
+  // Una lista de opciones numera desde 1 y no tiene más de 10 entradas breves
+  if (options.length < 2 || options.length > 10) return null;
+  if (!options.every((opt, idx) => opt.number === idx + 1 && opt.label.length <= 220)) return null;
+
+  const before = lines.slice(0, start).join('\n');
+  const after = lines.slice(end + 1).join('\n');
+  if (after.trim().length > 300) return null;
+
+  // Debe responder a una pregunta (o traer la opción personalizada): una enumeración cualquiera no es una pregunta
+  const hasQuestion = /[?¿]/.test(before.slice(-600));
+  const hasCustom = options.some(opt => CUSTOM_OPTION.test(opt.label));
+  if (!hasQuestion && !hasCustom) return null;
+
+  return {
+    before,
+    options: options.map(opt => ({ ...opt, isCustom: CUSTOM_OPTION.test(opt.label) })),
+    after
+  };
+}
+
+// formatText envuelve todo en <p>; para etiquetas dentro de un botón se usa sin ese envoltorio
+function formatInline(text) {
+  return formatText(text).replace(/^<p>/, '').replace(/<\/p>$/, '');
+}
+
+/**
+ * HTML de un mensaje del agente. Con `interactive` las opciones numeradas finales pasan a ser botones.
+ */
+function renderAgentMessage(text, { interactive = true } = {}) {
+  const parsed = interactive ? parseOptionBlock(text) : null;
+  if (!parsed) return formatText(text);
+
+  const buttons = parsed.options.map(opt => {
+    const plain = stripInlineMarkdown(opt.label);
+    return `<button type="button" class="inline-option${opt.isCustom ? ' is-custom' : ''}" data-number="${opt.number}" data-custom="${opt.isCustom ? '1' : '0'}" data-label="${escapeHtml(plain)}">` +
+      `<span class="inline-option-num" aria-hidden="true">${opt.number}</span>` +
+      `<span class="inline-option-text">${formatInline(opt.label)}</span>` +
+      `</button>`;
+  }).join('');
+
+  const beforeHtml = parsed.before.trim() ? formatText(parsed.before) : '';
+  const afterHtml = parsed.after.trim() ? formatText(parsed.after) : '';
+  return `${beforeHtml}<div class="inline-options" role="group" aria-label="Opciones de respuesta">${buttons}</div>${afterHtml}`;
+}
+
+// Las opciones de mensajes anteriores dejan de ser interactivas (se conserva la elegida resaltada)
+function lockInlineOptions() {
+  if (!chatMessages) return;
+  chatMessages.querySelectorAll('.inline-options').forEach(group => {
+    group.classList.add('is-locked');
+    group.querySelectorAll('button').forEach(btn => {
+      btn.setAttribute('aria-disabled', 'true');
+      btn.setAttribute('tabindex', '-1');
+    });
+  });
+}
+
+if (chatMessages) {
+  chatMessages.addEventListener('click', (e) => {
+    const btn = e.target.closest('.inline-option');
+    if (!btn) return;
+    const group = btn.closest('.inline-options');
+    if (!group || group.classList.contains('is-locked') || turnInFlight) return;
+
+    const number = btn.getAttribute('data-number');
+    if (btn.getAttribute('data-custom') === '1') {
+      // "Escribir mi propia opción": se deja el número puesto para que el usuario complete su respuesta
+      userInput.value = `${number}. `;
+      userInput.dispatchEvent(new Event('input'));
+      userInput.focus();
+      return;
+    }
+    btn.classList.add('is-chosen');
+    sendMessage(`${number}. ${btn.getAttribute('data-label')}`);
+  });
+}
+
 // 7. Manejo del Chat y Streaming SSE
-if (chatForm) {
-  chatForm.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const typedMessage = userInput.value.trim();
+// Un único turno a la vez: Enter, las opciones y las compuertas pasan por sendMessage(), que ignora cualquier
+// envío mientras hay un turno en curso (antes el servidor respondía 409 y el mensaje se perdía).
+let turnInFlight = false;
+let currentTurn = null; // { controller, sessionId, cancelled, silent }
+
+const SEND_ICON_HTML = btnSend ? btnSend.innerHTML : '';
+const STOP_ICON_HTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2"></rect></svg>';
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// El botón de enviar pasa a ser "Detener" mientras hay un turno en curso
+function setTurnUi(inFlight) {
+  turnInFlight = inFlight;
+  if (chatMessages) chatMessages.setAttribute('aria-busy', String(inFlight));
+  if (!btnSend) return;
+  btnSend.disabled = false;
+  btnSend.classList.toggle('is-stop', inFlight);
+  btnSend.setAttribute('aria-label', inFlight ? 'Detener respuesta' : 'Enviar mensaje');
+  btnSend.title = inFlight ? 'Detener respuesta' : 'Enviar mensaje';
+  btnSend.innerHTML = inFlight ? STOP_ICON_HTML : SEND_ICON_HTML;
+}
+
+/** Bloque SSE ("event: x\ndata: {...}") -> { name, data }; null para comentarios (": ping") y bloques vacíos */
+function parseSseBlock(block) {
+  const eventMatch = block.match(/^event: (\w+)/m);
+  if (!eventMatch) return null;
+  const dataMatch = block.match(/^data: (.*)$/m);
+  let data = {};
+  if (dataMatch) {
+    try { data = JSON.parse(dataMatch[1]); } catch (e) { data = {}; }
+  }
+  return { name: eventMatch[1], data };
+}
+
+function isNearBottom(el, slack = 80) {
+  return el.scrollHeight - el.scrollTop - el.clientHeight <= slack;
+}
+
+// Re-renderiza la respuesta en streaming como mucho una vez por frame, y solo sigue el final si el usuario ya estaba ahí
+function queueAgentRender(ctx) {
+  if (ctx.renderQueued) return;
+  ctx.renderQueued = true;
+  const schedule = typeof requestAnimationFrame === 'function' ? requestAnimationFrame : (fn) => setTimeout(fn, 16);
+  schedule(() => {
+    ctx.renderQueued = false;
+    if (ctx.finished) return;
+    const stick = isNearBottom(chatMessages);
+    ctx.agentBody.innerHTML = formatText(ctx.fullResponse);
+    if (stick) chatMessages.scrollTop = chatMessages.scrollHeight;
+  });
+}
+
+function hideTurnPill(ctx) {
+  const pill = ctx.agentDiv.querySelector('.agent-activity-pill');
+  if (pill) pill.style.display = 'none';
+}
+
+function clearGateInProgress() {
+  const gateContainer = document.getElementById('approvalGateContainer');
+  if (gateContainer && gateContainer.querySelector('.gate-in-progress')) {
+    gateContainer.style.display = 'none';
+    gateContainer.innerHTML = '';
+  }
+}
+
+function showTurnError(ctx, html) {
+  ctx.finished = true;
+  hideTurnPill(ctx);
+  clearGateInProgress();
+  ctx.agentBody.innerHTML = html;
+  const timeSpan = ctx.agentDiv.querySelector('.message-time');
+  if (timeSpan) timeSpan.textContent = 'Ahora';
+}
+
+// Cierre correcto de un turno: render final (con opciones como botones), compuerta y cachés
+function finishTurnRender(ctx, doneData) {
+  ctx.finished = true;
+  hideTurnPill(ctx);
+  clearGateInProgress();
+
+  if (!ctx.fullResponse.trim()) {
+    if (doneData.code && doneData.code !== 0) {
+      ctx.agentBody.innerHTML = `<p style="color:#ffb86c;display:flex;align-items:center;gap:6px;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg><span>El motor <strong>${escapeHtml(ctx.engineLabel)}</strong> finalizó con código de error ${escapeHtml(doneData.code)} sin emitir texto. Revisa la pestaña Consola para verificar el registro técnico o cambia de motor en el menú superior.</span></p>`;
+    } else {
+      ctx.agentBody.innerHTML = formatText('Respuesta completada.');
+    }
+  } else {
+    const stick = isNearBottom(chatMessages);
+    ctx.agentBody.innerHTML = renderAgentMessage(ctx.fullResponse);
+    if (stick) chatMessages.scrollTop = chatMessages.scrollHeight;
+  }
+
+  const timeSpan = ctx.agentDiv.querySelector('.message-time');
+  if (timeSpan) timeSpan.textContent = 'Ahora';
+
+  // Acción pendiente: si la respuesta fue un desvío (sin título de Etapa/Fase) la pregunta del flujo
+  // sigue vigente, así que se restauran sus controles en vez de dejar la compuerta vacía
+  let nextAction = doneData.action || null;
+  if (nextAction) {
+    lastPendingAction = nextAction;
+  } else if (!MessageHeuristics.isFlowMessage(ctx.fullResponse) && lastPendingAction) {
+    nextAction = lastPendingAction;
+  } else {
+    lastPendingAction = null;
+  }
+  evaluateInteractiveActions(ctx.fullResponse, nextAction);
+  loadWorkspaceInfo();
+  syncSessionCache();
+}
+
+/** Procesa un evento SSE del turno. Devuelve 'done' | 'error' | 'cancelled' si fue terminal, o null. */
+function handleChatEvent(event, ctx) {
+  const { name, data } = event;
+
+  if (name === 'chunk') {
+    if (data.type === 'text_delta') {
+      ctx.fullResponse += data.text || '';
+      queueAgentRender(ctx);
+    } else if (data.type === 'tool_activity') {
+      const text = (data.text || '').trim();
+      const pill = ctx.agentDiv.querySelector('.agent-activity-pill');
+      if (pill && text) {
+        pill.style.display = 'inline-flex';
+        const label = pill.querySelector('.activity-label');
+        if (label) label.textContent = text;
+      }
+      const gateDetail = document.getElementById('gateProgressActivity');
+      if (gateDetail && text) gateDetail.textContent = text;
+      if (text) {
+        notifyTrackerBuilding(text);
+        appendLog(text, 'info');
+      }
+    } else if (data.text && data.text.trim()) {
+      // Actividad de herramientas, scripts o stderr: a la consola técnica
+      appendLog(data.text.trim(), data.type === 'log' ? 'warn' : 'info');
+    }
+    return null;
+  }
+
+  if (name === 'metrics') {
+    updateTelemetry(data);
+    return null;
+  }
+
+  if (name === 'done') {
+    appendLog(`[AgentBridge] Turno completado (código: ${data.code ?? 0}).`);
+    finishTurnRender(ctx, data);
+    return 'done';
+  }
+
+  if (name === 'error') {
+    const reason = data.error || 'Error desconocido';
+    appendLog('[Error] ' + reason, 'error');
+    showTurnError(ctx, `<p style="color:#ff5555;display:flex;align-items:flex-start;gap:6px;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:3px;"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg><span>Error en ${escapeHtml(ctx.engineLabel)}: ${escapeHtml(reason)}. Verifica que el servicio esté disponible o selecciona otro motor.</span></p>`);
+    return 'error';
+  }
+
+  if (name === 'cancelled') return 'cancelled';
+  return null;
+}
+
+async function readChatStream(res, ctx) {
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder('utf-8');
+  let buffer = '';
+  let outcome = null;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const blocks = buffer.split('\n\n');
+    buffer = blocks.pop(); // guardar fragmento incompleto
+
+    for (const block of blocks) {
+      const event = parseSseBlock(block);
+      if (!event) continue;
+      const result = handleChatEvent(event, ctx);
+      if (result) outcome = result;
+    }
+  }
+  // El stream terminó sin evento terminal: se cortó la conexión (p. ej. un túnel por inactividad)
+  return outcome || 'dropped';
+}
+
+/**
+ * La conexión se cortó a mitad de turno. El servidor deja terminar al agente y guarda la respuesta, así que se
+ * consulta el historial hasta que termine y se muestra esa respuesta.
+ * @returns {'recovered' | 'cancelled' | 'lost'}
+ */
+async function recoverTurn(ctx, turn) {
+  if (!ctx.fullResponse.trim()) {
+    ctx.agentBody.innerHTML = '<p class="turn-recovering">Conexión interrumpida. El agente sigue trabajando: recuperando la respuesta…</p>';
+  }
+  appendLog('[Chat] Conexión interrumpida durante el turno; recuperando la respuesta desde el historial.', 'warn');
+
+  const deadline = Date.now() + 15 * 60 * 1000;
+  while (Date.now() < deadline) {
+    await sleep(2000);
+    if (turn.cancelled) return 'cancelled';
+
+    let data;
+    try {
+      const res = await fetch('/api/chat/history');
+      if (res.status === 401) { window.location.href = '/login'; return 'lost'; }
+      if (!res.ok) continue;
+      data = await res.json();
+    } catch (e) {
+      continue; // sin red todavía: reintentar
+    }
+    if (data.busy) continue;
+
+    const messages = Array.isArray(data.messages) ? data.messages : [];
+    const last = messages[messages.length - 1];
+    if (last && last.role === 'assistant' && (last.content || last.text)) {
+      ctx.fullResponse = last.content || last.text;
+      finishTurnRender(ctx, { code: 0, action: data.pendingAction || null });
+      return 'recovered';
+    }
+    return 'lost';
+  }
+  return 'lost';
+}
+
+// Botón Detener: el servidor termina el proceso del agente y descarta la respuesta parcial
+async function stopTurn() {
+  // Se captura el turno: mientras se espera la cancelación el servidor puede cerrar el flujo y vaciar currentTurn
+  const turn = currentTurn;
+  if (!turn || turn.cancelled) return;
+  turn.cancelled = true;
+  try {
+    await fetch('/api/chat/cancel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionId: turn.sessionId })
+    });
+  } catch (e) {}
+  turn.controller.abort();
+}
+
+// Cancela el turno en curso sin tocar la interfaz (reinicios de sesión)
+function abortTurnSilently() {
+  if (!currentTurn) return;
+  currentTurn.cancelled = true;
+  currentTurn.silent = true;
+  currentTurn.controller.abort();
+}
+
+async function sendMessage(text = null) {
+  if (turnInFlight) return;
+  const fromInput = text === null;
+  const typedMessage = (fromInput ? userInput.value : String(text)).trim();
   if (!typedMessage && pendingAttachments.length === 0) return;
 
   const message = typedMessage || 'He adjuntado archivos de referencia para el proyecto.';
 
   // Si hay adjuntos pendientes de enviar, se le avisa al motor en el propio mensaje del
   // turno (única forma de que lo vea, ya que solo el primer turno recibe el prompt completo)
+  const sentAttachments = pendingAttachments;
   let outgoingMessage = message;
-  if (pendingAttachments.length > 0) {
-    const fileNames = pendingAttachments.map((f) => f.name).join(', ');
-    outgoingMessage += `\n\n[Archivos adjuntos en uploads/: ${fileNames}]`;
+  if (sentAttachments.length > 0) {
+    outgoingMessage += `\n\n[Archivos adjuntos en uploads/: ${sentAttachments.map((f) => f.name).join(', ')}]`;
   }
+
+  // Una respuesta al flujo resuelve la compuerta pendiente; una pregunta o pedido ajeno la deja vigente
+  const gateSnapshot = lastPendingAction;
+  if (!MessageHeuristics.isRequestOrQuestion(message)) lastPendingAction = null;
+
   pendingAttachments = [];
   renderAttachmentsTray();
 
@@ -578,15 +1056,22 @@ if (chatForm) {
 
   userInput.value = '';
   userInput.style.height = 'auto';
-  btnSend.disabled = true;
+  lockInlineOptions();
 
-  // Ocultar bandeja y compuerta al enviar respuesta (salvo si está en progreso)
-  const dynamicActionTray = document.getElementById('dynamicActionTray');
-  if (dynamicActionTray) dynamicActionTray.style.display = 'none';
+  // Ocultar compuerta al enviar respuesta (salvo si está en progreso)
   const approvalGateContainer = document.getElementById('approvalGateContainer');
   if (approvalGateContainer && !approvalGateContainer.querySelector('.gate-in-progress')) {
     approvalGateContainer.style.display = 'none';
   }
+
+  // El motor se captura al enviar: cambiar el selector a mitad de turno no debe renombrar un error
+  const engineValue = engineSelect.value;
+  const engineLabel = engineSelect.options[engineSelect.selectedIndex]?.text || engineValue;
+
+  const controller = new AbortController();
+  const turn = { controller, sessionId, cancelled: false, silent: false };
+  currentTurn = turn;
+  setTurnUi(true);
 
   // Renderizar mensaje del usuario
   const userDiv = document.createElement('div');
@@ -618,180 +1103,126 @@ if (chatForm) {
   chatMessages.appendChild(agentDiv);
   chatMessages.scrollTop = chatMessages.scrollHeight;
 
-  const agentBody = agentDiv.querySelector('.message-body');
-  let fullResponse = '';
+  const ctx = {
+    agentDiv,
+    agentBody: agentDiv.querySelector('.message-body'),
+    fullResponse: '',
+    engineLabel,
+    renderQueued: false,
+    finished: false
+  };
 
-  appendLog(`[Chat] Enviando mensaje con motor: ${engineSelect.value}`);
+  appendLog(`[Chat] Enviando mensaje con motor: ${engineValue}`);
 
+  let status;
+  let reason = '';
   try {
     const res = await fetch('/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        message: outgoingMessage,
-        sessionId,
-        engine: engineSelect.value
-      })
+      body: JSON.stringify({ message: outgoingMessage, sessionId, engine: engineValue }),
+      signal: controller.signal
     });
 
-    if (!res.ok) throw new Error('Error en la respuesta del servidor');
-
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder('utf-8');
-    let buffer = '';
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n\n');
-      buffer = lines.pop(); // guardar fragmento incompleto
-
-      for (const line of lines) {
-        if (line.startsWith('event: chunk')) {
-          const match = line.match(/data: (.*)/);
-          if (match) {
-            try {
-              const payload = JSON.parse(match[1]);
-
-              if (payload.type === 'text_delta') {
-                fullResponse += payload.text;
-                agentBody.innerHTML = formatText(fullResponse);
-                chatMessages.scrollTop = chatMessages.scrollHeight;
-              } else if (payload.type === 'tool_activity') {
-                // Mostrar píldora de actividad en vivo en la burbuja del agente
-                const pill = agentDiv.querySelector('.agent-activity-pill');
-                if (pill && payload.text && payload.text.trim()) {
-                  pill.style.display = 'inline-flex';
-                  const label = pill.querySelector('.activity-label');
-                  if (label) label.textContent = payload.text.trim();
-                  chatMessages.scrollTop = chatMessages.scrollHeight;
-                }
-                // Actualizar detalle en la compuerta si está en estado de progreso
-                const gateDetail = document.getElementById('gateProgressActivity');
-                if (gateDetail && payload.text && payload.text.trim()) {
-                  gateDetail.textContent = payload.text.trim();
-                }
-                // Notificar a la barra de seguimiento de entregables
-                notifyTrackerBuilding(payload.text.trim());
-                // Registrar también en consola técnica
-                appendLog(payload.text.trim(), 'info');
-              } else if (payload.text && payload.text.trim()) {
-                // Enviar a consola de logs la actividad de herramientas, scripts o stderr
-                appendLog(payload.text.trim(), payload.type === 'log' ? 'warn' : 'info');
-              }
-            } catch (err) {}
-          }
-        } else if (line.startsWith('event: metrics')) {
-          const match = line.match(/data: (.*)/);
-          if (match) {
-            try {
-              const metricsPayload = JSON.parse(match[1]);
-              updateTelemetry(metricsPayload);
-            } catch (err) {}
-          }
-        } else if (line.startsWith('event: done')) {
-          const match = line.match(/data: (.*)/);
-          let doneData = {};
-          if (match) {
-            try { doneData = JSON.parse(match[1]); } catch (e) {}
-          }
-          appendLog(`[AgentBridge] Turno completado (código: ${doneData.code ?? 0}).`);
-          
-          // Ocultar píldora de actividad en vivo al terminar el turno
-          const pill = agentDiv.querySelector('.agent-activity-pill');
-          if (pill) pill.style.display = 'none';
-
-          // Ocultar compuerta de aprobación si quedó en estado de progreso
-          const activeGateContainer = document.getElementById('approvalGateContainer');
-          if (activeGateContainer && activeGateContainer.querySelector('.gate-in-progress')) {
-            activeGateContainer.style.display = 'none';
-            activeGateContainer.innerHTML = '';
-          }
-
-          if (!fullResponse.trim()) {
-            const engineLabel = engineSelect.options[engineSelect.selectedIndex]?.text || engineSelect.value;
-            if (doneData.code && doneData.code !== 0) {
-              agentBody.innerHTML = `<p style="color:#ffb86c;display:flex;align-items:center;gap:6px;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg><span>El motor <strong>${escapeHtml(engineLabel)}</strong> finalizó con código de error ${escapeHtml(doneData.code)} sin emitir texto. Revisa la pestaña Consola para verificar el registro técnico o cambia de motor en el menú superior.</span></p>`;
-            } else {
-              agentBody.innerHTML = formatText('Respuesta completada.');
-            }
-          }
-          const timeSpan = agentDiv.querySelector('.message-time');
-          if (timeSpan) timeSpan.textContent = 'Ahora';
-          // Re-enable input immediately so chips/manual input work before reader.read() resolves
-          btnSend.disabled = false;
-          userInput.focus();
-          // Acción pendiente: si la respuesta fue un desvío (sin título de Etapa/Fase) la pregunta del flujo
-          // sigue vigente, así que se restauran sus controles en vez de dejar la bandeja vacía
-          let nextAction = doneData.action || null;
-          if (nextAction) {
-            lastPendingAction = nextAction;
-          } else if (!MessageHeuristics.isFlowMessage(fullResponse) && lastPendingAction) {
-            nextAction = lastPendingAction;
-          } else {
-            lastPendingAction = null;
-          }
-          evaluateInteractiveActions(fullResponse, nextAction);
-          loadWorkspaceInfo();
-          syncSessionCache();
-        } else if (line.startsWith('event: error')) {
-          const match = line.match(/data: (.*)/);
-          if (match) {
-            const payload = JSON.parse(match[1]);
-            appendLog('[Error] ' + payload.error, 'error');
-            const pill = agentDiv.querySelector('.agent-activity-pill');
-            if (pill) pill.style.display = 'none';
-            const activeGateContainer = document.getElementById('approvalGateContainer');
-            if (activeGateContainer && activeGateContainer.querySelector('.gate-in-progress')) {
-              activeGateContainer.style.display = 'none';
-              activeGateContainer.innerHTML = '';
-            }
-            const engineLabel = engineSelect.options[engineSelect.selectedIndex]?.text || engineSelect.value;
-            agentBody.innerHTML = `<p style="color:#ff5555;display:flex;align-items:center;gap:6px;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg><span>Error en ${escapeHtml(engineLabel)}: ${escapeHtml(payload.error)}. Verifica que el servicio esté disponible o selecciona otro motor.</span></p>`;
-          }
-        }
-      }
+    if (res.status === 401) {
+      window.location.href = '/login';
+      return;
+    }
+    if (!res.ok) {
+      const errBody = await res.json().catch(() => ({}));
+      status = 'rejected';
+      reason = errBody.error || `El servidor respondió con el código ${res.status}.`;
+    } else {
+      status = await readChatStream(res, ctx);
     }
   } catch (err) {
-    const pill = agentDiv.querySelector('.agent-activity-pill');
-    if (pill) pill.style.display = 'none';
-    const activeGateContainer = document.getElementById('approvalGateContainer');
-    if (activeGateContainer && activeGateContainer.querySelector('.gate-in-progress')) {
-      activeGateContainer.style.display = 'none';
-      activeGateContainer.innerHTML = '';
-    }
-    agentBody.innerHTML = `<p style="color:#ff5555;">Error de conexión: ${escapeHtml(err.message)}</p>`;
-    appendLog('[Error] ' + err.message, 'error');
-  } finally {
-    btnSend.disabled = false;
-    userInput.focus();
-    checkStatus();
+    status = (turn.cancelled || err.name === 'AbortError') ? 'cancelled' : 'dropped';
   }
-});
+
+  if (status === 'dropped') {
+    status = await recoverTurn(ctx, turn);
+  }
+  ctx.finished = true;
+
+  if (!turn.silent) {
+    // El servidor descarta el mensaje de un turno rechazado, cancelado o fallido: se devuelve al cuadro de texto
+    const giveBack = () => {
+      if (fromInput && !userInput.value.trim()) {
+        userInput.value = typedMessage;
+        userInput.dispatchEvent(new Event('input'));
+      }
+      pendingAttachments = sentAttachments;
+      renderAttachmentsTray();
+      if (gateSnapshot) {
+        lastPendingAction = gateSnapshot;
+        evaluateInteractiveActions('', gateSnapshot);
+      }
+    };
+    const discardBubbles = () => {
+      userDiv.remove();
+      agentDiv.remove();
+    };
+
+    if (status === 'rejected') {
+      discardBubbles();
+      giveBack();
+      appendLog('[Error] ' + reason, 'error');
+      appendSystemEvent(reason);
+    } else if (status === 'cancelled') {
+      discardBubbles();
+      giveBack();
+      appendSystemEvent('Respuesta detenida.');
+    } else if (status === 'lost') {
+      discardBubbles();
+      giveBack();
+      appendSystemEvent('No se pudo recuperar la respuesta del agente. Tu mensaje está en el cuadro de texto para reenviarlo.');
+    } else if (status === 'error') {
+      giveBack();
+    }
+  }
+
+  if (currentTurn === turn) currentTurn = null;
+  setTurnUi(false);
+  if (!turn.silent) userInput.focus();
+  checkStatus();
+}
+
+if (chatForm) {
+  chatForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    sendMessage();
+  });
+}
+
+// El botón de enviar es "Detener" mientras hay un turno en curso
+if (btnSend) {
+  btnSend.addEventListener('click', (e) => {
+    if (turnInFlight) {
+      e.preventDefault();
+      stopTurn();
+    }
+  });
 }
 
 // 7b. Mobile Toggle (Chat <-> Preview)
+// En pantallas estrechas solo se ve un panel. Hay un botón en cada uno (el de la cabecera del preview y el de la
+// barra del chat): antes solo existía el primero, que no es visible mientras se está en el chat.
 const btnMobileToggle = document.getElementById('btnMobileToggle');
+const btnMobileToggleChat = document.getElementById('btnMobileToggleChat');
 const mobileToggleText = document.getElementById('mobileToggleText');
 const panelChat = document.getElementById('panelChat');
 const panelPreview = document.getElementById('panelPreview');
 
-if (btnMobileToggle) {
-  btnMobileToggle.addEventListener('click', () => {
-    const isShowingChat = panelChat.classList.contains('active-panel');
-    if (isShowingChat) {
-      panelChat.classList.remove('active-panel');
-      panelPreview.classList.add('active-panel');
-      mobileToggleText.textContent = 'Ver Chat';
-    } else {
-      panelPreview.classList.remove('active-panel');
-      panelChat.classList.add('active-panel');
-      mobileToggleText.textContent = 'Ver Preview';
-    }
-  });
+function toggleMobilePanel() {
+  const isShowingChat = panelChat.classList.contains('active-panel');
+  panelChat.classList.toggle('active-panel', !isShowingChat);
+  panelPreview.classList.toggle('active-panel', isShowingChat);
+  if (mobileToggleText) mobileToggleText.textContent = isShowingChat ? 'Ver Chat' : 'Ver Preview';
 }
+
+[btnMobileToggle, btnMobileToggleChat].forEach(btn => {
+  if (btn) btn.addEventListener('click', toggleMobilePanel);
+});
 
 // 8. Chequeo y actualización de Entregables
 // 8. Gestión Reactiva de Entregables vía DeliverableStore (SSE)
@@ -895,35 +1326,6 @@ function resolveFidelityLabel(s) {
     return 'Pendiente de Selección';
   }
   return 'No definido';
-}
-
-function recordStepChoice(stepId, val) {
-  if (!val) return;
-  const cleanVal = val.replace(/^[0-9]+\.\s*/, '').trim();
-  if (stepId === '1.3') {
-    updateDynamicBlueprintState({ business_model: cleanVal });
-  } else if (stepId === '1.4') {
-    updateDynamicBlueprintState({ logo: cleanVal, logo_type: cleanVal });
-  } else if (stepId === '1.5.a') {
-    const isOriginal = cleanVal.toLowerCase().includes('sin referencia') || cleanVal.toLowerCase().includes('original');
-    updateDynamicBlueprintState({
-      visual_references: cleanVal,
-      route: isOriginal ? 'Secuencial' : ''
-    });
-  } else if (stepId === '1.5.b') {
-    let mode = cleanVal;
-    if (cleanVal.toLowerCase().includes('total') || cleanVal.toLowerCase().includes('fast-track')) {
-      mode = 'TOTAL_ARCHITECTURAL_FIDELITY';
-    } else if (cleanVal.toLowerCase().includes('inspiraci')) {
-      mode = 'INSPIRATION';
-    } else if (cleanVal.toLowerCase().includes('quirúrg') || cleanVal.toLowerCase().includes('quirurg')) {
-      mode = 'SURGICAL';
-    }
-    updateDynamicBlueprintState({
-      fidelity_mode: mode,
-      visual_dna: { ...(dynamicBlueprintState.visual_dna || {}), fidelity_mode: mode }
-    });
-  }
 }
 
 function inspectUserMessageForState(msg) {
@@ -1854,12 +2256,36 @@ function initDeliverablesStream() {
       } catch (err) {}
     });
 
+    es.onopen = () => setConnectionStatus(true);
+
     es.onerror = () => {
-      // EventSource reconecta automáticamente en navegadores
+      setConnectionStatus(false);
+      // Ante un corte de red EventSource reconecta solo. Pero si el servidor responde con un error HTTP (sesión
+      // vencida, reinicio con otro SESSION_SECRET, origen no permitido) la conexión queda CERRADA para siempre:
+      // se comprueba la sesión y se vuelve a abrir el canal (o se va a /login si ya no hay sesión).
+      if (es.readyState === 2) {
+        es.close();
+        fetch('/api/workspace')
+          .then((res) => {
+            if (res.status === 401) window.location.href = '/login';
+            else setTimeout(initDeliverablesStream, 5000);
+          })
+          .catch(() => setTimeout(initDeliverablesStream, 5000));
+      }
     };
   } catch (err) {
     console.warn('[DeliverableStore] Error al inicializar stream SSE:', err);
   }
+}
+
+// Indicador de conexión de la cabecera: refleja el estado real del canal de entregables
+function setConnectionStatus(online) {
+  const indicator = document.querySelector('.status-indicator');
+  if (!indicator) return;
+  const text = indicator.querySelector('.status-text');
+  if (text) text.textContent = online ? 'Listo' : 'Reconectando…';
+  indicator.title = online ? 'Conexión activa' : 'Sin conexión con el servidor';
+  indicator.classList.toggle('is-offline', !online);
 }
 
 // Función fallback de consulta manual para soporte y tests
@@ -1877,32 +2303,16 @@ async function checkStatus() {
 initDeliverablesStream();
 
 // =============================================================
-// 9. BANDEJA DINÁMICA DE ACCIONES Y COMPUERTAS DE APROBACIÓN
+// 9. COMPUERTAS DE APROBACIÓN
 // =============================================================
-let registeredStepActions = [];
 
-async function loadStepDescriptors() {
-  try {
-    const res = await fetch('/api/pipeline/descriptors');
-    const data = await res.json();
-    registeredStepActions = data.steps || [];
-  } catch (e) {
-    console.warn('[Pipeline] Error al cargar descriptores de pasos:', e);
-  }
-}
-
-// Última acción (chips, tarjetas o compuerta) pendiente de respuesta en el flujo
+// Última compuerta pendiente de respuesta en el flujo
 let lastPendingAction = null;
 
 // serverAction: descriptor ya resuelto por el servidor (null = sin acción). Solo si no se conoce (undefined)
 // se pide una evaluación del texto; repetirla tras un null reintroduciría los falsos positivos de los desvíos.
 async function evaluateInteractiveActions(text, serverAction) {
-  const dynamicActionTray = document.getElementById('dynamicActionTray');
   const approvalGateContainer = document.getElementById('approvalGateContainer');
-  if (dynamicActionTray) {
-    dynamicActionTray.style.display = 'none';
-    dynamicActionTray.innerHTML = '';
-  }
   if (approvalGateContainer) {
     approvalGateContainer.style.display = 'none';
     approvalGateContainer.innerHTML = '';
@@ -1923,130 +2333,21 @@ async function evaluateInteractiveActions(text, serverAction) {
     } catch (e) {}
   }
 
-  if (!action) return;
-
-  if (action.type === 'gate') {
+  if (action && action.type === 'gate') {
     renderApprovalGate(action);
-  } else if (action.type === 'cards') {
-    renderActionCards(action);
-  } else if (action.type === 'chips') {
-    renderActionChips(action);
   }
 }
 
+// Iconos de los botones de la compuerta
 function getIconSvg(iconName) {
   switch (iconName) {
-    case 'shopping-bag':
-      return `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg>`;
-    case 'briefcase':
-      return `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg>`;
-    case 'grid':
-      return `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>`;
-    case 'zap':
-      return `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>`;
-    case 'award':
-      return `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="8" r="7"></circle><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"></polyline></svg>`;
-    case 'image':
-      return `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>`;
-    case 'sparkles':
-      return `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3L12 3z"></path></svg>`;
-    case 'link':
-      return `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>`;
-    case 'file-text':
-      return `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>`;
-    case 'compass':
-      return `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon></svg>`;
-    case 'palette':
-      return `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="13.5" cy="6.5" r=".5"></circle><circle cx="17.5" cy="10.5" r=".5"></circle><circle cx="8.5" cy="7.5" r=".5"></circle><circle cx="6.5" cy="12.5" r=".5"></circle><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"></path></svg>`;
-    case 'tool':
-      return `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>`;
     case 'check':
-      return `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+      return '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>';
     case 'edit':
-      return `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>`;
+      return '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>';
     default:
-      return `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 14 14"></polyline></svg>`;
+      return '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 14 14"></polyline></svg>';
   }
-}
-
-function renderActionChips(step) {
-  const dynamicActionTray = document.getElementById('dynamicActionTray');
-  if (!dynamicActionTray) return;
-
-  let chipsHtml = '';
-  step.options.forEach((opt) => {
-    const iconSvg = opt.icon ? getIconSvg(opt.icon) : getIconSvg('default');
-    chipsHtml += `
-      <button type="button" class="action-btn-chip" data-val="${encodeURIComponent(opt.value)}">
-        ${iconSvg}
-        <span>${opt.label}</span>
-      </button>
-    `;
-  });
-
-  dynamicActionTray.innerHTML = `
-    <span class="action-tray-title">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path></svg>
-      ${step.title}
-    </span>
-    <div class="action-chips-wrapper">${chipsHtml}</div>
-  `;
-  dynamicActionTray.style.display = 'flex';
-
-  dynamicActionTray.querySelectorAll('.action-btn-chip').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const val = decodeURIComponent(btn.getAttribute('data-val'));
-      recordStepChoice(step.stepId, val);
-      userInput.value = val;
-      dynamicActionTray.style.display = 'none';
-      chatForm.dispatchEvent(new Event('submit'));
-    });
-  });
-}
-
-function renderActionCards(step) {
-  const dynamicActionTray = document.getElementById('dynamicActionTray');
-  if (!dynamicActionTray) return;
-
-  let cardsHtml = '';
-  step.options.forEach((opt) => {
-    const iconSvg = opt.icon ? getIconSvg(opt.icon) : getIconSvg('zap');
-    const badgeClass = opt.badge === 'Recomendado'
-      ? 'badge-recommended'
-      : (opt.badge === 'Ruta B' ? 'badge-route' : 'badge-advanced');
-
-    cardsHtml += `
-      <button type="button" class="action-card-btn" data-val="${encodeURIComponent(opt.value)}">
-        <div class="card-opt-icon" aria-hidden="true">${iconSvg}</div>
-        <div class="card-opt-content">
-          <div class="card-opt-header">
-            <span class="card-opt-label">${opt.label}</span>
-            ${opt.badge ? `<span class="card-opt-badge ${badgeClass}">${opt.badge}</span>` : ''}
-          </div>
-          ${opt.description ? `<div class="card-opt-desc">${opt.description}</div>` : ''}
-        </div>
-      </button>
-    `;
-  });
-
-  dynamicActionTray.innerHTML = `
-    <span class="action-tray-title">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
-      ${step.title}
-    </span>
-    <div class="action-cards-grid">${cardsHtml}</div>
-  `;
-  dynamicActionTray.style.display = 'flex';
-
-  dynamicActionTray.querySelectorAll('.action-card-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const val = decodeURIComponent(btn.getAttribute('data-val'));
-      recordStepChoice(step.stepId, val);
-      userInput.value = val;
-      dynamicActionTray.style.display = 'none';
-      chatForm.dispatchEvent(new Event('submit'));
-    });
-  });
 }
 
 function escapeHtml(str) {
@@ -2086,9 +2387,9 @@ function renderApprovalGate(gate) {
 
   approvalGateContainer.querySelectorAll('button[data-val]').forEach(btn => {
     btn.addEventListener('click', () => {
+      if (turnInFlight) return;
       const val = decodeURIComponent(btn.getAttribute('data-val'));
       const actionLabel = btn.querySelector('span')?.textContent || val;
-      userInput.value = val;
 
       // Transicionar la compuerta a estado de progreso en lugar de desaparecer
       approvalGateContainer.innerHTML = `
@@ -2106,7 +2407,7 @@ function renderApprovalGate(gate) {
           </div>
         </div>
       `;
-      chatForm.dispatchEvent(new Event('submit'));
+      sendMessage(val);
     });
   });
 }
@@ -2130,6 +2431,8 @@ async function loadWorkspaceInfo() {
           workspaceChip.title = `Carpeta de trabajo: ${data.workspaceDir}\n(Clic para copiar ruta completa)`;
         }
       }
+      const versionEl = document.getElementById('metaVersionValue');
+      if (versionEl && data.version) versionEl.textContent = `v${data.version}`;
       if (btnAttach) {
         btnAttach.disabled = !data.hasProject;
         btnAttach.title = data.hasProject
@@ -2308,7 +2611,7 @@ function updateTelemetry(metrics) {
 const PREFERRED_ENGINE_KEY = 'homium_preferred_engine';
 if (engineSelect) {
   // Restaurar el último motor seleccionado por el usuario
-  const savedEngine = localStorage.getItem(PREFERRED_ENGINE_KEY);
+  const savedEngine = store.get(PREFERRED_ENGINE_KEY);
   if (savedEngine && engineSelect.querySelector(`option[value="${savedEngine}"]`)) {
     engineSelect.value = savedEngine;
     if (telemetryEngineBadge) {
@@ -2317,7 +2620,7 @@ if (engineSelect) {
   }
 
   engineSelect.addEventListener('change', () => {
-    localStorage.setItem(PREFERRED_ENGINE_KEY, engineSelect.value);
+    store.set(PREFERRED_ENGINE_KEY, engineSelect.value);
     if (telemetryEngineBadge) {
       telemetryEngineBadge.textContent = `Motor: ${engineSelect.value}`;
     }
@@ -2375,6 +2678,14 @@ function renderResumedChatState(data, fromCache = false) {
   if (!activeAssistantMessage) {
     activeAssistantMessage = `He reanudado el proyecto **${brandDisplay}** desde el almacenamiento local persistido.`;
   }
+
+  // Las opciones numeradas solo se pueden pulsar si el último mensaje del historial es del asistente y no hay un turno en curso
+  const lastMessage = messages[messages.length - 1];
+  const canAnswerOptions = !data.busy && (!lastMessage || lastMessage.role === 'assistant');
+  // Mensajes del usuario enviados después de la última respuesta (un turno que sigue en ejecución)
+  let lastAssistantIndex = -1;
+  messages.forEach((m, i) => { if (m.role === 'assistant') lastAssistantIndex = i; });
+  const trailingUserMessages = data.busy ? messages.slice(lastAssistantIndex + 1).filter(m => m.role === 'user') : [];
 
   // 2. Construir HTML con el banner de reanudación y mensaje activo
   let chatHtml = '';
@@ -2435,7 +2746,7 @@ function renderResumedChatState(data, fromCache = false) {
         <span class="message-time">Estado restaurado</span>
       </div>
       <div class="message-body">
-        ${formatText(activeAssistantMessage)}
+        ${renderAgentMessage(activeAssistantMessage, { interactive: canAnswerOptions })}
       </div>
     </div>
   `;
@@ -2461,10 +2772,15 @@ function renderResumedChatState(data, fromCache = false) {
     });
   }
 
-  // 3. Renderizar compuerta de aprobación o acción interactiva pendiente
+  // 3. Renderizar compuerta de aprobación pendiente
   if (data.pendingAction) {
     lastPendingAction = data.pendingAction;
     evaluateInteractiveActions('', data.pendingAction);
+  }
+
+  // Un turno de esta sesión sigue en ejecución (se recargó la página o se cortó la conexión): se espera su final
+  if (data.busy && !turnInFlight) {
+    resumeRunningTurn(trailingUserMessages);
   }
 
   // 4. Sincronizar metadatos de cabecera
@@ -2481,45 +2797,113 @@ function renderResumedChatState(data, fromCache = false) {
   });
 }
 
+// Historial del servidor para esta sesión (incluye si su turno sigue en ejecución)
+function fetchChatHistory() {
+  return fetch(`/api/chat/history?sessionId=${encodeURIComponent(sessionId)}`);
+}
+
+// La caché guarda solo lo necesario para repintar: el historial completo puede pesar mucho y superar la cuota
+const RESUME_CACHE_MAX_MESSAGES = 60;
+
+function saveResumeCache(data) {
+  const slim = { ...data, messages: (data.messages || []).slice(-RESUME_CACHE_MAX_MESSAGES) };
+  store.set(RESUME_CACHE_KEY, JSON.stringify(slim));
+}
+
 async function syncSessionCache() {
   try {
-    const res = await fetch('/api/chat/history');
+    const res = await fetchChatHistory();
     if (res.ok) {
       const data = await res.json();
-      if (data.ok && data.hasProject) {
-        localStorage.setItem('homium_resumed_project_cache', JSON.stringify(data));
-      }
+      if (data.ok && data.hasProject) saveResumeCache(data);
     }
   } catch (e) {}
 }
 
+// Un turno de esta sesión sigue en ejecución en el servidor: se muestra como en curso, con Detener, y al
+// terminar se vuelve a pintar el estado completo desde el historial.
+function resumeRunningTurn(trailingUserMessages) {
+  trailingUserMessages.forEach(msg => {
+    const userDiv = document.createElement('div');
+    userDiv.className = 'message user-message';
+    userDiv.innerHTML = `
+      <div class="message-meta"><span class="message-time">Enviado</span><span class="sender-name">Tú</span></div>
+      <div class="message-body">${formatText(msg.content || msg.text || '')}</div>
+    `;
+    chatMessages.appendChild(userDiv);
+  });
+
+  const agentDiv = document.createElement('div');
+  agentDiv.className = 'message agent-message';
+  agentDiv.innerHTML = `
+    <div class="message-meta"><span class="sender-name">Lead Engineer</span><span class="message-time">Generando…</span></div>
+    <div class="message-body"><p class="turn-recovering">El agente sigue trabajando en tu mensaje anterior. Cuando termine verás aquí su respuesta.</p></div>
+  `;
+  chatMessages.appendChild(agentDiv);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+
+  const turn = { controller: new AbortController(), sessionId, cancelled: false, silent: false };
+  currentTurn = turn;
+  setTurnUi(true);
+
+  (async () => {
+    const deadline = Date.now() + 15 * 60 * 1000;
+    while (Date.now() < deadline && !turn.cancelled) {
+      await sleep(2000);
+      try {
+        const res = await fetchChatHistory();
+        if (res.status === 401) { window.location.href = '/login'; return; }
+        if (!res.ok) continue;
+        const data = await res.json();
+        if (data.busy) continue;
+        break;
+      } catch (e) {}
+    }
+    if (currentTurn === turn) currentTurn = null;
+    setTurnUi(false);
+    lastRenderedResumeHash = '';
+    restoreSessionState();
+  })();
+}
+
 async function restoreSessionState() {
+  let renderedFromCache = false;
   try {
-    const cached = localStorage.getItem('homium_resumed_project_cache');
+    const cached = store.get(RESUME_CACHE_KEY);
     if (cached) {
       try {
         const cachedData = JSON.parse(cached);
         if (cachedData && cachedData.hasProject) {
-          renderResumedChatState(cachedData, true);
+          // Un turno en curso de la copia guardada ya no lo está: solo el servidor sabe si sigue vigente
+          renderResumedChatState({ ...cachedData, busy: false }, true);
+          renderedFromCache = true;
         }
       } catch (e) {}
     }
 
-    const res = await fetch('/api/chat/history');
+    const res = await fetchChatHistory();
+    if (res.status === 401) {
+      window.location.href = '/login';
+      return;
+    }
     if (!res.ok) return;
     const data = await res.json();
     if (data.ok && data.hasProject) {
-      localStorage.setItem('homium_resumed_project_cache', JSON.stringify(data));
+      saveResumeCache(data);
       renderResumedChatState(data, false);
     } else {
-      localStorage.removeItem('homium_resumed_project_cache');
+      store.remove(RESUME_CACHE_KEY);
+      // La copia guardada mostraba un proyecto que el servidor ya no tiene (reinicio desde otro equipo o pestaña)
+      if (renderedFromCache) resetClientView('La sesión anterior ya no existe en el servidor');
     }
   } catch (err) {
     console.warn('[Session] Error restaurando sesión:', err);
+    if (renderedFromCache) {
+      appendSystemEvent('No se pudo contactar al servidor: se muestra la última copia guardada de la conversación.');
+    }
   }
 }
 
-loadStepDescriptors();
 loadWorkspaceInfo();
 restoreSessionState();
 

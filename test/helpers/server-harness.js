@@ -50,10 +50,25 @@ async function startServer({ env = {}, login = true, beforeStart = null } = {}) 
   const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'server-harness-'));
   if (beforeStart) beforeStart(workspaceDir);
 
+  // Ningún test puede lanzar un motor real (claude, agy, codex...): consumiría cuota y ejecutaría un agente con
+  // permisos abiertos. El servidor corre con un PATH vacío y un HOME temporal, de modo que los CLIs no se encuentran
+  // ni en el PATH ni en las rutas conocidas bajo el directorio de usuario; solo el motor mock funciona.
+  const sandboxHome = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-home-'));
+  const baseEnv = {};
+  for (const [key, value] of Object.entries(process.env)) {
+    if (/^path$/i.test(key) || /_BIN$/.test(key)) continue;
+    baseEnv[key] = value;
+  }
+
   const child = spawn(process.execPath, ['server.js'], {
     cwd: path.join(__dirname, '..', '..'),
     env: {
-      ...process.env,
+      ...baseEnv,
+      PATH: sandboxHome,
+      HOME: sandboxHome,
+      USERPROFILE: sandboxHome,
+      LOCALAPPDATA: sandboxHome,
+      APPDATA: sandboxHome,
       PORT: String(port),
       HOST: '127.0.0.1',
       AUTH_USER: 'tester',
@@ -106,6 +121,7 @@ async function startServer({ env = {}, login = true, beforeStart = null } = {}) 
       child.kill('SIGTERM');
       await new Promise((resolve) => child.once('close', resolve));
       fs.rmSync(workspaceDir, { recursive: true, force: true });
+      fs.rmSync(sandboxHome, { recursive: true, force: true });
     }
   };
 }

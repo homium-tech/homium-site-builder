@@ -12,7 +12,7 @@
     "setup": "node scripts/setup.cjs",
     "doctor": "node scripts/setup.cjs --check-only",
     "install:playwright": "pnpm exec playwright install chromium",
-    "test": "node test/agent-engine.test.js && node test/deliverable-store.test.js && node test/multi-engine.test.js && node test/workspace.test.js && node test/pipeline.test.js && node test/cli-spawn.test.js && node test/message-heuristics.test.js && node test/off-topic-flow.test.js && node test/format-text.test.js && node test/client-render.test.js && node test/prompt-contract.test.js && node test/scripts.test.js && node test/engine-reliability.test.js && node test/history-durability.test.js && node test/server-chat.test.js && node test/server-security.test.js && node test/server-gates.test.js && node test/persistence.test.js"
+    "test": "node test/agent-engine.test.js && node test/deliverable-store.test.js && node test/multi-engine.test.js && node test/workspace.test.js && node test/pipeline.test.js && node test/cli-spawn.test.js && node test/message-heuristics.test.js && node test/off-topic-flow.test.js && node test/format-text.test.js && node test/client-render.test.js && node test/prompt-contract.test.js && node test/scripts.test.js && node test/engine-reliability.test.js && node test/history-durability.test.js && node test/server-chat.test.js && node test/server-security.test.js && node test/server-gates.test.js && node test/e2e-ui.test.js && node test/persistence.test.js"
   },
   "dependencies": {
     "archiver": "^7.0.1",

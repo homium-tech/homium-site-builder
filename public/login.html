@@ -221,7 +221,7 @@
         </div>
       </div>
 
-      <div class="error-msg" id="errorMsg">Credenciales incorrectas. Inténtalo de nuevo.</div>
+      <div class="error-msg" id="errorMsg" role="alert" aria-live="assertive">Credenciales incorrectas. Inténtalo de nuevo.</div>
 
       <button type="submit" id="submitBtn">Entrar</button>
     </form>
@@ -266,6 +266,14 @@
         if (res.ok) {
           window.location.href = '/';
         } else {
+          // El servidor distingue credenciales incorrectas (401), demasiados intentos (429) y autenticación
+          // sin configurar (503): mostrar su mensaje en vez de acusar siempre a la contraseña.
+          let reason = 'Credenciales incorrectas. Inténtalo de nuevo.';
+          try {
+            const body = await res.json();
+            if (body && body.error) reason = body.error;
+          } catch {}
+          errorMsg.textContent = reason;
           errorMsg.classList.add('visible');
           submitBtn.disabled = false;
           submitBtn.textContent = 'Entrar';
