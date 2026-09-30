@@ -574,7 +574,12 @@ app.use('/api/upload', (err, req, res, next) => {
 
 // 7. Resetear sesión y pruebas
 app.post('/api/reset', (req, res) => {
-  const { sessionId } = req.body;
+  const { sessionId } = req.body || {};
+
+  // Un turno en curso seguiría escribiendo en el proyecto que se está descartando: se cancela primero
+  agentEngine.cancelAll();
+  activeTurns.clear();
+
   if (sessionId) {
     agentEngine.resetSession(sessionId);
   }
@@ -594,7 +599,7 @@ app.post('/api/reset', (req, res) => {
 // 7b. Historial y estado conversacional persistido para reanudación inmediata (F5 / reconexión)
 app.get('/api/chat/history', (req, res) => {
   if (!workspace.hasProject()) {
-    return res.json({ ok: true, hasProject: false, messages: [] });
+    return res.json({ ok: true, hasProject: false, messages: [], busy: agentEngine.isBusy() });
   }
 
   const history = workspace.getChatHistory();
@@ -626,69 +631,129 @@ app.get('/api/chat/history', (req, res) => {
     messages: history.messages || [],
     lastAssistantMessage: history.lastAssistantMessage || null,
     pendingAction,
-    deliverables: snapshot.status
+    deliverables: snapshot.status,
+    // Hay un turno en curso: la respuesta aún no está en el historial (p. ej. el cliente se reconectó a mitad de turno)
+    busy: agentEngine.isBusy()
   });
 });
 
 // 8. Streaming de chat mediante SSE (Server-Sent Events) delegando en TurnStream.pipeToSSE
-app.post('/api/chat', (req, res) => {
-  const { message, sessionId, engine: engineType } = req.body;
+const MAX_MESSAGE_CHARS = 20000;
+const SESSION_ID_PATTERN = /^[A-Za-z0-9_-]{8,64}$/;
 
-  if (!message || !message.trim()) {
+// Turnos en curso por sesión: permiten cancelar explícitamente (botón Detener / reset)
+const activeTurns = new Map();
+
+app.post('/api/chat', (req, res) => {
+  const { message, sessionId, engine: requestedEngine } = req.body || {};
+
+  if (typeof message !== 'string' || !message.trim()) {
     return res.status(400).json({ error: 'Mensaje requerido' });
+  }
+  if (message.length > MAX_MESSAGE_CHARS) {
+    return res.status(413).json({ error: `El mensaje supera el máximo de ${MAX_MESSAGE_CHARS} caracteres.` });
+  }
+  if (sessionId != null && (typeof sessionId !== 'string' || !SESSION_ID_PATTERN.test(sessionId))) {
+    return res.status(400).json({ error: 'sessionId inválido' });
+  }
+  const engineType = requestedEngine || 'claude';
+  if (typeof engineType !== 'string' || !agentEngine.hasAdapter(engineType)) {
+    return res.status(400).json({ error: `Motor no soportado: "${String(engineType).slice(0, 40)}"` });
   }
 
   // Si aún no se ha establecido la subcarpeta de proyecto (primer turno):
   if (!workspace.hasProject()) {
     const detectedName = Workspace.extractProjectName(message);
     if (detectedName) {
-      workspace.setProject(detectedName);
+      try {
+        workspace.setProject(detectedName);
+      } catch (err) {
+        return res.status(500).json({ error: `No se pudo crear el proyecto "${detectedName}": ${err.message}` });
+      }
     }
   }
 
-  // Registrar mensaje del usuario en el historial físico del proyecto
-  if (workspace.hasProject()) {
-    workspace.addChatMessage({
-      role: 'user',
-      content: message,
-      timestamp: Date.now()
-    });
-  }
+  // Proyecto al que pertenece este turno: la respuesta se guarda ahí aunque mientras tanto cambie el activo
+  const target = workspace.hasProject() ? workspace.snapshot() : null;
 
+  let stream;
   try {
-    const stream = agentEngine.executeTurn({
+    stream = agentEngine.executeTurn({
       sessionId,
       message,
-      engine: engineType || 'claude',
+      engine: engineType,
       pendingStep: workspace.getPendingStep()
     });
-
-    stream.pipeToSSE(res, {
-      transformDone: (doneData, fullText) => {
-        const action = pipeline.detectAction(fullText, { userMessage: message });
-        if (workspace.hasProject()) {
-          workspace.addChatMessage({
-            role: 'assistant',
-            content: fullText,
-            action,
-            timestamp: Date.now()
-          });
-        }
-        return {
-          ...doneData,
-          action
-        };
-      }
-    });
   } catch (err) {
-    const statusCode = err.message && err.message.includes('en ejecución') ? 409 : 500;
-    res.status(statusCode).json({ error: err.message });
+    const statusCode = err.code === 'BUSY' ? 409 : (err.code === 'UNKNOWN_ENGINE' ? 400 : 500);
+    return res.status(statusCode).json({ error: err.message });
   }
+
+  // El mensaje del usuario solo se registra una vez que el turno arrancó: un 409 o un fallo
+  // de arranque no deja un mensaje sin respuesta en el historial.
+  const userMessage = { role: 'user', content: message, timestamp: Date.now() };
+  if (target) workspace.addChatMessage(userMessage, target);
+
+  const turnKey = stream.sessionId;
+  activeTurns.set(turnKey, { stream, target, userMessage });
+  const releaseTurn = () => {
+    if (activeTurns.get(turnKey)?.stream === stream) activeTurns.delete(turnKey);
+  };
+
+  // Si el turno falla, el mensaje queda sin respuesta: se retira del historial para que el cliente pueda reenviarlo
+  stream.on('error', () => {
+    releaseTurn();
+    if (target) workspace.removeChatMessage(userMessage, target);
+  });
+  stream.on('cancelled', releaseTurn);
+
+  stream.pipeToSSE(res, {
+    transformDone: (doneData, fullText) => {
+      releaseTurn();
+      const action = pipeline.detectAction(fullText, { userMessage: message });
+      if (target && fullText.trim()) {
+        workspace.addChatMessage({
+          role: 'assistant',
+          content: fullText,
+          action,
+          timestamp: Date.now()
+        }, target);
+      }
+      return {
+        ...doneData,
+        action
+      };
+    }
+  });
 });
 
-app.listen(PORT, HOST, () => {
+// 8b. Cancelación explícita del turno en curso (botón Detener): no se guarda respuesta parcial
+app.post('/api/chat/cancel', (req, res) => {
+  const { sessionId } = req.body || {};
+  const active = typeof sessionId === 'string' ? activeTurns.get(sessionId) : null;
+  if (!active) {
+    return res.json({ ok: true, cancelled: false });
+  }
+  activeTurns.delete(sessionId);
+  active.stream.kill();
+  if (active.target) workspace.removeChatMessage(active.userMessage, active.target);
+  res.json({ ok: true, cancelled: true });
+});
+
+const server = app.listen(PORT, HOST, () => {
   console.log(`\n========================================================`);
   console.log(`🚀 HOMIUM SITE BUILDER activo en: http://localhost:${PORT}`);
   console.log(`Tokens Homium cargados desde: ${HOMIUM_DIR}`);
   console.log(`========================================================\n`);
 });
+
+// Apagado ordenado: termina los agentes en curso (y sus procesos hijos) en lugar de dejarlos huérfanos
+function shutdown(signal) {
+  console.log(`[Server] ${signal} recibido: cancelando turnos activos y cerrando.`);
+  try { agentEngine.cancelAll(); } catch (e) {}
+  try { deliverableStore.close(); } catch (e) {}
+  server.close(() => process.exit(0));
+  setTimeout(() => process.exit(0), 1500).unref();
+}
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));

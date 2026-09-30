@@ -268,7 +268,24 @@ async function runSuite() {
     assert(fullOutput.includes('"transformed":true'));
   });
 
-  await it('should terminate process cleanly if client disconnects prematurely', async () => {
+  function makeCloseableRes() {
+    const res = {
+      headersSent: false,
+      writableEnded: false,
+      writes: [],
+      closeHandler: null,
+      setHeader: () => {},
+      flushHeaders: () => {},
+      write: (s) => { res.writes.push(s); },
+      end: () => { res.writableEnded = true; },
+      on: (evt, cb) => {
+        if (evt === 'close') res.closeHandler = cb;
+      }
+    };
+    return res;
+  }
+
+  await it('should keep the turn running and still run transformDone if the client disconnects (tunnel drop)', async () => {
     const engine = new AgentEngine({ defaultEngine: 'mock' });
     const stream = engine.executeTurn({
       sessionId: 'test-sse-close',
@@ -276,25 +293,50 @@ async function runSuite() {
       engine: 'mock'
     });
 
-    let closeHandler = null;
-    const mockRes = {
-      headersSent: false,
-      writableEnded: false,
-      setHeader: () => {},
-      flushHeaders: () => {},
-      write: () => {},
-      end: () => { mockRes.writableEnded = true; },
-      on: (evt, cb) => {
-        if (evt === 'close') closeHandler = cb;
-      }
-    };
+    const mockRes = makeCloseableRes();
+    let transformed = null;
+    stream.pipeToSSE(mockRes, { transformDone: (data, fullText) => { transformed = fullText; return data; } });
 
-    stream.pipeToSSE(mockRes);
+    assert(typeof mockRes.closeHandler === 'function', 'Must register close event listener on response');
+    mockRes.closeHandler(); // Corte de conexión del cliente
+    assert.strictEqual(stream.isCompleted, false, 'The turn must not be killed on client disconnect');
 
-    assert(typeof closeHandler === 'function', 'Must register close event listener on response');
-    closeHandler(); // Disparar cierre de conexión prematuro
+    await new Promise((resolve) => stream.on('done', resolve));
+    assert(transformed && transformed.length > 0, 'transformDone must run so the reply can be persisted');
+    assert.strictEqual(mockRes.writes.length, 0, 'Nothing is written to a disconnected client');
+  });
+
+  await it('should kill the process on client disconnect only when killOnClose is requested', async () => {
+    const engine = new AgentEngine({ defaultEngine: 'mock' });
+    const stream = engine.executeTurn({
+      sessionId: 'test-sse-close-kill',
+      message: 'Prueba desconexión con kill',
+      engine: 'mock'
+    });
+
+    const mockRes = makeCloseableRes();
+    stream.pipeToSSE(mockRes, { killOnClose: true });
+    mockRes.closeHandler();
 
     assert.strictEqual(stream.isCompleted, true);
+    assert.strictEqual(stream.cancelled, true);
+  });
+
+  await it('should send SSE heartbeat comments while the turn is silent and stop after done', async () => {
+    const engine = new AgentEngine({ defaultEngine: 'mock' });
+    const stream = engine.executeTurn({
+      sessionId: 'test-sse-heartbeat',
+      message: 'Prueba latido',
+      engine: 'mock'
+    });
+
+    const mockRes = makeCloseableRes();
+    stream.pipeToSSE(mockRes, { heartbeatMs: 5 });
+    await new Promise((resolve) => stream.on('done', resolve));
+    assert(mockRes.writes.some(w => w === ': ping\n\n'), 'Expected at least one heartbeat ping');
+    const pingsAtDone = mockRes.writes.filter(w => w === ': ping\n\n').length;
+    await new Promise(r => setTimeout(r, 30));
+    assert.strictEqual(mockRes.writes.filter(w => w === ': ping\n\n').length, pingsAtDone, 'Heartbeat must stop after done');
   });
 
   await it('should prevent concurrent turns on the same session via isExecuting mutex', async () => {

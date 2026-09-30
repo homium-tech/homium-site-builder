@@ -12,7 +12,7 @@ pnpm run dev             # Same as start, no watch mode
 pnpm run setup           # Interactive install/diagnostic wizard (scripts/setup.cjs)
 pnpm run doctor          # Same wizard, check-only (no installs) — scripts/setup.cjs --check-only
 pnpm run install:playwright  # Optional: installs Chromium for forensic URL extraction
-pnpm test                # Runs 9 of the 10 test files sequentially (see below)
+pnpm test                # Runs every test file under test/ sequentially (see below)
 ```
 
 There is no test framework — each file under `test/` is a standalone Node script using `assert` with a hand-rolled runner, and prints its own pass summary. Run one file directly to isolate it:
@@ -27,7 +27,10 @@ node test/cli-spawn.test.js           # CLI executable resolution without a shel
 node test/message-heuristics.test.js  # question/request/brand-name classification
 node test/off-topic-flow.test.js      # deviation rule, pending step, lastAction
 node test/format-text.test.js         # formatText sanitization (extracted from public/app.js)
-node test/persistence.test.js   # NOT included in `pnpm test` — run it explicitly (chat/state persistence across reloads)
+node test/persistence.test.js         # chat/state persistence across reloads
+node test/engine-reliability.test.js  # stream parsing, single done/error, failed/cancelled turns, timeout, HTTP adapters
+node test/history-durability.test.js  # atomic chat_history.json, corrupt-file quarantine, 500-message cap, session eviction
+node test/server-chat.test.js         # boots the real server with the mock engine: /api/chat, 409, disconnect, cancel, reset
 ```
 
 Tests that touch disk use a `scratch_test_*` dir under `test/` and clean it up themselves.
