@@ -202,12 +202,13 @@ Cada nivel es `tamaño_base (16px) × (ratio)^n`. Line-heights: `1.1–1.3` en d
 
 El sistema soporta **Densidad Dual** mediante un multiplicador CSS `--density-multiplier`, asignando la escala base óptima según el tipo de producto:
 * **Modo Comfortable (Base 8px):** Para sitios web de consumo, landings y e-commerce (`--density-multiplier: 1.0`).
-* **Modo Compact (Base 4px):** Para paneles SaaS, dashboards y herramientas profesionales (`--density-multiplier: 0.85` o base 4px).
+* **Modo Compact (Base 4px):** Para paneles SaaS, dashboards y herramientas profesionales (`--density-multiplier: 0.75`). Toda separación, padding y margin es múltiplo de 4 (nunca 6px ni otros valores intermedios): cada paso baja un escalón en la escala de 4px.
+* La elección entre ambos modos se deriva del eje Densidad del Ecualizador (Etapa 1.6) y del modelo de negocio, y se guarda en `density_mode`; se presenta como hipótesis editable.
 
-| Token | Valor Base (8px) | Modo Compacto (4px / 0.85x) | Uso típico |
+| Token | Valor Base (8px) | Modo Compacto (4px) | Uso típico |
 |:---|:---|:---|:---|
 | `spacing-1` | 4px | 4px | Separación mínima interna |
-| `spacing-2` | 8px | 6px | Padding interno de badges, chips |
+| `spacing-2` | 8px | 8px | Padding interno de badges, chips |
 | `spacing-3` | 12px | 8px | Gap entre elementos inline |
 | `spacing-4` | 16px | 12px | Padding de inputs, gap de grid |
 | `spacing-5` | 20px | 16px | Separación de grupos |
@@ -259,7 +260,7 @@ El sistema aplica una estrategia dual para garantizar visibilidad en ambos modos
 | `elevation-1` | `0px 4px 16px rgba(R, G, B, 0.08)` | `color-mix(in srgb, var(--color-primary-500) 4%, var(--bg-surface))` | Cards, hover de elementos |
 | `elevation-2` | `0px 8px 32px rgba(R, G, B, 0.12)` | `color-mix(in srgb, var(--color-primary-500) 8%, var(--bg-surface))` | Dropdowns, tooltips, popovers |
 | `elevation-3` | `0px 16px 48px rgba(R, G, B, 0.16)` | `color-mix(in srgb, var(--color-primary-500) 12%, var(--bg-surface))` | Modales, drawers, diálogos |
-| `focus-ring` | `0 0 0 4px rgba(R_prim, G_prim, B_prim, 0.4)` | `0 0 0 4px rgba(R_prim, G_prim, B_prim, 0.6)` | Indicador de foco visible WCAG AAA |
+| `focus-ring` | `0 0 0 3px rgba(R_prim, G_prim, B_prim, 0.6)` | `0 0 0 3px rgba(R_prim, G_prim, B_prim, 0.6)` | Indicador de foco visible WCAG AAA |
 
 Donde `R, G, B` son los canales del **color secundario** de la marca, y `R_prim, G_prim, B_prim` son del **color primario**.
 
@@ -273,9 +274,10 @@ Donde `R, G, B` son los canales del **color secundario** de la marca, y `R_prim,
 | `motion-duration-fast` | 150ms | Hover, active, checkbox, toggle |
 | `motion-duration-medium` | 300ms | Dropdowns, modales, transiciones de página |
 | `motion-duration-slow` | 500ms | Drawers, carrito lateral, animaciones de entrada |
-| `motion-easing-standard` | `cubic-bezier(0.2, 0.0, 0.0, 1.0)` | Movimiento general |
+| `motion-easing-standard` | `cubic-bezier(0.4, 0.0, 0.2, 1.0)` | Movimiento general |
 | `motion-easing-decelerate` | `cubic-bezier(0.0, 0.0, 0.2, 1.0)` | Elementos que entran |
 | `motion-easing-accelerate` | `cubic-bezier(0.4, 0.0, 1.0, 1.0)` | Elementos que salen |
+| `motion-easing-emphasized` | `cubic-bezier(0.2, 0.0, 0.0, 1.0)` | Transiciones destacadas (hero, cambios de contexto) |
 
 <!-- [BETA: GSAP MOTION TOKENS] -->
 #### [BETA] Tokens de Coreografía & Easing GSAP

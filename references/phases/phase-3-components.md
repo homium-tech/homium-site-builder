@@ -64,6 +64,8 @@ El sistema de componentes se organiza en 3 niveles:
 > - Loading: spinner inline sin cambio de tamaño
 >
 > Separar cada componente con `---`. Presentar de a **uno o dos por turno** y pedir confirmación antes de continuar con el siguiente.
+>
+> **Documentación completa fuera del chat:** además de lo anterior, cada componente guarda en `design-system-state.json` (`components.*`) su **anatomía**, su **comportamiento responsive** y sus **notas de accesibilidad** (rol ARIA, orden de tabulación, atajos de teclado si aplica). Eso NO se pregunta ni se lista en el chat: se redacta en el `[Brand]_Design_System.md` de la Fase 4 (campos `{{anatomy}}`, responsive y accesibilidad de la plantilla).
 
 ---
 
@@ -118,17 +120,19 @@ El asistente presenta cada molécula como combinación de átomos definidos en 3
 3. **Alert / Toast** — Variantes: success, warning, error, info
    - Icono + texto + botón de cierre opcional
 
-4. **Modal** — Overlay backdrop + contenedor con `--radius-lg`
-   - Focus trap obligatorio (WCAG 2.2)
-   - Cerrar con Escape y clic en backdrop
-
-5. **Tabs** — Variantes: `underline` (minimal), `pill` (si arquetipo usa pill)
+4. **Tabs** — Variantes: `underline` (minimal), `pill` (si arquetipo usa pill)
    - Estado `aria-selected` para tab activo
 
-6. **Dropdown Menu** — Trigger + lista flotante
+5. **Dropdown Menu** — Trigger + lista flotante
    - Posición: debajo del trigger, alineado a la izquierda
 
+6. **Select** — Selector de opciones con flecha indicadora (`default`, abierto, `disabled`)
+   - Rol `listbox`/`combobox` y navegación por flechas
+
 7. **Search Bar** — Input + botón de búsqueda (o ícono integrado)
+   - Variante con filtro (campo de búsqueda + selector de filtro)
+
+> Los **grupos de formularios** se componen a partir de Form Group (punto 2).
 
 ---
 
@@ -136,7 +140,7 @@ El asistente presenta cada molécula como combinación de átomos definidos en 3
 
 Los organismos son secciones completas de interfaz construidas con moléculas:
 
-1. **Navbar** — Fiel al `structural_blueprint.navbar`:
+1. **Navbar / Header** — Fiel al `structural_blueprint.navbar`:
    - 3 zonas: Logo / Nav links (con pill si `nav_links_pill != null`) / CTA + utility_controls
    - Sticky si `is_sticky: true`
    - Móvil: hamburger menu con drawer lateral
@@ -153,9 +157,16 @@ Los organismos son secciones completas de interfaz construidas con moléculas:
 4. **Feature Grid / Bento** — Grilla de cards de características
    - Columnas y ratios según `section_sequence[]`
 
-5. **Pricing Table** — Tarjetas de precio con tier destacado (si aplica al modelo de negocio)
+5. **Modal** — Overlay backdrop + contenedor con `--radius-lg` (organismo: sobrepone una sección completa de interfaz)
+   - Focus trap obligatorio (WCAG 2.2)
+   - Cerrar con Escape y clic en backdrop
 
-6. **Testimonials / Social Proof** — Cards de testimonial con avatar, nombre y texto
+6. **Drawer** — Panel lateral deslizante (menú móvil, carrito, filtros)
+   - Focus trap, cierre con Escape y clic en backdrop, `aria-modal="true"`
+
+7. **Pricing Table** — Tarjetas de precio con tier destacado (si aplica al modelo de negocio)
+
+8. **Testimonials / Social Proof** — Cards de testimonial con avatar, nombre y texto
 
 ---
 
@@ -165,12 +176,13 @@ Define los tokens de movimiento del sistema:
 
 | Token | Valor por Defecto | Uso |
 | :--- | :--- | :--- |
-| `--motion-duration-fast` | 150ms | Hover, tooltips, chips |
-| `--motion-duration-normal` | 250ms | Modales, dropdowns, fades |
-| `--motion-duration-slow` | 400ms | Page transitions, reveals |
-| `--motion-ease-standard` | `cubic-bezier(0.4, 0, 0.2, 1)` | La mayoría de transiciones |
-| `--motion-ease-decelerate` | `cubic-bezier(0, 0, 0.2, 1)` | Elementos que entran |
-| `--motion-ease-accelerate` | `cubic-bezier(0.4, 0, 1, 1)` | Elementos que salen |
+| `--motion-duration-fast` | 150ms | Micro-interacciones: hover, tooltips, chips (rango 100–200ms) |
+| `--motion-duration-medium` | 300ms | Transiciones estándar: modales, dropdowns, fades (rango 300–400ms) |
+| `--motion-duration-slow` | 500ms | Transiciones complejas o grandes: drawers, page transitions, reveals (500ms o más) |
+| `--motion-easing-standard` | `cubic-bezier(0.4, 0, 0.2, 1)` | La mayoría de transiciones |
+| `--motion-easing-decelerate` | `cubic-bezier(0, 0, 0.2, 1)` | Elementos que entran |
+| `--motion-easing-accelerate` | `cubic-bezier(0.4, 0, 1, 1)` | Elementos que salen |
+| `--motion-easing-emphasized` | `cubic-bezier(0.2, 0, 0, 1)` | Transiciones destacadas (hero, cambios de contexto) |
 
 - Si `motion_dna.has_smooth_scroll: true` → implementar Lenis smooth scroll en el prototipo (Fase 5) con CDN `https://cdn.jsdelivr.net/npm/lenis@latest/dist/lenis.mjs`
 - Si `motion_dna.has_custom_cursor: true` → implementar cursor personalizado según `cursor_selector`
@@ -187,7 +199,7 @@ Al completar átomos, moléculas, organismos y motion tokens, el asistente prese
 > - *{{N}} Átomos confirmados con 6 estados cada uno*
 > - *{{M}} Moléculas derivadas de los átomos*
 > - *{{K}} Organismos de sección*
-> - *Motion tokens: fast {{T_FAST}}ms / normal {{T_NORMAL}}ms / slow {{T_SLOW}}ms*
+> - *Motion tokens: fast {{T_FAST}}ms / normal {{T_NORMAL}}ms / slow {{T_SLOW}}ms, 4 curvas y alternativa sin animación (prefers-reduced-motion)*
 >
 > ¿Apruebas el catálogo para avanzar a la **Fase 4 (VALIDACIÓN VISUAL)** donde se generarán `[Brand]_Design_System.md` y `[Brand]_Design_System.html`?"*
 
@@ -195,5 +207,5 @@ Al completar átomos, moléculas, organismos y motion tokens, el asistente prese
 > - `components.atoms` — lista de átomos con variantes y morfología aprobada
 > - `components.molecules` — lista de moléculas
 > - `components.organisms` — lista de organismos
-> - `motion_tokens` — objeto con los 6 tokens de movimiento
+> - `motion_tokens` — objeto con los 7 tokens de movimiento (3 duraciones y 4 curvas)
 > - Marca `phase_3_complete: true`

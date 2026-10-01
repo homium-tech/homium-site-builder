@@ -18,6 +18,7 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const { pickReadable, parseColor, contrastRatio } = require('./contrast.cjs');
 
 function hexToRgb(hex) {
   if (!hex || typeof hex !== 'string') return '0, 0, 0';
@@ -104,6 +105,22 @@ function compileShowcase(statePath, outputPath) {
   const textPrimaryHex = pick(palette.text_primary, palette.text, alabaster['50']) || '#f1f3f3';
   const textDarkHex = '#101313';
 
+  // Contraste del chrome: el rail va sobre --bg-sunken, no sobre --bg, así que su texto/acento se eligen contra ese fondo
+  const onSunkenHex = pickReadable(bgSunkenHex, [textPrimaryHex, '#FFFFFF', '#000000'], 7);
+  const railAccentHex = pickReadable(bgSunkenHex, [primaryHex, primaryLighterHex, accentHex, accentLighterHex, onSunkenHex], 4.5);
+  const railOnAccentHex = pickReadable(railAccentHex, ['#FFFFFF', '#000000'], 4.5);
+  const chromeAccentHex = pickReadable(bgPrimaryHex, [primaryHex, primaryLighterHex, accentHex, accentLighterHex, textPrimaryHex], 4.5);
+  const onPrimaryHex = pickReadable(chromeAccentHex, ['#FFFFFF', '#000000'], 4.5);
+  const onPrimaryDarkHex = pickReadable(primaryDarkHex, ['#FFFFFF', '#000000'], 4.5);
+
+  // Escala modular y densidad: se derivan en la Etapa 1.6 y viven en el estado (antes estaban fijas en Major Third / 4px)
+  const modularRaw = state.modular_scale || f.modular_scale || {};
+  const modularRatio = Number(modularRaw.ratio) > 1 && Number(modularRaw.ratio) < 3 ? Number(modularRaw.ratio) : 1.25;
+  const modularName = escapeHtml(typeof modularRaw.name === 'string' && modularRaw.name.trim() ? modularRaw.name.trim() : 'Major Third');
+  const densityRaw = state.density_mode || f.density_mode || {};
+  const densityId = typeof densityRaw === 'string' ? densityRaw : (densityRaw.mode || '');
+  const spacingBasePx = /compact|compacto|denso|4/i.test(String(densityId)) ? 4 : (Number(densityRaw.base_px) === 4 ? 4 : 8);
+
   // Radios
   const radii = f.radius || state.radii || {};
   const radiusSm = radii.sm || '8px';
@@ -142,7 +159,7 @@ function compileShowcase(statePath, outputPath) {
     { eje: '7. Feedback de Interacción', val: '5/5', token: '6 estados canónicos interactivos por componente con anillo accesible' },
     { eje: '8. Dinamismo de Movimiento', val: '3/5', token: 'Transiciones fluidas 200ms-350ms cubic-bezier' },
     { eje: '9. Contraste de Accesibilidad', val: '5/5', token: 'WCAG 2.2 AAA estricto (DeltaTone >= 60 HCT)' },
-    { eje: '10. Escala Modular', val: '4/5', token: 'Major Third (1.250) escalonada para web moderna' },
+    { eje: '10. Escala Modular', val: '4/5', token: `${modularName} (${modularRatio.toFixed(3)}) escalonada para web moderna` },
     { eje: '11. Identidad de Superficies', val: '4/5', token: 'Fondo oscuro nativo con soporte dinámico dual a Light Mode' },
     { eje: '12. Señalética de Navegación', val: '4/5', token: 'Island Navbar flotante con micro-estados' },
     { eje: '13. Precisión de Formularios', val: '5/5', token: 'High-Tech Inset con foco activo en Light-Cyan #1dd1e2' },
@@ -303,14 +320,34 @@ function compileShowcase(statePath, outputPath) {
     </div>
   `;
 
-  // Tabla WCAG 2.2 AAA
-  const wcagRows = `
-    <tr><td><code>Texto Primario (${textPrimaryHex})</code> sobre <code>Fondo Base (${bgPrimaryHex})</code></td><td>14.8:1</td><td><span class="chip chip-cyan">PASA AAA</span></td><td>Cumple >= 7.0:1 para texto regular</td></tr>
-    <tr><td><code>Acento Light-Cyan (${accentHex})</code> sobre <code>Fondo Base (${bgPrimaryHex})</code></td><td>11.2:1</td><td><span class="chip chip-cyan">PASA AAA</span></td><td>Señalética interactiva de alto contraste</td></tr>
-    <tr><td><code>Texto Blanco (#ffffff)</code> sobre <code>Botón Chestnut (${primaryHex})</code></td><td>7.2:1</td><td><span class="chip chip-cyan">PASA AAA</span></td><td>Texto en botón primario de acción</td></tr>
-    <tr><td><code>Texto Secundario (dust-grey-300)</code> sobre <code>Fondo Base (${bgPrimaryHex})</code></td><td>7.5:1</td><td><span class="chip chip-cyan">PASA AAA</span></td><td>Legibilidad en micro-copys y metadatos</td></tr>
-    <tr><td><code>Anillo de Foco (${accentHex})</code> sobre <code>Fondo Base (${bgPrimaryHex})</code></td><td>11.2:1</td><td><span class="chip chip-cyan">PASA AAA</span></td><td>Anillo visible accesible >= 3:1</td></tr>
-  `;
+  // Tabla WCAG 2.2 AAA: ratios calculados con los colores reales del estado (antes eran valores fijos de muestra)
+  const wcagPairs = [
+    ['Texto Primario', textPrimaryHex, 'Fondo Base', bgPrimaryHex, 7, 'Texto regular sobre el fondo'],
+    ['Texto Primario', textPrimaryHex, 'Superficie', bgElevatedHex, 7, 'Texto regular sobre tarjetas y paneles'],
+    ['Acento', chromeAccentHex, 'Fondo Base', bgPrimaryHex, 4.5, 'Señalética interactiva y enlaces'],
+    ['Texto sobre acento', onPrimaryHex, 'Acento', chromeAccentHex, 4.5, 'Texto del botón primario'],
+    ['Anillo de Foco', chromeAccentHex, 'Fondo Base', bgPrimaryHex, 3, 'Anillo de foco visible (componente de interfaz)']
+  ];
+  const wcagRows = wcagPairs.map(([fgLabel, fgHex, bgLabel, bgHex, min, note]) => {
+    const fg = parseColor(fgHex);
+    const bg = parseColor(bgHex);
+    const ratio = fg && bg ? contrastRatio(fg, bg) : 0;
+    const level = ratio >= 7 ? 'PASA AAA' : (ratio >= min ? (min <= 4.5 ? 'PASA' : 'PASA AA') : 'NO PASA');
+    const chip = ratio >= min ? 'chip-cyan' : 'chip-neutral';
+    return `<tr><td><code>${fgLabel} (${fgHex})</code> sobre <code>${bgLabel} (${bgHex})</code></td><td>${ratio.toFixed(1)}:1</td><td><span class="chip ${chip}">${level}</span></td><td>${note} (mínimo ${min}:1)</td></tr>`;
+  }).join('\n    ');
+
+  const contrastPairsVisual = '<div style="display:flex;gap:1rem;flex-wrap:wrap;">' + [
+    [textPrimaryHex, bgPrimaryHex],
+    [onPrimaryHex, chromeAccentHex],
+    [chromeAccentHex, bgPrimaryHex]
+  ].map(([fgHex, bgHex]) => {
+    const fg = parseColor(fgHex);
+    const bg = parseColor(bgHex);
+    const ratio = fg && bg ? contrastRatio(fg, bg) : 0;
+    const label = ratio >= 7 ? 'AAA' : (ratio >= 4.5 ? 'AA' : 'FALLA');
+    return `<div style="background:${bgHex};color:${fgHex};padding:8px 12px;border-radius:6px;border:1px solid ${fgHex};">${label} ${ratio.toFixed(1)}:1</div>`;
+  }).join('') + '</div>';
 
   // Diccionario de reemplazos
   const replacements = {
@@ -350,7 +387,13 @@ function compileShowcase(statePath, outputPath) {
     'TEXT_PRIMARY_HEX': textPrimaryHex,
     'TEXT_PRIMARY': textPrimaryHex,
     'TEXT_PRIMARY_RGB': hexToRgb(textPrimaryHex),
-    'ON_PRIMARY_HEX': '#ffffff',
+    'CHROME_ACCENT_HEX': chromeAccentHex,
+    'ON_PRIMARY_HEX': onPrimaryHex,
+    'ON_PRIMARY_DARK_HEX': onPrimaryDarkHex,
+    'ON_SUNKEN_HEX': onSunkenHex,
+    'ON_SUNKEN_RGB': hexToRgb(onSunkenHex),
+    'RAIL_ACCENT_HEX': railAccentHex,
+    'RAIL_ON_ACCENT_HEX': railOnAccentHex,
     'SHADOW_RGB': '0, 0, 0',
     'SHADOW_LIGHT_RGB': '0, 0, 0',
     'BG_LIGHT_HEX': '#f8fafc',
@@ -364,8 +407,8 @@ function compileShowcase(statePath, outputPath) {
     'RADIUS_LG': radiusLg,
     'RADIUS_FULL': radiusFull,
     'BORDER_WIDTH_EMPHASIS': '1px solid rgba(255,255,255,0.12)',
-    'MODULAR_SCALE_NAME': 'Major Third (1.250)',
-    'MODULAR_SCALE_RATIO': '1.250',
+    'MODULAR_SCALE_NAME': `${modularName} (${modularRatio.toFixed(3)})`,
+    'MODULAR_SCALE_RATIO': modularRatio.toFixed(3),
     'SITE_TYPE': 'Plataforma Web MPA de 3 Páginas',
     'EQUALIZER_TABLE_ROWS': equalizerRows,
     'ATOM_BLOCKS': atomBlocks,
@@ -381,7 +424,7 @@ function compileShowcase(statePath, outputPath) {
     'COOKIE_BANNER_SUMMARY': 'Banner modal de privacidad con toggle discreto y botones accesibles.',
     'COMPONENT_DNA_TABLE_ROWS': '<tr><td>Botones</td><td>Primario, Secundario, Enlace</td><td>6 estados verificados</td></tr>',
     'MEDIA_SLOTS_SUMMARY': 'Contenedores adaptables con ratio 16:9 y soporte responsive.',
-    'SPACING_BASE': '4px',
+    'SPACING_BASE': String(spacingBasePx),
     'SPACING_SCALE_BARS': '<div style="display:flex;gap:4px;"><span class="chip chip-cyan">4px</span><span class="chip chip-cyan">8px</span><span class="chip chip-cyan">16px</span><span class="chip chip-cyan">24px</span><span class="chip chip-cyan">32px</span><span class="chip chip-cyan">48px</span><span class="chip chip-cyan">64px</span></div>',
     'BREAKPOINTS_TABLE': '<tr><td>Mobile</td><td>&lt; 768px</td><td>1 columna fluida</td></tr><tr><td>Tablet</td><td>768px - 1024px</td><td>2 columnas</td></tr><tr><td>Desktop</td><td>&gt; 1024px</td><td>12 columnas de 1280px max</td></tr>',
     'GRID_COLUMNS_LG': '12',
@@ -403,10 +446,10 @@ function compileShowcase(statePath, outputPath) {
     'CAROUSEL_ENGINE_INFO': 'Desplazamiento horizontal snap con aceleración por hardware (transform translate3d).',
     'MODAL_DEMO_TITLE': `Diálogo de Confirmación · ${brandName}`,
     'MODAL_DEMO_BODY': 'Muestra interactiva de overlay modal con backdrop-filter y foco atrapado accesible.',
-    'CONTRAST_PAIRS_VISUAL': '<div style="display:flex;gap:1rem;flex-wrap:wrap;"><div style="background:#101313;color:#f1f3f3;padding:8px 12px;border-radius:6px;border:1px solid #1dd1e2;">AAA 14.8:1</div><div style="background:#d23a2d;color:#ffffff;padding:8px 12px;border-radius:6px;">AAA 7.2:1</div><div style="background:#101313;color:#1dd1e2;padding:8px 12px;border-radius:6px;">AAA 11.2:1</div></div>',
+    'CONTRAST_PAIRS_VISUAL': contrastPairsVisual,
     'TOKENS_CSS_EXPORT': `:root {\n  --color-primary: ${primaryHex};\n  --color-secondary: ${secondaryHex};\n  --color-accent: ${accentHex};\n  --color-bg: ${bgPrimaryHex};\n  --color-surface: ${bgElevatedHex};\n  --color-text: ${textPrimaryHex};\n  --font-display: '${fontDisplay}', sans-serif;\n  --font-ui: '${fontUi}', sans-serif;\n  --radius-sm: ${radiusSm};\n  --radius-md: ${radiusMd};\n  --radius-lg: ${radiusLg};\n}`,
     'MEDIA_PLAN_SUMMARY': 'Imágenes optimizadas en WebP y SVG vectorial para logotipos e isotipos.',
-    'KNOWN_GAPS': '<li><span>Todos los 55 tokens HCT han sido validados. Sin vacíos cromáticos pendientes.</span></li>',
+    'KNOWN_GAPS': '<li><span>Requisitos legales de accesibilidad y alcance multilingüe/RTL: no especificados por el cliente; no se asumieron. Indicar si aplican para ampliar el sistema.</span></li>',
     'BRAND_LOGO_BLOCK': `<div style="display:flex;align-items:center;gap:10px;"><div style="width:32px;height:32px;background:${primaryHex};border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:bold;font-size:16px;">V</div><span style="font-weight:700;font-size:18px;color:#fff;letter-spacing:-0.02em;">${brandName}</span></div>`
   };
 

@@ -30,6 +30,10 @@ Lead Visual Foundations Architect. Define todos los cimientos del sistema de dis
 > - **Texto Display AAA (≥ 4.5:1):** ΔTone ≥ 45.
 > - **Neutrales Cohesivos:** Todos los neutrales (100 a 900) se tintan automáticamente con un 3%–5% del matiz primario.
 
+> **Personalidad ya definida (Etapa 1.6):** el Ecualizador de Marca se resolvió al cerrar la Fase 1. Su perfil (vibrante vs. sobria, audaz vs. discreta) condiciona las opciones de paleta que propones aquí, y `density_mode` / `modular_scale` ya vienen derivados. No lo vuelvas a preguntar.
+
+> **Color y tipografía de marca (hipótesis):** si en la Etapa 1.4 hay logo o manual de marca, el color dominante y la tipografía extraídos (`brand` en el estado) son la **Opción 1** de las Etapas 2.1.1 y 2.2.1, presentados como hipótesis a confirmar. No inventes un color de marca que el cliente no aportó.
+
 > **Reconocimiento de Paleta de Referencia (Modo INSPIRATION):**
 > Si en la Fase 1 se seleccionó `Inspiración Conceptual`, la **Opción 1 (Recomendada)** DEBE ser la paleta inspirada medida proveniente de `visual_dna.inspiration_seeds.palette_candidates` (mostrando muestra Unicode, HEX y cobertura). Las opciones restantes se adaptan al tipo de negocio.
 
@@ -37,7 +41,7 @@ Lead Visual Foundations Architect. Define todos los cimientos del sistema de dis
 
 #### Etapa 2.1.1 — Paleta Tonal Primaria
 - *(Modo INSPIRATION)*: Presenta como Opción 1 la paleta medida de la referencia + 4 alternativas adaptadas al modelo de negocio.
-- *(Sin referencia)*: Brinda 5 sugerencias cromáticas numeradas con su código #HEX + opción personalizada al final.
+- *(Sin referencia)*: Brinda 5 sugerencias cromáticas numeradas con su código #HEX + opción personalizada al final. Si el cliente aportó un color de marca (logo, manual o HEX), la Opción 1 es ese color con su rampa tonal.
 
 > [!CRITICAL_RULE]
 > **GUARDRAIL DE FIDELIDAD DE MARCA VS. ACCESIBILIDAD (NON-BYPASSABLE — aplica cuando el color primario proviene de logo/manual de marca, no de referencia bloqueada):**
@@ -48,10 +52,15 @@ Lead Visual Foundations Architect. Define todos los cimientos del sistema de dis
 Pregunta por la paleta neutra (escala de grises tintados con el primario). Ofrece 3 sugerencias: neutra fría, neutra cálida, neutra pura.
 
 #### Etapa 2.1.3 — Colores Semánticos / Funcionales
-Pregunta si desea definir colores semánticos: éxito (`#22C55E`), advertencia (`#F59E0B`), error (`#EF4444`), info (`#3B82F6`) — o derivarlos automáticamente.
+Presenta las opciones numeradas:
+1. **Derivados de tu primario (Recomendada):** éxito, advertencia, error e info se generan con la misma rampa tonal HCT, asociados al tono y la saturación de la paleta principal. Deben distinguirse del primario y entre sí; si el primario es azul, `info` usa otro matiz. Cada uno cumple contraste igual que el resto (>= 4.5:1 sobre su superficie).
+2. **Estándar:** éxito `#22C55E`, advertencia `#F59E0B`, error `#EF4444`, info `#3B82F6`.
+3. *(Escribir mi propia opción personalizada)*
+
+Nunca se comunica un estado solo por color: acompáñalo siempre con ícono o texto.
 
 #### Etapa 2.1.4 — Modo Oscuro (adelanto cromático)
-Pregunta si el sistema tendrá modo oscuro. La evaluación completa se hace en la Etapa 2.6; aquí solo se confirma la intención para estructurar la allowlist.
+Antes de preguntar, explica en dos líneas por qué importa: reduce la fatiga visual en baja luz, ahorra batería en pantallas OLED y respeta la preferencia del sistema operativo. Luego pregunta si el sistema tendrá modo oscuro (con arquitectura de tokens). La evaluación completa se hace en la Etapa 2.6; aquí solo se confirma la intención para estructurar la allowlist.
 
 ### Resumen y Persistencia de 2.1
 Muestra la tabla de paleta confirmada. Formato obligatorio — tres columnas exactas, una fila por color, sin `<br>` en ninguna celda (la interfaz renderiza la muestra de cada `#HEX`; no se usan emojis):
@@ -79,7 +88,8 @@ El Tono HCT y los neutrales se incluyen como filas adicionales en la misma tabla
 
 ### Etapa 2.2.1 — Tipografía de Display (Títulos)
 - *(Modo INSPIRATION)*: Presenta como Opción 1 la Google Font análoga exacta medida en `visual_dna.inspiration_seeds.typography_candidates`.
-- Sugiere 4 alternativas de alta personalidad (evitando clichés como `Inter` o `Roboto`) + opción escrita.
+- Si el cliente aportó la tipografía de marca (manual, logo o nombre/archivo), es la **Opción 1** (hipótesis a confirmar).
+- Sugiere 4 alternativas de alta personalidad (evitando clichés y tipografías genéricas como `Inter` o `Roboto`) + opción escrita.
 
 > **Recordatorio de Adjuntos:** Si la marca ya tiene su propia fuente (archivo TTF, OTF, WOFF o WOFF2), recuérdale al cliente que puede adjuntarla con el botón de adjuntar del chat en vez de elegir una de las Google Fonts sugeridas.
 
@@ -99,7 +109,7 @@ Si la referencia o el usuario desea cursiva editorial de acento, propone:
 6. *(Escribir mi propia opción personalizada)*
 
 ### Etapa 2.2.3 — Tipografía de UI (Cuerpo / Controles)
-Sugiere 5 Google Fonts nítidas para UI (*Manrope*, *DM Sans*, *Instrument Sans*, *Figtree*, *Public Sans*) + opción escrita.
+Sugiere 5 Google Fonts nítidas para UI (*Manrope*, *DM Sans*, *Instrument Sans*, *Figtree*, *Public Sans*) + opción escrita. Prioriza legibilidad a tamaños pequeños, al menos pesos regular, medium y bold, y fuentes variables cuando existan. Añade como opción: **Con cobertura de glifos multilingüe / RTL** (si el producto necesita varios idiomas; no asumas el alcance, ofrécelo solo como opción).
 
 > **Recordatorio de Adjuntos:** Misma opción que en la Etapa 2.2.1 — si la marca tiene una fuente de UI propia, puede adjuntarla (TTF, OTF, WOFF, WOFF2) en vez de elegir una sugerida.
 
@@ -120,7 +130,9 @@ Muestra el resumen tipográfico en tres bloques separados, nunca en una sola tab
 - UI / Cuerpo: [Nombre] — pesos usados: 400 / 500 / 600
 - Acento Italic: [Nombre Italic] o "no aplica"
 
-**Escala modular** (una fila por nivel, sin comprimir size+weight+leading en una celda):
+**Escala modular:** nombre y ratio derivados en la Etapa 1.6 (`modular_scale`), presentados como hipótesis editable (ej: Major Third, 1.250). Si el cliente la cambia, actualiza `modular_scale`.
+
+**Tabla de niveles** (una fila por nivel, sin comprimir size+weight+leading en una celda; el desglose completo H1–H4, display, title, body, label, caption, overline y CTA con px, rem, line-height en % y peso se genera en el `.md` de la Fase 4 a partir de la escala):
 
 | Nivel | Tamaño | Peso | Line-height |
 | :--- | :--- | :--- | :--- |
@@ -130,42 +142,15 @@ Muestra el resumen tipográfico en tres bloques separados, nunca en una sola tab
 
 **Iconografía:** [Librería] — trazo [X]px
 
-Pide confirmación: *"¿Está correcta la tipografía e iconografía para avanzar a la Etapa 2.3?"*
+Pide confirmación: *"¿Está correcta la tipografía e iconografía para avanzar a la Etapa 2.4?"*
 
 > **Acción de Persistencia en Disco:** Al confirmar, actualiza `design-system-state.json` con `typography` e `icons`.
 
 ---
 
-## Etapa 2.3 — Personalidad Visual (Ecualizador de Marca — 14 Ejes)
+## Etapa 2.3 — (retirada: la Personalidad Visual / Ecualizador pasó a la Etapa 1.6)
 
-> [!IMPORTANT]
-> **GUARDRAIL DE BYPASS (MODO FAST-TRACK):**
-> Si `fidelity_mode: TOTAL_ARCHITECTURAL_FIDELITY`, esta sección se omite. Los radios, sombras y elevación ya fueron calibrados desde las medidas reales de la referencia.
-
-### Etapa 2.3.1 — Seleccionar Arquetipo de Personalidad Visual
-Presenta las siguientes opciones numeradas:
-1. `Calibración Manual` — Calibración granular de los 14 ejes (ver `references/brand-equalizer.md`).
-2. `Tech Minimalist` — Limpio, esquinas 2–4px, tipografía sans-serif nítida, estética SaaS/Tech.
-3. `Bold & Vibrant` — Colores saturados, tipografía ExtraBold 800, botones 56px, alto contraste.
-4. `Corporate & Trust` — Estructura sobria, simetría estricta, tonos neutros serios.
-5. `Organic & Warm` — Esquinas redondeadas 16–28px, tonos cálidos tintados, espaciado cómodo.
-6. `Cyber & Futuristic` — Fondo oscuro/nocturno, acentos neón, resplandores tintados.
-7. `Editorial & Premium` — Tipografía Display refinada, espaciado amplio, acabado de lujo.
-8. Valores por defecto optimizados para el modelo de negocio.
-9. *(Escribir mi propia opción personalizada)*
-
-> [!IMPORTANT]
-> **Instrucción de Carga Determinista:** Si el usuario elige `Calibración Manual`, el asistente DEBE leer de inmediato `references/brand-equalizer.md` mediante `view_file` y presentar los 14 ejes en 3 Bloques Temáticos:
-> - **Bloque A (Ejes 1–5):** Geometría, Superficies y Bordes.
-> - **Bloque B (Ejes 6–10):** Atmósfera, Color y Tipografía.
-> - **Bloque C (Ejes 11–14):** Tono, Dinamismo e Innovación.
-
-### Resumen y Persistencia de 2.3
-Muestra: perfil visual seleccionado + tokens derivados (`--radius-sm`, `--radius-md`, `--radius-lg`, sombras, bordes, espaciados).
-
-Pide confirmación: *"¿Está correcto el perfil visual para avanzar a la Etapa 2.4?"*
-
-> **Acción de Persistencia en Disco:** Al confirmar, actualiza `design-system-state.json` con `personality` y `geometry_tokens`.
+> No existe una Etapa 2.3 en el flujo. El arquetipo, el radio base, `personality` y `geometry_tokens` se definen y persisten en la Etapa 1.6, antes de la paleta, porque condicionan la agresividad de los tokens. Las Etapas 2.4, 2.5 y 2.6 conservan su numeración.
 
 ---
 
@@ -183,10 +168,13 @@ Presenta el sistema de elevación de 4 niveles derivado del arquetipo de persona
 | 2 | `--elevation-2` | `0 3px 6px rgba(0,0,0,0.16)` | Dropdowns, popovers |
 | 3 | `--elevation-3` | `0 10px 20px rgba(0,0,0,0.19)` | Modales, drawers |
 
-- **Focus Ring:** `--focus-ring` = `0 0 0 3px` + color primario a 60% de opacidad. WCAG AAA obligatorio.
+- **Focus Ring:** `--focus-ring` = `0 0 0 3px` + color primario a 60% de opacidad (único valor del sistema: 3px). WCAG AAA obligatorio.
 - **Surface Tint (Dark Mode):** elevación en dark mode se expresa con opacidad del color primario superpuesto (Material Design 3 Surface Tint), no solo con sombras.
 
-Pregunta si el usuario desea personalizar alguno de los niveles o acepta los derivados del arquetipo.
+Pregunta con opciones numeradas:
+1. Aceptar los niveles derivados del arquetipo (0 a 3).
+2. **Elevación extendida (0 a 5)** con focus input primario y secundario (glow, blur y spread definidos).
+3. *(Escribir mi propia opción personalizada)*
 
 > **Acción de Persistencia en Disco:** Al confirmar, actualiza `design-system-state.json.shadows`.
 
@@ -197,7 +185,7 @@ Pregunta si el usuario desea personalizar alguno de los niveles o acepta los der
 > [!CRITICAL_RULE]
 > **FORMATO EN CHAT:** Presentar la tabla de radios limpia (una fila por token). Añadir debajo una sola línea de nota sobre coherencia morfológica con el arquetipo. Una sola pregunta al final.
 
-Presenta el sistema de radios derivado del Ecualizador (arquetipo seleccionado en 2.3):
+Presenta el sistema de radios derivado del Ecualizador (arquetipo seleccionado en la Etapa 1.6):
 
 | Token | Valor | Uso |
 | :--- | :--- | :--- |
@@ -209,7 +197,10 @@ Presenta el sistema de radios derivado del Ecualizador (arquetipo seleccionado e
 - **Coherencia morfológica:** los radios DEBEN ser coherentes con el arquetipo visual. Un sistema `Tech Minimalist` tendrá `--radius-sm: 2px`, `--radius-md: 4px`; un `Organic & Warm` tendrá `--radius-sm: 12px`, `--radius-md: 20px`.
 - En Ruta A (Fast-Track), estos valores vienen de `component_dna` medido y ya están confirmados — NO preguntar de nuevo.
 
-Pregunta si el usuario desea ajustar algún valor de radio específico.
+Pregunta con opciones numeradas:
+1. Aceptar la escala derivada (4 tokens).
+2. **Escala extendida de 7 pasos** (none 0 · xs 4 · sm 8 · md 12 · lg 16 · xl 28 · full) con escalas separadas para contenedores/cards y para botones/CTAs, sesgada según la geometría del logo (ángulos rectos hacia valores bajos; formas redondeadas hacia valores altos). Mantén el mismo lenguaje de esquinas en botones, cards, inputs y diálogos.
+3. *(Escribir mi propia opción personalizada)*
 
 > **Acción de Persistencia en Disco:** Al confirmar, actualiza `design-system-state.json.border_radius`.
 
@@ -233,6 +224,7 @@ Presenta las alternativas de variables CSS para dark mode derivadas de la paleta
 ```
 
 - **Evaluación de Contraste:** Verifica automáticamente que `text-primary-dark` sobre `bg-base-dark` cumpla WCAG 2.2 AAA (≥ 7:1). Si no lo cumple, ajusta los tonos HCT y presenta la alternativa.
+- **Reglas de modo oscuro:** NO invertir la paleta. Evita el negro puro `#000000` como fondo (halo y fatiga con texto claro): usa un gris muy oscuro en el rango `#121212`–`#1C1C1E` o el neutral tintado equivalente. Reduce la saturación de los colores muy vivos (a plena saturación se ven "quemados" sobre fondo oscuro). La elevación se comunica con superficies más claras (tinte del primario), no con sombras.
 - **Semánticos en Dark:** Los colores semánticos (éxito, error, advertencia) se presentan en sus versiones oscuras (suavizadas en luminosidad para evitar vibración visual en fondos oscuros).
 - **Implementación:** vía `@media (prefers-color-scheme: dark)` o atributo `data-theme="dark"` — el usuario elige.
 
@@ -246,7 +238,7 @@ Pregunta si los tokens de modo oscuro son correctos o si desea ajustar algún va
 
 Al completar todas las etapas (2.1–2.6), presenta un resumen visual consolidado:
 
-> *"Hemos definido los **Cimientos Visuales** completos del sistema:*
+> *"Hemos definido los **Cimientos Visuales** completos del sistema (la personalidad se definió en la Etapa 1.6):*
 > - *Paleta cromática con allowlist de {{N}} colores aprobados (WCAG AAA verificado)*
 > - *Sistema tipográfico: {{FONT_DISPLAY}} (Display) + {{FONT_UI}} (UI) + Iconografía {{ICONS}}*
 > - *Personalidad visual: Arquetipo {{ARCHETYPE}} → Radio base {{RADIUS_MD}}, Elevación {{ELEVATION_STYLE}}*

@@ -80,6 +80,76 @@ it('the audit should accept a 14-section showcase and flag a missing canonical s
   assert(broken.stdout.includes('#sec-motion'));
 });
 
+it('compiled showcases should keep the left rail readable even when the palette is light and the rail is dark', () => {
+  const workspace = fs.mkdtempSync(path.join(tmp, 'ws-'));
+  const light = {
+    ...STATE,
+    palette: { primary: '#946EDB', primary_dark: '#000000', secondary: '#000000', accent: '#C7A9FE', bg_base: '#EBE1FF', surface_card: '#FFFFFF', text_primary: '#000000' }
+  };
+  fs.writeFileSync(path.join(workspace, 'design-system-state.json'), JSON.stringify(light));
+  assert.strictEqual(run('compile_showcase.cjs', ['design-system-state.json'], workspace).status, 0);
+  const audit = run('audit_showcase.cjs', [path.join(workspace, 'AcmeLabs_Design_System.html')], workspace);
+  assert(!/Contraste insuficiente/.test(audit.stdout), audit.stdout);
+});
+
+it('the audit should fail a showcase whose rail text or tertiary text has no contrast', () => {
+  const workspace = fs.mkdtempSync(path.join(tmp, 'ws-'));
+  fs.writeFileSync(path.join(workspace, 'design-system-state.json'), JSON.stringify(STATE));
+  run('compile_showcase.cjs', ['design-system-state.json'], workspace);
+  const file = path.join(workspace, 'AcmeLabs_Design_System.html');
+  const html = fs.readFileSync(file, 'utf-8');
+
+  // Caso real: marca clara, rail casi negro y texto del rail heredando el --fg negro global
+  const bad = html
+    .replace(/(--bg-sunken:\s*)#[0-9a-fA-F]{6}/, '$1#010101')
+    .replace(/(--fg:\s*)#[0-9a-fA-F]{6}/, '$1#000000')
+    .replace(/(--rail-fg:\s*)#[0-9a-fA-F]{6}/, '$1#000000')
+    .replace(/(--rail-fg-muted:\s*)rgba\([^)]*\)/, '$1rgba(0, 0, 0, 0.72)')
+    .replace(/(--rail-fg-subtle:\s*)rgba\([^)]*\)/, '$1rgba(0, 0, 0, 0.45)');
+  fs.writeFileSync(file, bad);
+  const res = run('audit_showcase.cjs', [file], workspace);
+  assert.strictEqual(res.status, 1, res.stdout);
+  assert(/Contraste insuficiente[^\n]*rail izquierdo/.test(res.stdout), res.stdout);
+});
+
+it('compile_showcase should read modular_scale and density_mode from the state and compute real WCAG ratios', () => {
+  const workspace = fs.mkdtempSync(path.join(tmp, 'ws-'));
+  const state = { ...STATE, modular_scale: { name: 'Perfect Fourth', ratio: 1.333 }, density_mode: { mode: 'compact', base_px: 4 } };
+  fs.writeFileSync(path.join(workspace, 'design-system-state.json'), JSON.stringify(state));
+  assert.strictEqual(run('compile_showcase.cjs', ['design-system-state.json'], workspace).status, 0);
+  const html = fs.readFileSync(path.join(workspace, 'AcmeLabs_Design_System.html'), 'utf-8');
+  assert(html.includes('Perfect Fourth (1.333)'), 'usa la escala del estado');
+  assert(!html.includes('Major Third (1.250)'), 'ya no queda fija en Major Third');
+  assert(html.includes('Escala base 4px'), 'densidad compacta = base 4px sin duplicar la unidad');
+  assert(!/4pxpx|8pxpx/.test(html));
+  assert(!html.includes('14.8:1') && !html.includes('11.2:1'), 'los ratios de la tabla WCAG ya no son valores fijos de muestra');
+  assert(/Vacíos Conocidos/.test(html) && /multilingüe/.test(html), 'Vacíos Conocidos menciona legal y multilingüe como no asumidos');
+});
+
+it('the audit should flag a client semantic color with no contrast against the background', () => {
+  const workspace = fs.mkdtempSync(path.join(tmp, 'ws-'));
+  fs.writeFileSync(path.join(workspace, 'design-system-state.json'), JSON.stringify(STATE));
+  run('compile_showcase.cjs', ['design-system-state.json'], workspace);
+  const file = path.join(workspace, 'AcmeLabs_Design_System.html');
+  const html = fs.readFileSync(file, 'utf-8');
+  // --bg es oscuro (#101313): un "error" casi igual de oscuro no se distingue
+  fs.writeFileSync(file, html.replace('--sev-critico:', '--client-error: #14171a;\n      --sev-critico:'));
+  const res = run('audit_showcase.cjs', [file], workspace);
+  assert.strictEqual(res.status, 1, res.stdout);
+  assert(/color semántico --client-error/.test(res.stdout), res.stdout);
+});
+
+it('the motion tokens of the phase guides should share one naming and the doc ranges (150 / 300 / 500ms)', () => {
+  const phase3 = fs.readFileSync(path.join(ROOT, 'references', 'phases', 'phase-3-components.md'), 'utf-8');
+  const arch = fs.readFileSync(path.join(ROOT, 'references', 'token-architecture.md'), 'utf-8');
+  for (const doc of [phase3, arch]) {
+    assert(/motion-duration-fast`[^\n]*150ms/.test(doc) && /motion-duration-medium`[^\n]*300ms/.test(doc) && /motion-duration-slow`[^\n]*500ms/.test(doc));
+    assert(/motion-easing-emphasized/.test(doc), 'incluye la curva enfatizada');
+  }
+  const spacing = arch.split('ESPACIADO Y DENSIDAD DUAL')[1].split('### 4.')[0];
+  assert(!/\| 6px \|/.test(spacing), 'el modo compacto solo usa múltiplos de 4 (sin 6px)');
+});
+
 it('the template, the audit and the phase doc should agree on the same 14 section ids', () => {
   const template = fs.readFileSync(path.join(ROOT, 'templates', 'design-system.html'), 'utf-8');
   const templateIds = [...template.matchAll(/id="(sec-[a-z-]+)"/g)].map(m => m[1]);

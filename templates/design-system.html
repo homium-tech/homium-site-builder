@@ -36,8 +36,8 @@
 
       /* Foreground */
       --fg:         {{TEXT_PRIMARY_HEX}};
-      --fg-muted:   rgba({{TEXT_PRIMARY_RGB}}, 0.72);
-      --fg-subtle:  rgba({{TEXT_PRIMARY_RGB}}, 0.45);
+      --fg-muted:   rgba({{TEXT_PRIMARY_RGB}}, 0.82);
+      --fg-subtle:  rgba({{TEXT_PRIMARY_RGB}}, 0.68);
       --fg-on-accent: {{ON_PRIMARY_HEX}};
 
       /* Severity (estándar universal) */
@@ -46,13 +46,14 @@
       --sev-medio:   #b8860b;
       --sev-bajo:    #2bb077;
 
-      /* Acento del chrome (nav activo, eyebrows, dots, hover states) */
-      --accent:          {{PRIMARY_HEX}};
+      /* Acento del chrome (nav activo, eyebrows, dots, hover states): el tono de la paleta con >= 4.5:1 sobre --bg
+         (suele ser el primario; si el primario es muy oscuro/claro para este fondo, su variante light/dark) */
+      --accent:          {{CHROME_ACCENT_HEX}};
       --accent-2:        {{SECONDARY_HEX}};
-      --accent-display:  {{PRIMARY_HEX}};
+      --accent-display:  {{CHROME_ACCENT_HEX}};
 
       /* Links */
-      --link:            {{PRIMARY_HEX}};
+      --link:            {{CHROME_ACCENT_HEX}};
       --link-hover:      {{PRIMARY_LIGHTER_HEX}};
 
       /* Bordes */
@@ -60,6 +61,15 @@
       --border-strong:   rgba({{TEXT_PRIMARY_RGB}}, 0.22);
       --border-accent:   {{PRIMARY_HEX}};
       --focus-ring:      {{PRIMARY_HEX}};
+
+      /* Rail izquierdo: su fondo (--bg-sunken) puede ser más oscuro o más claro que --bg, así que lleva su propio
+         texto, elegido por contraste contra --bg-sunken (>= 4.5:1; scripts/audit_showcase.cjs lo verifica) */
+      --rail-fg:         {{ON_SUNKEN_HEX}};
+      --rail-fg-muted:   rgba({{ON_SUNKEN_RGB}}, 0.82);
+      --rail-fg-subtle:  rgba({{ON_SUNKEN_RGB}}, 0.68);
+      --rail-border:     rgba({{ON_SUNKEN_RGB}}, 0.16);
+      --rail-accent:     {{RAIL_ACCENT_HEX}};
+      --rail-on-accent:  {{RAIL_ON_ACCENT_HEX}};
 
       /* Radios del showcase (invariantes) */
       --radius-xs:  4px;
@@ -120,9 +130,10 @@
       --surface-overlay: rgba({{PRIMARY_RGB}}, 0.04);
 
       --fg:         {{TEXT_DARK_HEX}};
-      --fg-muted:   rgba({{TEXT_DARK_RGB}}, 0.78);
-      --fg-subtle:  rgba({{TEXT_DARK_RGB}}, 0.55);
+      --fg-muted:   rgba({{TEXT_DARK_RGB}}, 0.84);
+      --fg-subtle:  rgba({{TEXT_DARK_RGB}}, 0.68);
 
+      --fg-on-accent:    {{ON_PRIMARY_DARK_HEX}};
       --accent:          {{PRIMARY_DARK_HEX}};
       --accent-2:        {{SECONDARY_DARK_HEX}};
       --accent-display:  {{PRIMARY_DARK_HEX}};
@@ -133,6 +144,14 @@
       --border:          rgba({{TEXT_DARK_RGB}}, 0.14);
       --border-strong:   rgba({{TEXT_DARK_RGB}}, 0.28);
       --border-accent:   {{PRIMARY_DARK_HEX}};
+
+      /* En tema claro --bg-sunken es claro: el rail usa el texto y el acento del tema */
+      --rail-fg:         var(--fg);
+      --rail-fg-muted:   var(--fg-muted);
+      --rail-fg-subtle:  var(--fg-subtle);
+      --rail-border:     var(--border);
+      --rail-accent:     var(--accent);
+      --rail-on-accent:  var(--fg-on-accent);
       --focus-ring:      {{PRIMARY_DARK_HEX}};
 
       --shadow-card:     0 8px 32px rgba({{SHADOW_LIGHT_RGB}}, 0.08);
@@ -224,6 +243,13 @@
       height: 100vh;
       height: 100dvh;
       background: var(--bg-sunken);
+      /* Todo el texto del rail hereda estos tokens: contraste garantizado contra --bg-sunken, no contra --bg */
+      --fg: var(--rail-fg);
+      --fg-muted: var(--rail-fg-muted);
+      --fg-subtle: var(--rail-fg-subtle);
+      --border: var(--rail-border);
+      --accent: var(--rail-accent);
+      --fg-on-accent: var(--rail-on-accent);
       border-right: 1px solid var(--border);
       padding: 1.5rem 1rem 1.25rem 1rem;
       display: flex;
@@ -245,27 +271,24 @@
     .homium-logo-link {
       display: inline-block;
       width: 140px;
-      color: #ffffff;
+      color: var(--fg);
       text-decoration: none;
       transition: opacity var(--dur-fast);
     }
     .homium-logo-link:hover { opacity: 0.85; }
     .homium-logo-svg { width: 100%; height: auto; display: block; }
-    .logo-letter { fill: #ffffff; transition: fill var(--dur-med) var(--ease-out); }
-    html[data-theme="light"] .logo-letter,
-    body.theme-light .logo-letter { fill: #2e1a47; }
+    .logo-letter { fill: var(--fg); transition: fill var(--dur-med) var(--ease-out); }
     .logo-bolt-green { fill: #5aeaa2; }
     .logo-bolt-cyan { fill: #00ffff; }
 
     .brand-subtitle {
       font-size: 8.5px;
       font-weight: 500;
-      color: rgba(255, 255, 255, 0.45);
+      color: var(--fg-subtle);
       letter-spacing: 0.18em;
       text-transform: uppercase;
       margin-top: 2px;
     }
-    html[data-theme="light"] .brand-subtitle { color: rgba(74, 17, 112, 0.6); }
 
     /* Metadata Table (From Live Platform) */
     .rail-meta-table {
@@ -321,7 +344,7 @@
       width: 5px;
       height: 5px;
       border-radius: 50%;
-      background: rgba(255, 255, 255, 0.2);
+      background: var(--fg-subtle);
       transition: all var(--dur-fast) var(--ease-out);
       flex-shrink: 0;
     }
@@ -2111,7 +2134,8 @@
         <p class="section-desc">Qué no fue provisto por {{BRAND_NAME}} y cómo se sustituyó, para trazabilidad del handoff.</p>
         <div class="homium-card">
           <ul class="homium-bullet-list">
-            <!-- KNOWN_GAPS: un <li><span>…</span></li> por vacío real derivado de media_plan,
+            <!-- KNOWN_GAPS: SIEMPRE incluye un <li> indicando que los requisitos legales de accesibilidad y el alcance
+                 multilingüe/RTL no fueron especificados ni asumidos. Además, un <li><span>…</span></li> por vacío real derivado de media_plan,
                  typography.self_hosted_fonts, icon_library y fidelity_mode. Si no hay vacíos: un solo
                  <li> indicando que el cliente entregó todos los assets. -->
             {{KNOWN_GAPS}}

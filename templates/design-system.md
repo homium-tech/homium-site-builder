@@ -121,6 +121,39 @@ Calibración estratégica de los 14 ejes de marca para derivar parámetros geom�
 * `color-neutral-800`: `{{NEUTRAL_800}}` (Texto secundario / Muted)
 * `color-neutral-900`: `{{NEUTRAL_900}}` (Texto principal / Headings)
 
+#### Tokens en formato W3C DTCG (JSON)
+
+<!--
+  INSTRUCCIÓN PARA EL AGENTE:
+  Genera el bloque completo con TODOS los tokens del sistema (color, tipografía, espaciado, radios, sombras, movimiento),
+  un token por entrada con `$value`, `$type` y `$description`. Los semánticos referencian a los primitivos con
+  `{color.primary.500}`. Nombres: categoría-propiedad-variante-estado.
+-->
+
+```json
+{
+  "color": {
+    "primary": {
+      "500": { "$value": "{{PRIMARY_COLOR}}", "$type": "color", "$description": "Color de acción principal" }
+    },
+    "interactive": {
+      "primary": { "$value": "{color.primary.500}", "$type": "color", "$description": "Fondo de botones primarios" }
+    }
+  },
+  "spacing": {
+    "4": { "$value": "16px", "$type": "dimension", "$description": "Padding de inputs, gap de grid" }
+  },
+  "radius": {
+    "md": { "$value": "{{RADIUS_MD}}", "$type": "dimension", "$description": "Inputs y botones estándar" }
+  },
+  "motion": {
+    "duration": {
+      "fast": { "$value": "150ms", "$type": "duration", "$description": "Micro-interacciones" }
+    }
+  }
+}
+```
+
 #### Rampas Tonales Perceptuales HCT (13 Pasos)
 | Tono HCT | Valor Hex | Rol Semántico |
 | :--- | :--- | :--- |
@@ -349,6 +382,14 @@ Calibración estratégica de los 14 ejes de marca para derivar parámetros geom�
 * [x] **Motion Reduced:** `prefers-reduced-motion` integrado reseteando animaciones a 0ms.
 * [x] **Navegación por Teclado:** Anillos de foco explícitos (`focus-ring`) en todos los controles interactivos.
 * [x] **Semántica ARIA:** Roles y atributos documentados para componentes interactivos.
+
+---
+
+### Vacíos Conocidos
+
+* Requisitos legales de accesibilidad (sector público, salud y educación suelen tener obligaciones específicas por país): no especificados; no se asumieron.
+* Alcance multilingüe y soporte RTL: no especificado; no se asumió. Si aplica, validar cobertura de glifos de la tipografía y usar propiedades lógicas CSS (`margin-inline-start`).
+<!-- Añadir aquí cualquier otro insumo que el cliente no proveyó y cómo se sustituyó. -->
 
 ---
 

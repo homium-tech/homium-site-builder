@@ -226,6 +226,111 @@ if (/Accent Serif Italic|Display &amp; Accent Italic/.test(htmlNoComments) &&
   warnings.push('El showcase menciona "Accent (Serif) Italic" pero no hay ninguna muestra .accent-italic — verificar typography.reference_uses_italic (o quitar la etiqueta).');
 }
 
+// 7. Contraste del chrome del showcase (WCAG): texto vs. el fondo sobre el que realmente se pinta
+// El rail izquierdo va sobre --bg-sunken (no sobre --bg): una marca clara con rail oscuro dejaba el texto ilegible.
+const { parseColor, contrastRatio } = require('./contrast.cjs');
+
+function readVars(cssBlock) {
+  const vars = {};
+  const re = /(--[a-z0-9-]+)\s*:\s*([^;]+);/gi;
+  let m;
+  while ((m = re.exec(cssBlock)) !== null) vars[m[1]] = m[2].trim();
+  return vars;
+}
+
+function resolveVar(vars, name, depth = 0) {
+  if (depth > 6 || vars[name] === undefined) return null;
+  const raw = vars[name];
+  const ref = raw.match(/^var\(\s*(--[a-z0-9-]+)\s*(?:,\s*([^)]+))?\)$/i);
+  if (!ref) return raw;
+  return resolveVar(vars, ref[1], depth + 1) || (ref[2] ? ref[2].trim() : null);
+}
+
+function blockBody(css, selectorRegex) {
+  const m = css.match(new RegExp(selectorRegex.source + '\\s*\\{([^}]*)\\}', selectorRegex.flags));
+  return m ? m[1] : '';
+}
+
+const cssPlain = cssOnly.replace(/\/\*[\s\S]*?\*\//g, '');
+const rootVars = readVars(blockBody(cssPlain, /:root/));
+const lightVars = readVars(blockBody(cssPlain, /html\[data-theme="light"\],\s*body\.theme-light/));
+const railScope = blockBody(cssPlain, /\.left-rail-sidebar/);
+const railHasOwnTokens = /--fg-subtle:\s*var\(--rail-fg-subtle\)/.test(railScope) && /--fg:\s*var\(--rail-fg\)/.test(railScope);
+
+// [token del texto, token del fondo, mínimo (error), AAA recomendado (advertencia), descripción]
+const contrastPairs = [
+  ['--fg', '--bg', 4.5, 7, 'texto principal sobre el fondo'],
+  ['--fg', '--bg-elevated', 4.5, 0, 'texto principal sobre superficies elevadas'],
+  ['--fg-muted', '--bg', 4.5, 0, 'texto secundario sobre el fondo'],
+  ['--fg-subtle', '--bg', 4.5, 0, 'texto terciario (etiquetas, metadatos) sobre el fondo'],
+  ['--fg-subtle', '--bg-elevated', 4.5, 0, 'texto terciario sobre superficies elevadas'],
+  ['--accent', '--bg', 3, 4.5, 'acento (eyebrows, links, nav activo) sobre el fondo'],
+  ['--fg-on-accent', '--accent', 4.5, 0, 'texto de botones sobre el acento'],
+];
+
+function railToken(vars, own, fallback) {
+  return railHasOwnTokens ? own : fallback;
+}
+
+function auditTheme(label, vars) {
+  const get = (name) => parseColor(resolveVar(vars, name) || '');
+  const pairs = contrastPairs.slice();
+  // El rail usa sus propios tokens; si la regla del rail no los aplica, hereda los globales (y se mide igual)
+  pairs.push(
+    [railToken(vars, '--rail-fg', '--fg'), '--bg-sunken', 4.5, 7, 'texto del rail izquierdo sobre su fondo (--bg-sunken)'],
+    [railToken(vars, '--rail-fg-muted', '--fg-muted'), '--bg-sunken', 4.5, 0, 'texto secundario del rail'],
+    [railToken(vars, '--rail-fg-subtle', '--fg-subtle'), '--bg-sunken', 4.5, 0, 'etiquetas e ítems de navegación del rail'],
+    [railToken(vars, '--rail-accent', '--accent'), '--bg-sunken', 4.5, 0, 'acento del rail (ítem activo, grupo abierto)'],
+    [railToken(vars, '--rail-on-accent', '--fg-on-accent'), railToken(vars, '--rail-accent', '--accent'), 4.5, 0, 'texto del botón del rail sobre su acento']
+  );
+
+  const unresolved = new Set();
+  for (const [fgName, bgName, min, aaa, desc] of pairs) {
+    const fg = get(fgName);
+    const bg = get(bgName);
+    if (!fg || !bg || bg.a < 1) { unresolved.add(`${fgName}/${bgName}`); continue; }
+    const ratio = contrastRatio(fg, bg);
+    if (ratio < min) {
+      errors.push(`Contraste insuficiente (${label}): ${desc} — ${fgName} sobre ${bgName} = ${ratio.toFixed(2)}:1 (mínimo ${min}:1). Ajusta el token (para texto sobre el acento usa #000000 o #FFFFFF, el de mayor contraste; para el rail define --rail-* contra --bg-sunken).`);
+    } else if (aaa && ratio < aaa) {
+      warnings.push(`Contraste por debajo de AAA (${label}): ${desc} — ${fgName} sobre ${bgName} = ${ratio.toFixed(2)}:1 (recomendado ${aaa}:1).`);
+    }
+  }
+  // Colores semánticos (éxito, advertencia, error, info): se miden sobre el fondo y la superficie del tema.
+  // Los --sev-* son tokens fijos del chrome (solo advertencia); los --client-* provienen de la paleta del cliente (error < 3:1).
+  const semantic = Object.keys(vars).filter(k => /^--(sev-[a-z]+|client-(success|warning|error|danger|info))$/.test(k));
+  for (const name of semantic) {
+    const fg = get(name);
+    if (!fg) continue;
+    for (const bgName of ['--bg', '--bg-elevated']) {
+      const bg = get(bgName);
+      if (!bg || bg.a < 1) continue;
+      const ratio = contrastRatio(fg, bg);
+      const isClient = name.startsWith('--client-');
+      if (isClient && ratio < 3) {
+        errors.push(`Contraste insuficiente (${label}): color semántico ${name} sobre ${bgName} = ${ratio.toFixed(2)}:1 (mínimo 3:1). Deriva el tono de la rampa del primario con más diferencia tonal.`);
+      } else if (ratio < 4.5) {
+        warnings.push(`Contraste por debajo de 4.5:1 (${label}): color semántico ${name} sobre ${bgName} = ${ratio.toFixed(2)}:1. Acompáñalo siempre con ícono o texto y usa un tono más oscuro/claro si se usa como texto.`);
+      }
+    }
+  }
+  return unresolved;
+}
+
+if (!rootVars['--bg'] || !rootVars['--fg']) {
+  warnings.push('No se pudieron leer --bg / --fg del :root: se omitió la verificación de contraste del chrome.');
+} else {
+  const unresolved = auditTheme('tema base', rootVars);
+  if (Object.keys(lightVars).length > 0) {
+    // El tema claro redefine solo parte de los tokens: el resto se hereda del :root
+    const light = { ...rootVars, ...lightVars };
+    auditTheme('tema claro', light).forEach(x => unresolved.add(x));
+  }
+  if (unresolved.size > 0) {
+    warnings.push(`Contraste no verificable (token ausente, no opaco o no hex/rgb): ${Array.from(unresolved).join(', ')}`);
+  }
+}
+
 // Report results
 console.log('========================================');
 console.log(`AUDITORÍA TÉCNICA DEL SHOWCASE: ${path.basename(filePath)}`);

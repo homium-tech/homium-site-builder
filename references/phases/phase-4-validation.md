@@ -42,6 +42,11 @@ Lead Design System Documentation Engineer & Visual Specification Writer. Redacci
    - **§4 Auditoría WCAG 2.2 AAA:** matriz de contraste de todos los pares críticos (texto/fondo, estados activos, focus ring) con ratios medidos.
    - **§5 Handoff de Código:** bloque `:root` completo con TODOS los tokens del sistema + formato de exportación elegido en la Etapa 4.3.
 
+   - **Tokens en formato W3C DTCG:** en §2 expresa los tokens (color, tipografía, espaciado, radios, sombras, movimiento) como bloque JSON DTCG con `$value`, `$type` y `$description` por token (ver la plantilla `templates/design-system.md`, §2.3), además de la lista legible. Convención de nombres jerárquica: categoría-propiedad-variante-estado (ej: `color-background-primary-hover`).
+   - **Documentación por componente en el `.md`:** para cada átomo, molécula y organismo escribe anatomía, los 6 estados, comportamiento responsive y notas de accesibilidad (rol ARIA, orden de tabulación, atajos de teclado si aplica) tomados de `components.*` del estado. No los vuelques en el chat.
+   - **Escala tipográfica completa:** genera la tabla H1–H4, display, title, body, label (L/M/S), caption, overline y CTA con px, rem, line-height en % y peso, a partir de `modular_scale` y `typography`.
+   - **Vacíos Conocidos:** incluye siempre que los requisitos legales de accesibilidad y el alcance multilingüe/RTL no fueron especificados y no se asumieron (y cualquier otro insumo que el cliente no proveyó).
+
 4. **Adaptaciones por la estructura de 5 fases** (sin sitemap ni selección de stack):
    - §1.1: No incluir campos de `Frontend Framework`, `CSS Framework` ni `Tipo de Sitio` — el skill no cubre selección de stack.
    - §1.3: Omitir completamente la sección "Arquitectura de Páginas y Mapa del Sitio" — la fase sitemap fue eliminada del flujo.
@@ -92,16 +97,25 @@ Reemplaza el bloque de variables HOMIUM de la plantilla con tokens derivados de 
 
   /* Foreground del showcase */
   --fg:         {{TEXT_PRIMARY_HEX}};            /* state.palette.text_primary */
-  --fg-muted:   rgba(de fg, 0.72);               /* ~72% del texto primario */
-  --fg-subtle:  rgba(de fg, 0.45);               /* ~45% del texto primario */
+  --fg-muted:   rgba(de fg, 0.82);               /* ~82% del texto primario */
+  --fg-subtle:  rgba(de fg, 0.68);               /* ~68%: nunca menos — por debajo no alcanza 4.5:1 */
+
+  /* Rail izquierdo: va sobre --bg-sunken, NO sobre --bg. Su texto se elige contra --bg-sunken (>= 4.5:1).
+     Un rail oscuro en una marca clara (o al revés) con --fg global deja el texto ilegible. */
+  --rail-fg:         {{ON_SUNKEN_HEX}};          /* hex de la paleta (o #FFFFFF/#000000) con >= 7:1 sobre --bg-sunken */
+  --rail-fg-muted:   rgba(de rail-fg, 0.82);
+  --rail-fg-subtle:  rgba(de rail-fg, 0.68);
+  --rail-border:     rgba(de rail-fg, 0.16);
+  --rail-accent:     {{RAIL_ACCENT_HEX}};        /* tono de la paleta con >= 4.5:1 sobre --bg-sunken */
+  --rail-on-accent:  {{RAIL_ON_ACCENT_HEX}};     /* #FFFFFF o #000000 con >= 4.5:1 sobre --rail-accent */
 
   /* Acento del chrome (bordes hover, dots activos, eyebrows, chips de sección) */
-  --accent:          {{PRIMARY_HEX}};            /* state.palette.primary */
+  --accent:          {{CHROME_ACCENT_HEX}};      /* primario de la paleta con >= 4.5:1 sobre --bg; si no llega, su variante light/dark */
   --accent-2:        {{SECONDARY_HEX}};          /* state.palette.secondary */
   --accent-display:  {{PRIMARY_HEX}};
 
   /* Links */
-  --link:            {{PRIMARY_HEX}};
+  --link:            {{CHROME_ACCENT_HEX}};
   --link-hover:      {{PRIMARY_LIGHTER_HEX}};    /* tono claro/tone-70 de la ramp HCT primaria */
 
   /* Bordes */
@@ -272,7 +286,7 @@ El select del `.mobile-nav` se puebla automáticamente desde `#rail-nav` por el 
 | Sección | ID | Fuente en state.json | Fase |
 | :--- | :--- | :--- | :--- |
 | Resumen de marca | `#sec-discovery` | `brand.*`, `visual_dna.fidelity_mode`, `visual_dna.primary_reference` | Fase 1 |
-| Ecualizador de marca | `#sec-equalizer` | `brand_equalizer.*` (14 ejes); omitir si `equalizer_skipped: true` | Fase 1 |
+| Ecualizador de marca | `#sec-equalizer` | `personality` y los 14 ejes de la Etapa 1.6 (con los valores por defecto del arquetipo si el cliente los eligió); la sección siempre se incluye | Fase 1 |
 | Deconstrucción ADN | `#sec-visual-dna` | `visual_dna.structural_blueprint.*` (6 dimensiones técnicas) | Fase 1 |
 | Grilla & espaciado | `#sec-spacing` | `foundations.spacing_base`, `foundations.density_mode`, breakpoints | Fase 2 |
 | Paleta & rampas HCT | `#sec-colors` | `palette.*`, `palette.allowed_hexes`, rampas HCT 13 tonos, modo oscuro | Fase 2 |
@@ -305,7 +319,7 @@ Al llegar a la sección `#sec-code`, Claude presenta:
 > *"¿En qué formato deseas exportar los Design Tokens del sistema?"*
 > 1. **CSS Custom Properties `:root`** (Recomendado — directo en el browser)
 > 2. **Tailwind CSS `theme.extend`** (para proyectos Tailwind)
-> 3. **JSON Style Dictionary** (para pipelines de tokens multiplataforma)
+> 3. **JSON DTCG / Style Dictionary** (estándar W3C con `$value`, `$type`, `$description`; para pipelines de tokens multiplataforma y Figma vía Tokens Studio)
 > 4. **SCSS `$variables`** (para proyectos Sass/SCSS)
 > 5. *(Escribir mi propia opción personalizada)*
 
@@ -331,6 +345,8 @@ node "<APP_ROOT>/scripts/audit_showcase.cjs" "[Brand]_Design_System.html"
 Si detecta:
 - `{{PLACEHOLDER}}` sin reemplazar → corregir antes de presentar
 - Variables CSS requeridas ausentes en `:root` → agregar
+- Si definiste colores semánticos del cliente (Etapa 2.1.3), decláralos en `:root` como `--client-success`, `--client-warning`, `--client-error` y `--client-info` para que el audit los mida (mínimo 3:1 sobre `--bg` y `--bg-elevated`; por debajo de 4.5:1 se advierte).
+- `Contraste insuficiente` (texto sobre fondo < 4.5:1: `--fg-subtle`, rail izquierdo sobre `--bg-sunken`, texto sobre el acento…) → es un error crítico, no una advertencia: cambia el token por otro hex de la paleta (o `#FFFFFF`/`#000000`) hasta que el audit lo pase. Nunca presentes un showcase con texto ilegible.
 
 Adicionalmente:
 ```bash

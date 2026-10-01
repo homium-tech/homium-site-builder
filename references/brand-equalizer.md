@@ -2,10 +2,10 @@
 
 ## Propósito
 
-El Ecualizador de Marca es una herramienta **opcional** que traduce la personalidad de una marca en decisiones técnicas concretas de diseño. Funciona como un ecualizador de audio: 14 deslizadores que van de 1 a 5, donde cada posición genera valores específicos de CSS/tokens.
+El Ecualizador de Marca es una etapa **obligatoria** del flujo (Etapa 1.6) que traduce la personalidad de una marca en decisiones técnicas concretas de diseño. Funciona como un ecualizador de audio: 14 deslizadores que van de 1 a 5, donde cada posición genera valores específicos de CSS/tokens.
 
 > [!IMPORTANT]
-> **Este feature es OPCIONAL**. Homium Site Builder lo ofrece de forma visible pero nunca obligatoria. Si el cliente no lo usa, se aplican valores predeterminados según el tipo de sitio.
+> **Esta etapa es OBLIGATORIA, pero el esfuerzo del cliente es mínimo:** puede resolverla con un arquetipo de un clic, con la opción "Valores por defecto según el modelo de negocio" o con calibración manual de los ejes. Se resuelve al cerrar la Fase 1, ANTES de elegir paleta y tipografía, porque determina la agresividad de los tokens. Si el cliente elige los valores por defecto, se aplican los predeterminados según el tipo de sitio (ver "Cuando el ecualizador NO se calibra").
 
 ---
 
@@ -13,13 +13,15 @@ El Ecualizador de Marca es una herramienta **opcional** que traduce la personali
 
 ### Momento del flujo
 
-El ecualizador se ofrece **después** de recopilar los datos base (nombre, tipo de sitio, colores, fuentes) y **antes** de generar el Design System:
+El ecualizador es la **Etapa 1.6** y cierra la Fase 1: va después de los insumos (nombre, propósito, modelo, logo y referencias) y **antes** de los cimientos visuales (paleta, tipografía, elevación, radios):
 
 ```
-PASO 1: Datos base (nombre, tipo, colores, fuentes)  ← obligatorio
-PASO 2: ¿Desea personalizar la personalidad visual?  ← aquí se ofrece
-PASO 3: Generar Design System
+Fase 1: 1.1 a 1.5 (insumos, logo, referencias y fidelidad)
+Etapa 1.6: Personalidad visual (Ecualizador)   ← aquí
+Fase 2: paleta, tipografía, elevación, radios y modo oscuro (ya condicionados por la personalidad)
 ```
+
+Sus salidas se guardan en `personality`, `geometry_tokens`, `density_mode` (eje 6, Densidad, más el modelo de negocio) y `modular_scale`. Todas las inferencias se presentan como hipótesis a confirmar.
 
 ### Mensaje sugerido para ofrecer el ecualizador
 
@@ -344,9 +346,9 @@ Esta tabla resume **qué tokens se derivan de cada eje**:
 
 ---
 
-## Cuando el ecualizador NO se usa
+## Cuando el ecualizador NO se calibra
 
-Si el cliente omite el ecualizador, la skill aplica **valores predeterminados neutros** (puntuación 3 en todos los ejes) y luego ajusta según el tipo de sitio:
+Si el cliente elige los valores por defecto en lugar de un arquetipo o de la calibración manual, la skill aplica **valores predeterminados neutros** (puntuación 3 en todos los ejes) y luego ajusta según el tipo de sitio:
 
 | Tipo de sitio | Ajustes predeterminados respecto a neutral |
 |:---|:---|

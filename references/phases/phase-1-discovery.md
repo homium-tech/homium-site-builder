@@ -30,12 +30,14 @@ Pregunta si el cliente cuenta con un logo existente o desea que se genere/defina
 2. **Generar un Isotipo SVG / Logo Tipográfico limpio** utilizando las fuentes y colores de la marca.
 3. *(Escribir opción personalizada)*
 
-> **Recordatorio de Adjuntos:** Si el cliente cuenta con un manual de marca o guía de identidad existente en PDF o DOCX, recuérdale que puede adjuntarlo con el botón de adjuntar del chat para incorporarlo al análisis.
+> **Recordatorio de Adjuntos e insumos de marca (sin turnos extra):** Si el cliente cuenta con un manual de marca o guía de identidad existente en PDF o DOCX, recuérdale que puede adjuntarlo con el botón de adjuntar del chat. Si no hay manual, invítalo en el mismo mensaje a indicar, si los tiene, el **color principal de marca** (HEX, RGB, Pantone o una imagen donde se pueda medir) y el **nombre de su tipografía** (o el archivo). Es una invitación dentro de esta misma pregunta: no abras un turno aparte para ello y no inventes lo que el cliente no aporte.
+> Lo que se extraiga del logo o del manual (color dominante y su saturación, serif/sans/display, simetría y densidad visual) se guarda en `design-system-state.json` bajo `brand` y alimenta la opción 1 de las Etapas 2.1.1 (color) y 2.2.1 (tipografía) como **hipótesis a confirmar**, nunca como decisión final.
 
 > **Deducción Morfológica Automática del Logo (Bajo el Capó):**
-> Al recibir o generar el logo, el asistente analiza internamente su geometría sin requerir preguntas extra:
+> Al recibir o generar el logo, el asistente analiza internamente su geometría sin requerir preguntas extra (el resultado se muestra como hipótesis editable, ver abajo):
 > - **Geometría Rectilínea / Ángulos Duros / Serif:** Sesga automáticamente los radios a `2px–4px` y bordes técnicos (estética corporativa/precisa).
 > - **Geometría Curva / Orgánica / Circular:** Sesga automáticamente los radios a `16px–28px / full-pill` (estética amigable/cercana).
+> - **Estas deducciones son hipótesis:** se presentan como tal en el resumen de la fase, junto con la pregunta de la Etapa 1.6, para que el cliente las corrija.
 > - **Guardrail de No-Alucinación Cultural:** El asistente NO debe asumir significados universales ni estereotipos culturales a partir del color (ej. rojo como peligro vs prosperidad en Asia; blanco como pureza vs luto en Oriente), tratándolos como hipótesis técnicas a contrastar.
 
 ---
@@ -131,12 +133,40 @@ El asistente clasifica y extrae la referencia bajo la **Matriz Universal de 6 Di
    - Familia de fuente display y UI real (o su análoga exacta en Google Fonts) con pesos y jerarquía visual medidos.
 
 ##### Caso 2: El usuario escogió `[Inspiración Conceptual / Vibe]`
-El asistente ejecuta una inspección técnica focalizada en la atmósfera cromática y tipografía inspiradora (Dimensiones 5 y 6) sin extraer ni imponer la grilla ni las secciones de la referencia. Presenta el resumen de inspiración visual y avanza secuencialmente a la **Fase 2 (DEFINICIÓN DE FOUNDATIONS)** por la Ruta B.
+El asistente ejecuta una inspección técnica focalizada en la atmósfera cromática y tipografía inspiradora (Dimensiones 5 y 6) sin extraer ni imponer la grilla ni las secciones de la referencia. Presenta el resumen de inspiración visual y avanza a la **Etapa 1.6 (Personalidad Visual)** y, al confirmarla, a la **Fase 2 (DEFINICIÓN DE FOUNDATIONS)** por la Ruta B.
 
 ##### Caso 3: El usuario escogió `[Personalizada / Quirúrgica]`
 El asistente ejecuta la inspección técnica forense únicamente sobre las dimensiones específicas seleccionadas por el usuario, presenta la ficha técnica adaptada y continúa el flujo acordado.
 
 ---
+
+---
+
+### Etapa 1.6 — Personalidad Visual (Ecualizador de Marca — 14 Ejes)
+
+> [!IMPORTANT]
+> **ORDEN DEL FLUJO:** el Ecualizador cierra la Fase 1 y se resuelve **antes de elegir paleta y tipografía** (Fase 2): determina la agresividad de los tokens (bordes rectos vs. redondeados, elevaciones profundas vs. flat, paletas vibrantes vs. sobrias), así que no puede ir después de ellos. Es obligatoria. Fuente de verdad: `references/brand-equalizer.md` (lectura obligatoria con `view_file` al entrar a esta etapa).
+
+Presenta las siguientes opciones numeradas:
+1. `Calibración Manual` — Calibración granular de los 14 ejes (bloques A, B y C de `brand-equalizer.md`).
+2. `Tech Minimalist` — Limpio, esquinas 2–4px, tipografía sans-serif nítida, estética SaaS/Tech.
+3. `Bold & Vibrant` — Colores saturados, tipografía ExtraBold 800, botones 56px, alto contraste.
+4. `Corporate & Trust` — Estructura sobria, simetría estricta, tonos neutros serios.
+5. `Organic & Warm` — Esquinas redondeadas 16–28px, tonos cálidos tintados, espaciado cómodo.
+6. `Cyber & Futuristic` — Fondo oscuro/nocturno, acentos neón, resplandores tintados.
+7. `Editorial & Premium` — Tipografía Display refinada, espaciado amplio, acabado de lujo.
+8. Valores por defecto optimizados para el modelo de negocio.
+9. *(Escribir mi propia opción personalizada)*
+
+**Derivaciones (se muestran como hipótesis editable en el resumen; no son preguntas aparte):**
+- **Densidad:** el eje 6 (Densidad) y el modelo de negocio de la Etapa 1.3 deciden `density_mode`: `compact` (base 4px, producto complejo/B2B/dashboard) o `comfortable` (base 8px, consumo/landing). Si el cliente no indicó el contexto de uso real, preséntalo como hipótesis y deja claro cómo cambiarlo.
+- **Escala modular:** se elige de la matriz de 13 ratios de `references/token-architecture.md` según el tipo de producto y la densidad, y se guarda como `modular_scale` (`{ "name": ..., "ratio": ... }`).
+- **Fast-Track:** si `fidelity_mode` es `TOTAL_ARCHITECTURAL_FIDELITY`, esta etapa no se pregunta: se auto-calibra desde la referencia medida (ver "Auto-Calibración" en `brand-equalizer.md`) y se presenta como hipótesis a confirmar junto con la ficha forense.
+
+### Resumen y Persistencia de 1.6
+Muestra: perfil visual seleccionado + tokens derivados (`--radius-sm`, `--radius-md`, `--radius-lg`, sombras, bordes, espaciados), la densidad y la escala modular propuestas, y las deducciones del logo como hipótesis. Pide confirmación: *"¿Está correcto el perfil visual para cerrar la Fase 1?"*
+
+> **Acción de Persistencia en Disco:** Al confirmar, actualiza `design-system-state.json` con `personality`, `geometry_tokens`, `density_mode` y `modular_scale`.
 
 ## Bifurcación de Flujo: Resumen y Persistencia
 
@@ -156,7 +186,7 @@ El asistente presenta la **Ficha Técnica Forense Completa Consolidada** usando 
 > | Acento Dominante (`accent`) | `{{ACCENT_HEX}}` | {{COBERTURA}}% | `{{SAMPLE_SELECTOR}}` |
 > | Texto Principal (`text_primary`) | `{{TEXT_HEX}}` | — | `{{SAMPLE_SELECTOR}}` |
 >
-> Junto a la paleta se presenta: Tipografía real medida (familias + tamaños — incluyendo `self_hosted_fonts` si existen, documentándolas explícitamente), Radios/Bordes reales, la **Tabla de Morfologías (`component_dna`)** — botones clusterizados con su radio/padding/bg/contador, inputs y CTA del navbar —, los **`media_slots` detectados por sección** (rol + aspect-ratio + tratamiento), y la **Secuencia de Secciones 1 a N** del `structural_blueprint` (con su `layout_type`, ratios de columnas, morfología de tarjetas, `has_slider`/`slider_type` y `has_marquee` por sección).
+> Junto a la paleta se presenta: Tipografía real medida (familias + tamaños — incluyendo `self_hosted_fonts` si existen, documentándolas explícitamente), Radios/Bordes reales, la **Tabla de Morfologías (`component_dna`)** — botones clusterizados con su radio/padding/bg/contador, inputs y CTA del navbar —, los **`media_slots` detectados por sección** (rol + aspect-ratio + tratamiento), y la **Secuencia de Secciones 1 a N** del `structural_blueprint`, más el perfil del Ecualizador de Marca auto-calibrado (Etapa 1.6) con la densidad y la escala modular derivadas, marcado como hipótesis a confirmar (con su `layout_type`, ratios de columnas, morfología de tarjetas, `has_slider`/`slider_type` y `has_marquee` por sección).
 >
 > | Morfología (component_dna) | Radio | Padding | Fondo / Texto | Usos |
 > | :--- | :--- | :--- | :--- | :--- |
@@ -176,7 +206,7 @@ La primera pregunta de cierre es SOLO sobre la confirmación del blueprint (NO m
 
 #### Etapa B — Persistencia y Salto a Fase 4 (Solo tras confirmar el Blueprint)
 
-Guarda inmediatamente el estado completo en `design-system-state.json` (incluyendo `brand`, `visual_dna` con `fidelity_mode: "TOTAL_ARCHITECTURAL_FIDELITY"` y `reference_screenshots` tomadas de `screenshots` del extractor, `structural_blueprint`, `palette` con `allowed_hexes`, `typography` y `personality`).
+Guarda inmediatamente el estado completo en `design-system-state.json` (incluyendo `brand`, `visual_dna` con `fidelity_mode: "TOTAL_ARCHITECTURAL_FIDELITY"` y `reference_screenshots` tomadas de `screenshots` del extractor, `structural_blueprint`, `palette` con `allowed_hexes`, `typography`, `personality`, `density_mode` y `modular_scale`).
 
 > [!CRITICAL_RULE — NON-BYPASSABLE]
 > **PROFUNDIDAD IDÉNTICA EN `visual_dna.secondary_pages` (NO RESUMIR):**
@@ -196,7 +226,7 @@ Guarda inmediatamente el estado completo en `design-system-state.json` (incluyen
 
 ### Si el usuario seleccionó `Inspiración Conceptual` (Caso 2 — Ruta B con semillas medidas):
 1. **Persistencia de Semillas de Inspiración:** Guarda en `design-system-state.json` bajo `visual_dna.inspiration_seeds` los candidatos cromáticos (`semantic_candidates`) y tipográficos medidos, junto con `"fidelity_mode": "INSPIRATION"`.
-2. **Avance Secuencial:** Continúa a la **Fase 2 (DEFINICIÓN DE FOUNDATIONS)** por la Ruta B.
+2. **Avance Secuencial:** Continúa a la **Etapa 1.6 (Personalidad Visual)** y luego a la **Fase 2 (DEFINICIÓN DE FOUNDATIONS)** por la Ruta B.
 3. **Compromiso de Fase 2:** Al llegar a la Fase 2, la Opción 1 recomendada para paleta DEBE ser la paleta inspirada medida (`inspiration_seeds.palette_candidates`); la Opción 1 para tipografía DEBE ser la fuente análoga a la tipografía medida. Las opciones restantes siguen siendo sugerencias adaptadas al tipo de negocio.
 
 ---
@@ -218,7 +248,7 @@ Las dimensiones NO calcadas fluyen por la Ruta B tradicional. El verificador `ve
 ---
 
 ### Si el usuario seleccionó `[Sin Referencias]` o `[Imágenes sin elección en el Paso 1.5.b]` (Ruta B — Entrevista Estándar):
-Muestra el resumen de la Fase 1 y pide confirmación tradicional para avanzar secuencialmente a la **Fase 2 (DEFINICIÓN DE FOUNDATIONS)**:
+Tras resolver la **Etapa 1.6 (Personalidad Visual)**, muestra el resumen de la Fase 1 y pide confirmación tradicional para avanzar secuencialmente a la **Fase 2 (DEFINICIÓN DE FOUNDATIONS)**:
 *"¿Está correcta la información de la Fase 1 para avanzar a la Fase 2, o deseas volver a ajustar algún paso anterior?"*
 
 > **Acción de Persistencia en Disco:** Al recibir la confirmación, actualiza `design-system-state.json` con la clave `brand` y `visual_dna` (con `"fidelity_mode": "INSPIRATION"` si hubo referencias de inspiración, o sin modo estructural si no las hubo).

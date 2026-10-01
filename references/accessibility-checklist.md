@@ -147,7 +147,7 @@ Para predecir el cumplimiento de contraste sin alucinaciones matemáticas en el 
 ### 8. Soporte Multilingüe / RTL (si aplica)
 
 > [!IMPORTANT]
-> Solo aplica si el usuario indicó explícitamente soporte multilingüe en la Fase 1/2. El agente NO debe asumir el alcance de idiomas — es una de las decisiones que el Protocolo de Cero Alucinación prohíbe inferir sin que el usuario la haya indicado.
+> Solo aplica si el usuario indicó explícitamente soporte multilingüe (por ejemplo, eligiendo la opción de cobertura multilingüe/RTL de la Etapa 2.2.3). Si no lo indicó, no se pregunta ni se asume: queda registrado como "no especificado" en Vacíos Conocidos. El agente NO debe asumir el alcance de idiomas — es una de las decisiones que el Protocolo de Cero Alucinación prohíbe inferir sin que el usuario la haya indicado.
 
 - [ ] **Cobertura de glifos**: La tipografía elegida soporta los caracteres especiales/acentos de los idiomas objetivo (validar con Google Fonts "language subsets" antes de bloquear la fuente)
 - [ ] **Layout RTL**: Si algún idioma objetivo es RTL (árabe, hebreo), los estilos usan propiedades lógicas CSS (`margin-inline-start`, `padding-inline-end`) en vez de `margin-left`/`padding-right`, y el atributo `dir="rtl"` se aplica a nivel de `<html>` o contenedor

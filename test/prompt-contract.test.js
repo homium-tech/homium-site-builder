@@ -191,6 +191,33 @@ async function runSuite() {
     assert(turn.length < 6000, `turno compacto: ${turn.length}`);
   });
 
+  await it('should place the Brand Equalizer at the end of Phase 1, before palette and typography (document order), with no Stage 2.3', () => {
+    const map = rules.STAGE_MAP;
+    assert(map.includes('1.6 Personalidad visual'));
+    assert(map.indexOf('1.6 Personalidad') < map.indexOf('Fase 2 Foundations'), 'el ecualizador va antes de la Fase 2');
+    assert(!/2\.3 Personalidad/.test(map) && !/Etapa 2\.3/.test(rules.SYSTEM_DIRECTIVES), 'no queda una Etapa 2.3 de personalidad');
+    assert(/Etapa 1\.6 → Arquetipo/.test(rules.SYSTEM_DIRECTIVES), 'el Blueprint acumula el arquetipo en 1.6');
+
+    const phase1 = fs.readFileSync(path.join(__dirname, '..', 'references', 'phases', 'phase-1-discovery.md'), 'utf-8');
+    const phase2 = fs.readFileSync(path.join(__dirname, '..', 'references', 'phases', 'phase-2-foundations.md'), 'utf-8');
+    assert(/### Etapa 1\.6 — Personalidad Visual/.test(phase1));
+    assert(!/## Etapa 2\.3 — Personalidad Visual/.test(phase2));
+    const equalizer = fs.readFileSync(path.join(__dirname, '..', 'references', 'brand-equalizer.md'), 'utf-8');
+    assert(!/\*\*opcional\*\*/i.test(equalizer) && !/Este feature es OPCIONAL/.test(equalizer));
+  });
+
+  await it('should carry the golden rule (ask instead of assuming, inferences are hypotheses) in the full and the compact prompt', () => {
+    assert(rules.SYSTEM_DIRECTIVES.includes('REGLA DE ORO'));
+    assert(/HIPÓTESIS/.test(rules.SYSTEM_DIRECTIVES));
+    const turn = rules.buildTurnPrompt('hola', { workspaceDir: tmp });
+    assert(turn.includes('Regla de oro'));
+  });
+
+  await it('should ask the agent to persist density_mode and modular_scale, derived rather than asked', () => {
+    assert(rules.STATE_CONTRACT.includes('density_mode') && rules.STATE_CONTRACT.includes('modular_scale'));
+    assert(/density_mode/.test(rules.SYSTEM_DIRECTIVES) && /hipótesis editable/.test(rules.SYSTEM_DIRECTIVES));
+  });
+
   fs.rmSync(tmp, { recursive: true, force: true });
 
   console.log(`\n========================================`);
