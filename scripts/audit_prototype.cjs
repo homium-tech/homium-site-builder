@@ -14,6 +14,7 @@
 'use strict';
 
 const fs = require('fs');
+const { findStructureProblems } = require('./html-structure.cjs');
 const path = require('path');
 const { parseColor, flatten, contrastRatio } = require('./contrast.cjs');
 
@@ -273,6 +274,10 @@ for (const r of rules) {
 let sawActiveClassWithoutCurrent = false;
 for (const { name, html } of pages) {
   const at = `${name}:`;
+  const structure = findStructureProblems(html);
+  if (structure.length) {
+    errors.push(`${at} HTML mal anidado (el navegador reordena el DOM): ${structure.slice(0, 3).map(p => `línea ${p.line}: ${p.message}`).join(' · ')}`);
+  }
   if (!/<html[^>]*\blang="[a-z]{2}/i.test(html)) errors.push(`${at} <html> sin atributo lang.`);
   if (!/<title>[^<]+<\/title>/i.test(html)) errors.push(`${at} falta <title>.`);
   if (!/<meta[^>]*name="viewport"/i.test(html)) errors.push(`${at} falta <meta name="viewport">.`);

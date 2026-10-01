@@ -138,10 +138,12 @@ Reemplaza el bloque de variables HOMIUM de la plantilla con tokens derivados de 
   --shadow-card:    0 8px 32px rgba({{SHADOW_RGB}}, 0.20);
   --shadow-lift:    0 18px 48px rgba({{SHADOW_RGB}}, 0.30);
 
-  /* Severity (mantener valores estándar) */
-  --sev-critico: #e02547;
-  --sev-alto:    #d97516;
-  --sev-medio:   #b8860b;
+  /* Severity — tema oscuro (se usan como texto: >= 4.5:1 sobre --bg y --bg-elevated). El tema claro y @media print
+     redefinen los cuatro con tonos más oscuros del mismo matiz (#de2042 #ad5d12 #926a09 #1f8157), como la plantilla.
+     Si el fondo del cliente no los cumple, recalcula con scripts/contrast.cjs y agrega los hex a palette.allowed_hexes. */
+  --sev-critico: #ea6f85;
+  --sev-alto:    #e57b17;
+  --sev-medio:   #c28d0c;
   --sev-bajo:    #2bb077;
 
   /* Radios (mantener igual que plantilla base) */
@@ -194,7 +196,7 @@ Reemplaza el bloque de variables HOMIUM de la plantilla con tokens derivados de 
 ```
 
 > [!CRITICAL_RULE]
-> **ALLOWLIST CROMÁTICA:** TODOS los valores hex literales en `:root` y en el HTML DEBEN existir verbatim en `palette.allowed_hexes`. Los `rgba()` y `color-mix()` computados en runtime desde esos hexes son permitidos. Prohibido inventar tonos intermedios no presentes en la allowlist.
+> **ALLOWLIST CROMÁTICA:** TODOS los valores hex literales en `:root` y en el HTML DEBEN existir verbatim en `palette.allowed_hexes`. Los `rgba()` y `color-mix()` computados en runtime desde esos hexes son permitidos. Prohibido inventar tonos intermedios no presentes en la allowlist; la única excepción son los tonos de severidad (--sev-*) recalculados por contraste (mismo matiz, solo luminosidad), que se agregan a la allowlist antes de usarlos.
 
 #### Modo oscuro del showcase (`html[data-theme="light"]`)
 
@@ -357,6 +359,7 @@ Si detecta:
 - `{{PLACEHOLDER}}` sin reemplazar → corregir antes de presentar
 - Variables CSS requeridas ausentes en `:root` → agregar
 - Si definiste colores semánticos del cliente (Etapa 2.1.3), decláralos en `:root` como `--client-success`, `--client-warning`, `--client-error` y `--client-info` para que el audit los mida (mínimo 3:1 sobre `--bg` y `--bg-elevated`; por debajo de 4.5:1 se advierte).
+- `HTML mal anidado` → es un error crítico: una `<table>` o un `<div>` dentro de `<tbody>`/`<tr>`, o un cierre de más, hace que el navegador saque las secciones siguientes de `<main>` y las muestre bajo el rail izquierdo (cortadas a la izquierda, desde la sección donde está el error). En `{{ATOM_STATE_TABLES}}` y en cualquier otro bucle dentro de una tabla escribe SOLO filas `<tr>…</tr>`; la tabla, su `<thead>` y el `.table-wrap` ya están en la plantilla. Corrige la línea indicada y vuelve a ejecutar el audit.
 - `Contraste insuficiente` (texto sobre fondo < 4.5:1: `--fg-subtle`, rail izquierdo sobre `--bg-sunken`, texto sobre el acento…) → es un error crítico, no una advertencia: cambia el token por otro hex de la paleta (o `#FFFFFF`/`#000000`) hasta que el audit lo pase. Nunca presentes un showcase con texto ilegible.
 
 Adicionalmente:

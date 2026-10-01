@@ -198,6 +198,14 @@ async function runSuite() {
     assert(turn.length < 6000, `turno compacto: ${turn.length}`);
   });
 
+  await it('should ask for the URL or attachment alone after the user picks a reference type, before the fidelity question', () => {
+    assert(/SOLO la URL o el adjunto/.test(rules.STAGE_MAP), 'el mapa por turno lo repite');
+    assert(/SOLO la URL o el adjunto/.test(rules.SYSTEM_DIRECTIVES), 'el prompt de activación lo incluye');
+    const phase1 = fs.readFileSync(path.join(__dirname, '..', 'references', 'phases', 'phase-1-discovery.md'), 'utf-8');
+    assert(/ELEGIR UNA OPCIÓN NO ES ENTREGAR LA REFERENCIA/.test(phase1));
+    assert(phase1.indexOf('ELEGIR UNA OPCIÓN NO ES ENTREGAR') < phase1.indexOf('#### Etapa 1.5.2'), 'la regla precede a la pregunta de fidelidad');
+  });
+
   await it('should place the Brand Equalizer at the end of Phase 1, before palette and typography (document order), with no Stage 2.3', () => {
     const map = rules.STAGE_MAP;
     assert(map.includes('1.6 Personalidad visual'));

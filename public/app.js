@@ -724,6 +724,39 @@ function splitBlueprintBlock(text) {
   return { blueprint: block, rest: lines.slice(end).join('\n') };
 }
 
+// Etiquetas de la cita Blueprint ("- Propósito: ...") -> claves de `confirmed` que lee renderBlueprintRaw
+const BLUEPRINT_QUOTE_KEYS = [
+  [/^marca\b/i, 'Marca'],
+  [/^(prop[oó]sito|misi[oó]n)\b/i, 'Propósito'],
+  [/^modelo\b/i, 'Modelo'],
+  [/^(logo|isotipo)\b/i, 'Logo'],
+  [/^fidelidad\b/i, 'Fidelidad']
+];
+
+/**
+ * Datos de la cita Blueprint de una respuesta del agente como { Propósito: '...', Logo: '...' }. Es el respaldo del
+ * panel Blueprint cuando el agente guardó una decisión en design-system-state.json con una clave que el panel
+ * no conoce: la cita se repite en cada respuesta con el mismo formato.
+ */
+function parseBlueprintQuote(text) {
+  const { blueprint } = splitBlueprintBlock(text);
+  const out = {};
+  if (!blueprint) return out;
+  for (const line of blueprint.split('\n').slice(1)) {
+    const m = stripInlineMarkdown(line).replace(/^\s*[-*•]\s*/, '').match(/^([^:]{2,30}):\s*(.+)$/);
+    if (!m) continue;
+    const key = BLUEPRINT_QUOTE_KEYS.find(([pattern]) => pattern.test(m[1].trim()));
+    const value = m[2].trim();
+    if (key && value.length < 200) out[key[1]] = value;
+  }
+  return out;
+}
+
+function syncBlueprintFromReply(text) {
+  const confirmed = parseBlueprintQuote(text);
+  if (Object.keys(confirmed).length) updateDynamicBlueprintState({ confirmed });
+}
+
 function renderChatBlueprint(block) {
   const lines = block.split('\n');
   const title = stripInlineMarkdown(lines[0] || 'Blueprint');
@@ -903,6 +936,7 @@ function finishTurnRender(ctx, doneData) {
   const timeSpan = ctx.agentDiv.querySelector('.message-time');
   if (timeSpan) timeSpan.textContent = 'Ahora';
 
+  syncBlueprintFromReply(ctx.fullResponse);
   evaluateInteractiveActions(ctx.fullResponse, nextAction);
   loadWorkspaceInfo();
   syncSessionCache();
@@ -1496,8 +1530,12 @@ function renderBlueprintRaw(s) {
     _cKey(['Logo', 'logo', 'Isotipo', 'isotipo', 'logo_type']) ||
     s.completed_steps?.['1.4']?.logo || '');
 
-  const brandFidelity = resolveFidelityLabel(s) ||
-    _cKey(['Fidelidad', 'fidelidad', 'fidelity', 'Fidelity']) || '';
+  // resolveFidelityLabel nunca devuelve vacío (cae en "Pendiente de Selección"): la cita confirmada solo vale
+  // cuando el estado en disco aún no tiene la decisión
+  const _fidelity = resolveFidelityLabel(s);
+  const brandFidelity = (_fidelity && _fidelity !== 'Pendiente de Selección' && _fidelity !== 'No definido')
+    ? _fidelity
+    : (_cKey(['Fidelidad', 'fidelidad', 'fidelity', 'Fidelity']) || _fidelity || '');
 
   let brand = {
     name: brandName,
@@ -2792,6 +2830,8 @@ function renderResumedChatState(data, fromCache = false) {
   if (!activeAssistantMessage) {
     activeAssistantMessage = `He reanudado el proyecto **${brandDisplay}** desde el almacenamiento local persistido.`;
   }
+
+  syncBlueprintFromReply(activeAssistantMessage);
 
   // Las opciones numeradas solo se pueden pulsar si el último mensaje del historial es del asistente y no hay un turno en curso
   const lastMessage = messages[messages.length - 1];

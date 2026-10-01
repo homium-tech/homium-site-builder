@@ -80,6 +80,28 @@ it('the audit should accept a 14-section showcase and flag a missing canonical s
   assert(broken.stdout.includes('#sec-motion'));
 });
 
+it('the audit should fail a table nested inside <tbody>, which makes the browser push later sections out of <main>', () => {
+  const { findStructureProblems } = require(script('html-structure.cjs'));
+  assert.strictEqual(findStructureProblems('<main><table><tbody><tr><td>a</td></tr></tbody></table></main>').length, 0);
+  assert.strictEqual(findStructureProblems('<ul><li>a<li>b</ul><p>x<p>y<script>if (a < b) { x("</div>") }</script>').length, 0, 'cierres opcionales y scripts no son errores');
+  const nested = findStructureProblems('<main><table><tbody><div class="table-wrap"><table><tbody><tr><td>a</td></tr></tbody></table></div></tbody></table></main>');
+  assert(nested.some(p => /<div> dentro de <tbody>/.test(p.message)), JSON.stringify(nested));
+  assert(findStructureProblems('<main><section><div>a</div></div></section></main>').some(p => /sin etiqueta de apertura/.test(p.message)));
+  assert(findStructureProblems('<main><div><section>a</section></main>').some(p => /nunca se cierra/.test(p.message)));
+
+  const workspace = fs.mkdtempSync(path.join(tmp, 'ws-'));
+  fs.writeFileSync(path.join(workspace, 'design-system-state.json'), JSON.stringify(STATE));
+  run('compile_showcase.cjs', ['design-system-state.json'], workspace);
+  const file = path.join(workspace, 'AcmeLabs_Design_System.html');
+  const html = fs.readFileSync(file, 'utf-8');
+  assert.strictEqual(run('audit_showcase.cjs', [file], workspace).status, 0, 'el showcase compilado está bien anidado');
+
+  fs.writeFileSync(file, html.replace('<tbody>', '<tbody><div class="table-wrap"><table><tbody><tr><td>x</td></tr></tbody></table></div>'));
+  const broken = run('audit_showcase.cjs', [file], workspace);
+  assert.strictEqual(broken.status, 1);
+  assert(broken.stdout.includes('HTML mal anidado'), broken.stdout);
+});
+
 it('compiled showcases should keep the left rail readable even when the palette is light and the rail is dark', () => {
   const workspace = fs.mkdtempSync(path.join(tmp, 'ws-'));
   const light = {

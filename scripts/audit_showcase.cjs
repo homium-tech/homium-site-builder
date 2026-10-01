@@ -206,6 +206,16 @@ if (dscHomium.length) {
   errors.push(`Componentes vivos (.dsc-*) con cromática/geometría HOMIUM en lugar de la referencia: ${dscHomium.join(' · ')}.`);
 }
 
+// 6k. Estructura del DOM: una tabla/div dentro de <tbody> o un cierre de más hace que el navegador saque las
+// secciones siguientes de <main> y las deje debajo del rail lateral (se ven cortadas a la izquierda).
+const { findStructureProblems } = require('./html-structure.cjs');
+const structureProblems = findStructureProblems(htmlContent);
+if (structureProblems.length) {
+  const shown = structureProblems.slice(0, 5).map(p => `línea ${p.line}: ${p.message}`).join(' · ');
+  const more = structureProblems.length > 5 ? ` (+${structureProblems.length - 5} más)` : '';
+  errors.push(`HTML mal anidado — el navegador reordena el DOM y las secciones se salen del contenedor. ${shown}${more}`);
+}
+
 // 6j. Responsive / móvil
 if (!/@media\s*\(max-width:\s*767px\)/.test(cssOnly)) {
   errors.push('Sin breakpoint móvil (@media max-width: 767px) — el showcase debe tener modo móvil, no solo ocultar el rail.');

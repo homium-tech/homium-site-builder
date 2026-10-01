@@ -63,6 +63,32 @@ it('should show a readable label when the logo is an object in the state, never 
   assert(html.includes('SVG ISOTYPE TYPOGRAPHIC (generated)'));
 });
 
+it('should fall back to the Blueprint quote of the reply when the state lacks the Phase 1 keys', () => {
+  const app = loadApp();
+  app.context.__reply = [
+    '> **Blueprint — Estado actual**',
+    '> - Marca: Acme',
+    '> - Propósito: Diseño y desarrollo web',
+    '> - Modelo de negocio: B2B',
+    '> - Logo: Isotipo SVG',
+    '> - Fidelidad: Fast-Track',
+    '',
+    'Confirmado.',
+    '',
+    '---',
+    '',
+    '¿Siguiente?'
+  ].join('\n');
+  app.context.__state = { brand: { name: 'Acme' }, decisions: { '1.2': { texto: 'x' } } };
+  app.run('syncBlueprintFromReply(__reply)');
+  app.run('renderBlueprintRaw(deepMergeState(dynamicBlueprintState, __state))');
+  const html = app.el('blueprintView').innerHTML;
+  assert(html.includes('Diseño y desarrollo web'), 'propósito desde la cita');
+  assert(html.includes('Isotipo SVG'), 'logo desde la cita');
+  assert(html.includes('Fast-Track'), 'fidelidad desde la cita');
+  assert(!html.includes('Pendiente de Definir'), 'sin pendientes');
+});
+
 it('should not repeat the numbered options in the message when the approval gate is active', () => {
   const app = loadApp();
   app.context.__text = '¿Apruebas el sistema de diseño?\n\n1. Aprobar y continuar\n2. Solicitar ajustes\n3. (Escribir mi propia opción personalizada)';

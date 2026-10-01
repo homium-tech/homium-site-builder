@@ -40,10 +40,13 @@
       --fg-subtle:  rgba({{TEXT_PRIMARY_RGB}}, 0.68);
       --fg-on-accent: {{ON_PRIMARY_HEX}};
 
-      /* Severity (estándar universal) */
-      --sev-critico: #e02547;
-      --sev-alto:    #d97516;
-      --sev-medio:   #b8860b;
+      /* Severity: se usan como COLOR DE TEXTO (mensajes de error y badges de estado), así que cada tema necesita su tono con
+         >= 4.5:1 sobre --bg y --bg-elevated. Estos valores cumplen sobre fondos oscuros típicos (tonos más claros);
+         si el fondo del cliente es distinto, recalcula con scripts/contrast.cjs (mismo matiz, solo luminosidad) y
+         agrega los hex finales a palette.allowed_hexes. */
+      --sev-critico: #ea6f85;
+      --sev-alto:    #e57b17;
+      --sev-medio:   #c28d0c;
       --sev-bajo:    #2bb077;
 
       /* Acento del chrome (nav activo, eyebrows, dots, hover states): el tono de la paleta con >= 4.5:1 sobre --bg
@@ -123,6 +126,11 @@
     /* Tema claro — versiones claras de la paleta del cliente */
     html[data-theme="light"],
     body.theme-light {
+      /* Severity sobre fondo claro: tonos más oscuros del mismo matiz (>= 4.5:1 sobre --bg y --bg-elevated claros) */
+      --sev-critico: #de2042;
+      --sev-alto:    #ad5d12;
+      --sev-medio:   #926a09;
+      --sev-bajo:    #1f8157;
       --bg:              {{BG_LIGHT_HEX}};
       --bg-elevated:     {{BG_LIGHT_ELEVATED_HEX}};
       --bg-sunken:       {{BG_LIGHT_SUNKEN_HEX}};
@@ -1351,6 +1359,7 @@
         --surface-card: #ffffff; --surface-overlay: #f2f2f4;
         --fg: #111; --fg-muted: #333; --fg-subtle: #666;
         --border: #ddd; --border-strong: #bbb; --accent: #0a5; --sample-accent: #b3260c;
+        --sev-critico: #de2042; --sev-alto: #ad5d12; --sev-medio: #926a09; --sev-bajo: #1f8157;
       }
       body { background: #fff; color: #111; }
       .glow-blob, .left-rail-sidebar, .mobile-nav, .to-top,

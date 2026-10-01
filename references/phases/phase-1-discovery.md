@@ -54,6 +54,9 @@ Pregunta si el cliente cuenta con referencias visuales:
 3. **Sin referencias específicas** (diseño original basado en el tipo de negocio utilizando fotografía temática profesional de Unsplash/Pexels).
 4. *(Escribir referencias personalizadas)*
 
+> [!IMPORTANT]
+> **ELEGIR UNA OPCIÓN NO ES ENTREGAR LA REFERENCIA (dos turnos, una pregunta cada uno):** Si el usuario elige la opción 1 o la 2, en ese turno NO presentes la pregunta de fidelidad ni opciones numeradas. Responde con una única pregunta abierta, todavía dentro de la Etapa 1.5.1, que pida solo la referencia y deje libre la caja del chat para escribirla o adjuntarla: opción 1 -> "Pega la(s) URL(s) de referencia (indica cuál es la principal si son varias)"; opción 2 -> "Adjunta las imágenes con el botón de adjuntar del chat o indica su ruta dentro del proyecto". Guarda `brand.references_type` ("urls" o "images") y espera. Solo cuando el usuario responda con las URLs, imágenes o rutas, guarda `brand.reference_url` (o la lista de rutas) y avanza a la Etapa 1.5.2. Si la respuesta no trae ninguna URL, imagen o ruta, repite la petición en vez de asumirla. Si elige la opción 3 pasa directo a la Etapa 1.6; si escribe una referencia personalizada con la URL o el material ya incluido, no se la vuelvas a pedir.
+
 > **Recordatorio de Adjuntos:** Además de URLs o imágenes, el cliente puede adjuntar documentos de marca o datos estructurados (PDF, DOCX, CSV, JSON, XLSX) con el botón de adjuntar del chat.
 
 > **Regla de Referencia Primaria vs Secundaria (Prevención de Alucinaciones):** Si el usuario proporciona múltiples URLs o imágenes, el asistente NO debe mezclarlas caóticamente. Debe designar:
@@ -61,7 +64,7 @@ Pregunta si el cliente cuenta con referencias visuales:
 > - **Referencias Secundarias (Inspiración Visual):** Aportan inspiración para colorimetría, estilo tipográfico o micro-animaciones (Dimensiones 4, 5 y 6).
 
 #### Etapa 1.5.2 — Pregunta de Nivel de Fidelidad (Mostrar al Usuario como "Etapa 1.5.2")
-Una vez que el usuario proporciona sus referencias (o si indica que cuenta con ellas), el asistente presenta esta pregunta **ANTES de ejecutar cualquier inspección técnica o extracción de datos**. Anúnciala explícitamente como *"Etapa 1.5.2 de 3"*:
+Una vez que el usuario ya entregó sus referencias (las URLs, imágenes o rutas en sí; haber elegido la opción 1 o 2 de la Etapa 1.5.1 no basta, ver la regla de dos turnos), el asistente presenta esta pregunta **ANTES de ejecutar cualquier inspección técnica o extracción de datos**. Anúnciala explícitamente como *"Etapa 1.5.2 de 3"*:
 
 > *"¿Qué nivel de fidelidad deseas aplicar respecto a la(s) referencia(s) proporcionada(s)?"*
 > 1. `Fidelidad Arquitectónica Total` **Replicación Fiel de Estructura y Estética (Recomendado — Modo Fast-Track)**: Bloqueo inmutable del 100% de la arquitectura visual extraída (paleta real medida, tipografía real, grilla espacial, secuencia de secciones 1 a N y signature asset sin plantillas genéricas).
