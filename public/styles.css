@@ -751,6 +751,84 @@ html, body {
   margin: 0;
 }
 
+/* Blueprint acumulativo plegado dentro de la burbuja del agente */
+.chat-blueprint {
+  margin: 0 0 0.6rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-left: 3px solid rgba(0, 255, 255, 0.45);
+  border-radius: var(--radius-sm);
+  background: rgba(0, 0, 0, 0.18);
+  font-size: var(--text-xs);
+}
+.chat-blueprint > summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.4rem 0.65rem;
+  cursor: pointer;
+  color: rgba(255, 255, 255, 0.85);
+  font-weight: 600;
+  list-style: none;
+}
+.chat-blueprint > summary::-webkit-details-marker { display: none; }
+.chat-blueprint-count {
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.6);
+  white-space: nowrap;
+}
+.chat-blueprint-body {
+  padding: 0 0.65rem 0.5rem;
+  color: rgba(255, 255, 255, 0.78);
+}
+.chat-blueprint-body p { margin: 0.2rem 0; }
+
+/* Verificación automática dentro de la compuerta */
+.gate-audit {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.5rem 0.65rem;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+}
+.gate-audit-title {
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+}
+.gate-audit-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  color: rgba(255, 255, 255, 0.8);
+  list-style: none;
+}
+details.gate-audit-row > summary.gate-audit-head {
+  cursor: pointer;
+}
+details.gate-audit-row > summary.gate-audit-head::-webkit-details-marker {
+  display: none;
+}
+.gate-audit-status {
+  font-weight: 600;
+  white-space: nowrap;
+}
+.gate-audit-status.is-pass { color: var(--homium-green); }
+.gate-audit-status.is-warn { color: #ffb86c; }
+.gate-audit-status.is-fail,
+.gate-audit-status.is-error { color: #ff8a8a; }
+.gate-audit-list {
+  margin: 0.3rem 0 0.2rem;
+  padding-left: 1.1rem;
+  max-height: 9rem;
+  overflow-y: auto;
+  color: rgba(255, 255, 255, 0.78);
+  line-height: var(--leading-relaxed);
+}
+.gate-audit-list li.is-error { color: #ffb3b3; }
+.gate-audit-list li.is-warn { color: #ffd9a8; }
+
 .gate-actions {
   display: flex;
   gap: 0.5rem;
@@ -1315,9 +1393,9 @@ html, body {
   font-weight: 600;
 }
 
-/* Interruptor de seguimiento en vivo */
-.follow-toggle {
-  margin-left: 0.5rem;
+/* Indicador de seguimiento en vivo (solo lectura: no recibe clics para no tapar las pestañas) */
+.follow-indicator {
+  margin-left: 1rem;
   background: rgba(90, 234, 162, 0.1);
   border: 1px solid rgba(90, 234, 162, 0.35);
   color: var(--homium-green);
@@ -1326,18 +1404,13 @@ html, body {
   font-family: inherit;
   padding: 0.3rem 0.7rem;
   border-radius: var(--radius-pill);
-  cursor: pointer;
+  cursor: default;
+  pointer-events: none;
+  user-select: none;
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
   transition: color 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
-}
-.follow-toggle:hover {
-  background: rgba(90, 234, 162, 0.18);
-}
-.follow-toggle:focus-visible {
-  outline: 2px solid var(--homium-cyan);
-  outline-offset: 2px;
 }
 .follow-dot {
   width: 7px;
@@ -1346,19 +1419,13 @@ html, body {
   background: currentColor;
   animation: follow-pulse 1.6s ease-in-out infinite;
 }
-.follow-toggle.is-paused {
+.follow-indicator.is-paused {
   background: rgba(255, 184, 108, 0.1);
   border-color: rgba(255, 184, 108, 0.4);
   color: #ffb86c;
 }
-.follow-toggle.is-paused .follow-dot,
-.follow-toggle.is-off .follow-dot {
+.follow-indicator.is-paused .follow-dot {
   animation: none;
-}
-.follow-toggle.is-off {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.15);
-  color: rgba(255, 255, 255, 0.7);
 }
 @keyframes follow-pulse {
   0%, 100% { opacity: 1; }

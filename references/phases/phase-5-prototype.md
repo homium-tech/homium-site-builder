@@ -59,6 +59,21 @@ Antes de iniciar la codificación, consulta [`references/frontend-design.md`](re
 
 ---
 
+### Reglas de Entrega del Prototipo (NON-BYPASSABLE)
+
+Estas reglas aplican a las 3 pantallas, sean cuales sean la fidelidad o la referencia. `audit_prototype.cjs` (Etapa 5.5) las verifica.
+
+> [!CRITICAL_RULE]
+> - **Fuentes:** solo las familias de `state.typography` (`font_display`, `font_accent_italic`, `font_ui` y `font_mono` si existe). Si el estado no define fuente monoespaciada, usa la pila del sistema (`ui-monospace, monospace`): no importes otra. Aplica también a `@import` y `<link>` de fuentes.
+> - **Iconos:** si `state.typography.icons` define un sistema (ej: Lucide Icons), cada icono del prototipo es un `<svg>` inline de ese sistema (`viewBox="0 0 24 24"`, `stroke="currentColor"`, `aria-hidden="true"`). No los sustituyas por caracteres (`✓`, `→`) ni por emojis.
+> - **Anillo de foco:** define un token propio (`--focus-ring-color`) con un tono de la paleta que alcance ≥ 3:1 contra el fondo **de cada tema**; no uses el primario con transparencia baja. Aplícalo con `:focus-visible` a `a`, `button`, `input`, `select`, `textarea` y `[tabindex]`.
+> - **Temas:** si hay tema claro y oscuro, cada uno redefine los tokens de acento y de estado (éxito, advertencia, error, info) con tonos que sean legibles **como texto** sobre su fondo (≥ 4.5:1; usa los tonos oscuros de las rampas en el tema claro). Un acento brillante pensado para fondo oscuro no sirve de color de texto sobre fondo claro.
+> - **Estilos:** nada de `style=""` salvo valores dinámicos asignados por JS. Escribe clases en `styles.css` con los tokens (utilidades de espaciado, color y layout). Más de 15 estilos en línea por pantalla es una advertencia del audit.
+> - **Menú móvil y comportamiento:** parte de la base de `templates/prototype/` (`base.html`, `base.css`, `base.js`): enlace "Saltar al contenido", `aria-current="page"`, drawer cerrado con `visibility: hidden` e `inert`, botón con `aria-expanded`/`aria-controls`, gestión de foco (entra al abrir, vuelve al cerrar, Escape), conteos y canvas que respetan `prefers-reduced-motion` y se pausan fuera de pantalla. La base **no define diseño visual**: reemplaza sus valores de `:root` por `palette.allowed_hexes` y la tipografía por la de `state.typography`, y construye la maquetación desde el blueprint como siempre.
+> - **Contenido de ejemplo:** todo dato que el usuario no entregó (correo, teléfono, direcciones, precios, plazos como "respuesta en 24 horas", certificaciones, cláusulas legales, comparativas con la competencia) se escribe como ejemplo evidente: dominios reservados (`example.com`), sin cifras ni promesas concretas. Decláralos al usuario en la compuerta como "contenido de ejemplo" y regístralos en `Vacíos Conocidos`.
+
+---
+
 ### Etapa 5.3 — Dirección de Arte & Síntesis Dinámica Guiada por Blueprint (CERO PLANTILLAS FIJAS)
 
 > [!CRITICAL_RULE]
@@ -333,6 +348,22 @@ Antes de iniciar la codificación, consulta [`references/frontend-design.md`](re
 > - **(H)** Fidelidad Mobile (375×812): 0 scroll horizontal, áreas táctiles ≥44×44px.
 >
 > **PROHIBIDO presentar la Compuerta con violaciones críticas sin resolver** (exit code 1). Corregir y re-ejecutar hasta exit code 0.
+
+> [!CRITICAL_RULE]
+> **AUDITORÍA DE ACCESIBILIDAD Y ESTRUCTURA (NON-BYPASSABLE):**
+> Además de `verify_fidelity.cjs`, ejecuta desde la carpeta del proyecto:
+>
+> ```bash
+> node "<APP_ROOT>/scripts/audit_prototype.cjs" --dir prototype --state design-system-state.json
+> ```
+>
+> Automatiza el checklist manual de abajo (análisis estático, sin navegador). Falla (exit code 1) con:
+> - Texto con contraste < 3:1 en cualquiera de los temas (base y `[data-theme="..."]`); entre 3:1 y 4.5:1 advierte. Si defines un tema claro, redefine también los tokens de acento y estado: un acento que funciona sobre fondo oscuro suele ser ilegible como texto sobre fondo claro.
+> - Anillo de foco (`:focus-visible`) con contraste < 3:1 contra el fondo, **ya compuesto con su transparencia** (un `rgba(..., 0.6)` del color primario sobre un fondo oscuro suele fallar: usa un tono claro de la paleta).
+> - Menú móvil fuera de pantalla (`right: -100%`, `translateX(100%)`) sin `visibility: hidden` ni `inert` en su estado cerrado (sus enlaces quedarían tabulables).
+> - Botón de menú sin `aria-expanded`/`aria-controls`; pantallas sin `lang`, `<title>`, viewport, `<main>`, `<h1>`; imágenes sin `alt`; controles de formulario sin `<label>`.
+>
+> Advierte, entre otros: sin foco visible en enlaces/botones, sin enlace "Saltar al contenido", sin `aria-current="page"`, dependencias externas, fuentes que no están en `state.typography`, sistema de iconos elegido sin uso, enlaces o botones cuyo alto estimado queda bajo 24px (WCAG 2.5.8; en los menús y el pie, dales `min-height` o padding vertical), más de 15 estilos en línea por pantalla y animaciones `requestAnimationFrame` que nunca se pausan. Resuelve las advertencias que apliquen o decláralas al usuario; no las ocultes.
 
 **Checklist Manual Complementario:**
 - Contrastes WCAG AAA (≥ 7:1 texto base, ≥ 4.5:1 displays).

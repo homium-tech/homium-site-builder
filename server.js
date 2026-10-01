@@ -9,6 +9,8 @@ const archiver = require('archiver');
 const { AgentEngine } = require('./lib/agent-engine');
 const DeliverableStore = require('./lib/deliverable-store');
 const Workspace = require('./lib/workspace');
+const { runGateAudits } = require('./lib/audits');
+const { appendTurnLog, readTurnLog } = require('./lib/turn-log');
 const { escapeHtml, renderBlueprintPage } = require('./lib/preview-pages');
 
 // Load .env if present (no dotenv dependency needed)
@@ -124,7 +126,10 @@ const EXTERNAL_HOMIUM_DIR = path.join(workspace.getBaseDir(), 'Homium Design Sys
 const HOMIUM_DIR = fs.existsSync(LOCAL_HOMIUM_DIR) ? LOCAL_HOMIUM_DIR : EXTERNAL_HOMIUM_DIR;
 
 // Instancia central de AgentEngine para supervisar turnos y sesiones
-const agentEngine = new AgentEngine({ cwd: workspace.getDir() });
+const agentEngine = new AgentEngine({
+  cwd: workspace.getDir(),
+  turnLogger: (record, dir) => appendTurnLog(dir, record)
+});
 
 // Instancia reactiva de DeliverableStore para supervisar entregables en disco
 const deliverableStore = new DeliverableStore({
@@ -634,6 +639,26 @@ app.post('/api/project/new', (req, res) => {
   });
 });
 
+// Una compuerta solo es válida si ya existe en disco el entregable que pide revisar (showcase / prototipo).
+// Evita que una pregunta de cierre de fase redactada como aprobación abra la compuerta 1 antes de construir el showcase.
+// `dir`: carpeta del proyecto al que pertenece la acción; si ya no es el activo no hay con qué comprobarla.
+function gateHasDeliverable(action, dir = null) {
+  if (!action || action.type !== 'gate') return true;
+  if (dir && dir !== workspace.dir) return true;
+  return pipeline.isGateReady(action, deliverableStore.refresh().status);
+}
+
+// Adjunta a la compuerta el resultado de las auditorías mecánicas. Un fallo al auditar nunca impide mostrar la compuerta.
+function withGateAudit(action, dir) {
+  try {
+    const audit = runGateAudits(action.stepId, dir);
+    return audit ? { ...action, audit } : action;
+  } catch (err) {
+    console.warn('[Audits] No se pudieron ejecutar las auditorías de la compuerta:', err.message);
+    return action;
+  }
+}
+
 // sessionId opcional de ?sessionId=: permite saber si el turno en curso es de esta sesión y no de otra persona
 function requestedSessionId(req) {
   const value = req.query && req.query.sessionId;
@@ -645,6 +670,9 @@ app.get('/api/chat/history', (req, res) => {
   if (!workspace.hasProject()) {
     return res.json({ ok: true, hasProject: false, messages: [], busy: agentEngine.isBusy(requestedSessionId(req)) });
   }
+
+  // Sin ningún turno en curso, un mensaje del usuario sin respuesta es de un turno que se cortó (p. ej. reinicio del servidor)
+  const interrupted = agentEngine.isBusy() ? [] : workspace.dropUnansweredUserMessages();
 
   const history = workspace.getChatHistory();
   const stateObj = deliverableStore.getState();
@@ -661,6 +689,10 @@ app.get('/api/chat/history', (req, res) => {
   if (pendingAction && pendingAction.type === 'gate' && gates[pendingAction.stepId]) {
     pendingAction = null;
   }
+  // Una compuerta guardada sin su entregable en disco (falso positivo previo) no se ofrece
+  if (pendingAction && !gateHasDeliverable(pendingAction)) {
+    pendingAction = null;
+  }
 
   // Si no hay acción pendiente registrada explícita pero los entregables indican compuerta sin resolver:
   if (!pendingAction) {
@@ -671,6 +703,11 @@ app.get('/api/chat/history', (req, res) => {
     }
   }
 
+  // Tras recargar, la compuerta vuelve con el resultado de las auditorías (se recalcula: los archivos pudieron cambiar)
+  if (pendingAction && pendingAction.type === 'gate') {
+    pendingAction = withGateAudit(pendingAction, workspace.dir);
+  }
+
   res.json({
     ok: true,
     hasProject: true,
@@ -679,6 +716,7 @@ app.get('/api/chat/history', (req, res) => {
     currentPhase,
     currentStage,
     messages: history.messages || [],
+    interrupted,
     lastAssistantMessage: history.lastAssistantMessage || null,
     pendingAction,
     gates,
@@ -751,7 +789,7 @@ app.post('/api/chat', (req, res) => {
   if (target) {
     const lastAction = workspace.getLastAction(target);
     const gateResponse = pipeline.matchGateResponse(message, {
-      pendingGateId: lastAction && lastAction.type === 'gate' ? lastAction.stepId : null
+      pendingGateId: lastAction && lastAction.type === 'gate' && gateHasDeliverable(lastAction, target.dir) ? lastAction.stepId : null
     });
     if (gateResponse) {
       gateBefore = { gates: workspace.getGateStatuses(target), lastAction };
@@ -781,7 +819,10 @@ app.post('/api/chat', (req, res) => {
   stream.pipeToSSE(res, {
     transformDone: (doneData, fullText) => {
       releaseTurn();
-      const action = pipeline.detectAction(fullText, { userMessage: message });
+      let action = pipeline.detectAction(fullText, { userMessage: message });
+      if (action && !gateHasDeliverable(action, target && target.dir)) action = null;
+      // La compuerta lleva el resultado real de las auditorías sobre lo que hay en disco (informativo: no bloquea)
+      if (action && action.type === 'gate' && target) action = withGateAudit(action, target.dir);
       if (target && action && action.type === 'gate') {
         // El agente (re)abrió la compuerta: deja de estar resuelta
         workspace.setGateStatus(action.stepId, null, target);
@@ -800,6 +841,12 @@ app.post('/api/chat', (req, res) => {
       };
     }
   });
+});
+
+// 8a. Registro de turnos del proyecto activo (métricas, sin contenido de la conversación)
+app.get('/api/turns', requireActiveProject, (req, res) => {
+  const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 500);
+  res.json({ ok: true, turns: readTurnLog(workspace.getDir(), limit) });
 });
 
 // 8b. Cancelación explícita del turno en curso (botón Detener): no se guarda respuesta parcial

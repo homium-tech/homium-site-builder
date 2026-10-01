@@ -172,5 +172,139 @@ it('should infer the business model only from short option-like answers, with th
   }
 });
 
+console.log('\n[3] Stream del chat:');
+it('should drop an aborted attempt when the engine sends a reset chunk', () => {
+  const app = loadApp();
+  // finished: true evita que el render diferido toque el DOM simulado
+  const result = app.run(`(() => {
+    const ctx = { fullResponse: '', finished: true };
+    handleChatEvent({ name: 'chunk', data: { type: 'text_delta', text: 'Previo. ' } }, ctx);
+    handleChatEvent({ name: 'chunk', data: { type: 'text_delta', text: 'Intento abortado' } }, ctx);
+    handleChatEvent({ name: 'chunk', data: { type: 'reset', keep: 8, text: '' } }, ctx);
+    handleChatEvent({ name: 'chunk', data: { type: 'text_delta', text: 'Intento completo' } }, ctx);
+    return ctx.fullResponse;
+  })()`);
+  assert.strictEqual(result, 'Previo. Intento completo');
+});
+
+console.log('\n[3b] Compuerta con verificación automática:');
+it('should render the audit results inside the gate and escape what the scripts report', () => {
+  const app = loadApp();
+  app.context.__audit = {
+    summary: { fail: 1, warn: 0 },
+    checks: [
+      { id: 'spec', label: 'Especificación (.md)', status: 'fail', errors: [`Placeholders: ${EVIL}`], warnings: [] },
+      { id: 'palette', label: 'Paleta permitida', status: 'pass', errors: [], warnings: [] }
+    ]
+  };
+  const html = app.run('renderGateAudit(__audit)');
+  assert(html.includes('Con errores (1)') && html.includes('Sin problemas'));
+  app.context.__mixed = { summary: { fail: 1, warn: 0 }, checks: [{ id: 'a11y', label: 'A11y', status: 'fail', errors: ['e1', 'e2'], warnings: ['w1', 'w2', 'w3'] }, { id: 'w', label: 'W', status: 'warn', errors: [], warnings: ['w1'] }] };
+  const mixed = app.run('renderGateAudit(__mixed)');
+  assert(mixed.includes('Con errores (2) · 3 avisos') && mixed.includes('Con advertencias (1)'), 'el contador no mezcla errores y avisos');
+  assert(html.includes('hay errores que conviene revisar antes de aprobar'));
+  assertNoActiveMarkup(html, 'auditoría de la compuerta');
+  assert.strictEqual(app.run('renderGateAudit(null)'), '');
+  assert.strictEqual(app.run('renderGateAudit({ checks: [] })'), '');
+});
+
+console.log('\n[3c] Blueprint plegado en el chat:');
+it('should fold the cumulative Blueprint block into a collapsed details and keep the question visible', () => {
+  const app = loadApp();
+  app.context.__msg = [
+    '> **Blueprint — Estado actual**',
+    '> - Marca: Devin',
+    '> - Propósito: Diseño web',
+    '',
+    'Cierre de la decisión anterior.',
+    '',
+    '---',
+    '',
+    '#### Etapa 1.3: Modelo de Negocio',
+    '',
+    '¿Cuál es el modelo?',
+    '',
+    '1. B2C',
+    '2. B2B',
+    '3. *(Escribir mi propia opción personalizada)*'
+  ].join('\n');
+  const html = app.run('renderAgentMessage(__msg)');
+  assert(/^<details class="chat-blueprint">/.test(html), 'el Blueprint va primero y plegado');
+  assert(!/<details[^>]*\bopen\b/.test(html));
+  assert(html.includes('Blueprint — Estado actual') && html.includes('2 datos') && html.includes('Marca: Devin'));
+  const outside = html.split('</details>')[1];
+  assert(outside.includes('Etapa 1.3') && outside.includes('¿Cuál es el modelo?'), 'la pregunta queda fuera del bloque plegado');
+  assert(outside.includes('class="inline-options"'), 'las opciones siguen siendo botones');
+  assert(!outside.includes('Marca: Devin'));
+});
+
+it('should leave messages without a Blueprint block untouched and escape the folded content', () => {
+  const app = loadApp();
+  app.context.__plain = 'Respuesta breve sin Blueprint.';
+  assert.strictEqual(app.run('renderAgentMessage(__plain)'), app.run('formatText(__plain)'));
+  app.context.__evil = `> **Blueprint — Estado actual**\n> - Marca: ${EVIL}\n\nTexto`;
+  assertNoActiveMarkup(app.run('renderAgentMessage(__evil)'), 'Blueprint plegado');
+});
+
+console.log('\n[3d] Proyecto finalizado:');
+it('should show the finished-project card with the deliverables, never over a gate, and remove it when the state changes', () => {
+  const app = loadApp();
+  const container = app.el('approvalGateContainer');
+  app.context.__done = { status: 'PROYECTO_FINALIZADO', artifacts: { showcase_html: 'Acme_Design_System.html', prototype_screen_1: 'prototype/index.html', empty: null } };
+  app.run('renderProjectFinished(__done)');
+  assert(container.innerHTML.includes('Proyecto finalizado') && container.innerHTML.includes('Descargar proyecto'));
+  assert(container.innerHTML.includes('Acme_Design_System.html') && container.innerHTML.includes('prototype/index.html'));
+  assert.strictEqual(container.style.display, 'block');
+
+  // El DOM simulado no resuelve selectores: se simula lo que el navegador devolvería
+  container.querySelector = (sel) => (sel === '.project-finished' && container.innerHTML.includes('project-finished') ? {} : null);
+  app.context.__running = { status: 'EN_CURSO' };
+  app.run('renderProjectFinished(__running)');
+  assert.strictEqual(container.innerHTML, '');
+
+  // Una compuerta abierta no se pisa
+  container.innerHTML = '<div class="approval-gate-banner">gate</div>';
+  container.querySelector = (sel) => (sel === '.approval-gate-banner' ? {} : null);
+  app.run('renderProjectFinished(__done)');
+  assert.strictEqual(container.innerHTML, '<div class="approval-gate-banner">gate</div>');
+});
+
+it('should escape the artifact names of the finished-project card', () => {
+  const app = loadApp();
+  app.context.__evil = { status: 'PROYECTO_FINALIZADO', artifacts: { a: EVIL } };
+  app.run('renderProjectFinished(__evil)');
+  assertNoActiveMarkup(app.el('approvalGateContainer').innerHTML, 'tarjeta de proyecto finalizado');
+});
+
+console.log('\n[4] Indicador En vivo / Pausado:');
+it('should show En vivo, pause on a manual tab choice and resume when the phase target changes', () => {
+  const app = loadApp();
+  const label = () => app.el('followLiveLabel').textContent;
+  app.run('followLiveTab({ phase: 1, showcaseExists: false, prototypeExists: false })');
+  assert.strictEqual(label(), 'En vivo');
+
+  app.run('followPaused = true; renderFollowIndicator()');
+  assert.strictEqual(label(), 'Pausado');
+  assert(/pausado/i.test(app.el('followIndicator').title));
+
+  // Misma fase: sigue pausado; al cambiar la pestaña objetivo (fase 4 = Showcase) se reanuda sola
+  app.run('followLiveTab({ phase: 2, showcaseExists: false, prototypeExists: false })');
+  assert.strictEqual(label(), 'Pausado');
+  app.run('followLiveTab({ phase: 4, showcaseExists: false, prototypeExists: false })');
+  assert.strictEqual(label(), 'En vivo');
+});
+
+it('should be a read-only indicator: no toggle button or click handler, and the old key is cleaned up', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf-8');
+  assert(!/id="btnFollowLive"/.test(html), 'el botón ya no existe');
+  assert(/<span[^>]*id="followIndicator"/.test(html), 'el indicador es un span, no un botón');
+
+  const app = loadApp({ storage: { homium_follow_live: 'off' } });
+  assert.strictEqual(app.run('typeof renderFollowButton'), 'undefined');
+  assert.strictEqual(app.run('localStorage.getItem("homium_follow_live")'), null);
+});
+
 console.log(`\nSummary: ${passedTests}/${totalTests} tests passed.`);
 if (passedTests !== totalTests) process.exit(1);

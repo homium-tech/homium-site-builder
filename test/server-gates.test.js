@@ -50,6 +50,19 @@ async function runSuite() {
       assert.deepStrictEqual(body.gates, {});
     });
 
+    await it('should not offer a stored gate while the showcase does not exist yet', async () => {
+      const file = path.join(srv.workspaceDir, 'acme', 'chat_history.json');
+      const original = fs.readFileSync(file, 'utf-8');
+      const stored = JSON.parse(original);
+      stored.lastAction = GATE1; // falso positivo guardado antes de construir el showcase
+      fs.writeFileSync(file, JSON.stringify(stored));
+      try {
+        assert.strictEqual((await history(srv)).pendingAction, null);
+      } finally {
+        fs.writeFileSync(file, original);
+      }
+    });
+
     // Fase 4: hay showcase en disco
     const projectDir = path.join(srv.workspaceDir, 'acme');
     fs.writeFileSync(path.join(projectDir, 'design-system-state.json'), JSON.stringify({ brand: { name: 'Acme' }, current_phase: 4 }));
@@ -62,6 +75,22 @@ async function runSuite() {
       assert(done.data.action, 'la respuesta debe abrir una compuerta');
       assert.strictEqual(done.data.action.stepId, 'gate-1');
       assert.strictEqual((await history(srv)).pendingAction.stepId, 'gate-1');
+    });
+
+    await it('should attach the real audit results to the gate, on the reply and after a reload', async () => {
+      const events = await chat(srv, 'muestra el showcase otra vez');
+      const audit = events.find(e => e.name === 'done').data.action.audit;
+      assert(audit, 'la compuerta lleva el resultado de las auditorías');
+      const byId = Object.fromEntries(audit.checks.map(c => [c.id, c]));
+      assert(byId.showcase && byId.spec && byId.palette, 'showcase, especificación y paleta');
+      assert.strictEqual(byId.spec.status, 'fail', 'no hay .md en el proyecto de prueba');
+      assert(/No se encontró/.test(byId.spec.errors[0]));
+      assert.strictEqual(byId.showcase.status, 'fail', 'el showcase de prueba no tiene las 14 secciones');
+      assert(audit.summary.fail >= 2);
+
+      const reloaded = (await history(srv)).pendingAction;
+      assert.strictEqual(reloaded.stepId, 'gate-1');
+      assert(reloaded.audit && reloaded.audit.checks.length === audit.checks.length, 'tras recargar vuelve con auditoría');
     });
 
     await it('should record the approval and not offer the gate again after a reload', async () => {

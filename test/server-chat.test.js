@@ -147,6 +147,57 @@ async function runSuite() {
     await srv.stop();
   }
 
+  console.log('\n[4] Registro de turnos:');
+  srv = await startServer();
+  try {
+    await it('should record every turn with metrics and without conversation content, and expose it at /api/turns', async () => {
+      const ok = await srv.api('/api/chat', { method: 'POST', body: { message: 'Registro', engine: 'mock', sessionId: 'session-turnlog-1' } });
+      assert.strictEqual(ok.status, 200);
+      await ok.text();
+
+      const body = await (await srv.api('/api/turns')).json();
+      assert.strictEqual(body.ok, true);
+      const done = body.turns.find(t => t.engine === 'mock' && t.outcome === 'done');
+      assert(done, JSON.stringify(body.turns));
+      assert(done.durationMs >= 0 && done.promptChars > 0 && done.responseChars > 0 && done.resets === 0);
+      assert(done.at && done.sessionId === 'session-turnlog-1');
+      assert(!JSON.stringify(body.turns).includes('Registro'), 'el contenido del mensaje no se guarda en el registro');
+
+      const file = path.join(srv.workspaceDir, 'registro', 'turns.jsonl');
+      assert(fs.existsSync(file), 'turns.jsonl vive en la carpeta del proyecto');
+    });
+
+    await it('should log a failed engine start as an error turn and honor the limit', async () => {
+      const failed = await srv.api('/api/chat', { method: 'POST', body: { message: 'otro', engine: 'claude', sessionId: 'session-turnlog-2' } });
+      await failed.text();
+      const all = (await (await srv.api('/api/turns')).json()).turns;
+      assert(all.length >= 1);
+      const last = all[all.length - 1];
+      assert(last.engine !== 'claude' || last.outcome === 'error', 'un motor que no arranca queda como error');
+      assert.strictEqual((await (await srv.api('/api/turns?limit=1')).json()).turns.length, 1, 'respeta el límite');
+    });
+
+    await it('should drop a user message left without a reply by an interrupted turn and report it', async () => {
+      const file = path.join(srv.workspaceDir, 'registro', 'chat_history.json');
+      const history = JSON.parse(fs.readFileSync(file, 'utf-8'));
+      const before = history.messages.length;
+      history.messages.push({ role: 'user', content: 'continua', timestamp: Date.now() });
+      history.messages.push({ role: 'user', content: 'continua otra vez', timestamp: Date.now() + 1 });
+      fs.writeFileSync(file, JSON.stringify(history));
+
+      const body = await (await srv.api('/api/chat/history')).json();
+      assert.deepStrictEqual(body.interrupted, ['continua', 'continua otra vez']);
+      assert.strictEqual(body.messages.length, before);
+      assert.strictEqual(body.messages[body.messages.length - 1].role, 'assistant');
+      assert.strictEqual(JSON.parse(fs.readFileSync(file, 'utf-8')).messages.length, before, 'el historial en disco queda limpio');
+
+      const again = await (await srv.api('/api/chat/history')).json();
+      assert.deepStrictEqual(again.interrupted, [], 'no se vuelve a reportar');
+    });
+  } finally {
+    await srv.stop();
+  }
+
   console.log(`\n========================================`);
   console.log(`Summary: ${passedTests}/${totalTests} tests passed.`);
   console.log(`========================================\n`);

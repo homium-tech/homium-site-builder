@@ -2113,7 +2113,9 @@
           <!-- TOKENS_CSS_EXPORT: el bloque :root COMPLETO del Master MD §5.1 — primitivos + rampas HCT
                + semánticos + tipografía (display/ui/mono) + shape + elevación + motion + status +
                @media (prefers-reduced-motion). NO una versión reducida de 6 colores.
-               {{FONT_*}} = nombre de familia primaria solo; añadir un único fallback (sin duplicar). -->
+               {{FONT_*}} = nombre de familia primaria solo; añadir un único fallback (sin duplicar).
+               Si state.export_format no es "css", añade debajo (dentro de otro .homium-card) un <h3> con el nombre del
+               formato elegido y un segundo <pre> con el mismo bloque de la §5.2 del Master MD. -->
           <pre style="background: var(--bg-sunken); padding: 1.5rem; border-radius: var(--radius-md); border: 1px solid var(--border); overflow-x: auto;"><code class="mono" style="color: var(--sample-accent);">{{TOKENS_CSS_EXPORT}}</code></pre>
         </div>
 

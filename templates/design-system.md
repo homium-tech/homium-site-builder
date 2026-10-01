@@ -32,6 +32,7 @@
 
 <!-- 
   INSTRUCCIÓN PARA EL AGENTE:
+  Al generar esta sección, quita "(Opcional)" del encabezado.
   Si el cliente activó el ecualizador de marca, generar la tabla completa con las 14 puntuaciones
   y su traducción a parámetros de UI. Si no lo activó, eliminar esta sección y añadir una nota
   indicando que se usaron valores predeterminados para el tipo de sitio.
@@ -461,12 +462,19 @@ Calibración estratégica de los 14 ejes de marca para derivar parámetros geom�
 }
 ```
 
-### 5.2. Configuración de Tailwind CSS v4 (Opcional)
+### 5.2. Exportación principal: {{EXPORT_FORMAT_LABEL}}
 
 <!-- 
   INSTRUCCIÓN PARA EL AGENTE:
-  Solo generar esta sección si el cliente eligió Tailwind como framework CSS.
-  Si eligió solo vanilla CSS, omitir esta sección.
+  Esta sección es la exportación que el usuario eligió (state.export_format); no es opcional.
+  Sustituye el encabezado por el formato real (ej: "5.2. Exportación principal: Tailwind CSS v4 (@theme)").
+  - css: documenta en pocas líneas cómo consumir el :root de 5.1.
+  - tailwind: usa el bloque @theme de abajo (v4); si el usuario pidió v3 / theme.extend, entrega un
+    tailwind.config.js con theme.extend { colors, fontFamily, borderRadius, boxShadow } en su lugar.
+  - json / DTCG: bloque JSON con $value, $type y $description por token.
+  - scss: variables $nombre: valor; y mapas por categoría.
+  Expande cada {{#EACH ...}} con una línea por elemento y sustituye todos los {{...}}: no debe quedar ningún marcador.
+  Elimina TODOS los comentarios al terminar.
 -->
 
 ```css

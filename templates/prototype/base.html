@@ -1,0 +1,63 @@
+<!doctype html>
+<!--
+  BASE DE ACCESIBILIDAD Y COMPORTAMIENTO DEL PROTOTIPO (no define diseño visual).
+  Copia este archivo como cada pantalla del prototipo (index.html y las otras dos) y construye la maquetación
+  de <main> desde el blueprint. Sustituye los {{MARCADORES}}; marca con aria-current="page" el enlace de la
+  pantalla actual (en la navegación y en el drawer). Elimina estos comentarios al terminar.
+-->
+<html lang="es" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{PAGE_TITLE}} — {{BRAND_NAME}}</title>
+  <meta name="description" content="{{PAGE_DESCRIPTION}}">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#main-content">Saltar al contenido</a>
+
+  <header class="site-header">
+    <a class="brand" href="index.html">{{BRAND_NAME}}</a>
+
+    <nav class="nav-desktop" aria-label="Principal">
+      <a href="index.html" aria-current="page">{{NAV_1}}</a>
+      <a href="{{PAGE2_FILE}}">{{NAV_2}}</a>
+      <a href="{{PAGE3_FILE}}">{{NAV_3}}</a>
+    </nav>
+
+    <div class="header-actions">
+      <button type="button" class="icon-btn theme-toggle-btn" aria-label="Cambiar tema de color" aria-pressed="false">
+        <!-- Icono del sistema elegido (state.typography.icons); este es el trazo de "sun-moon" simplificado -->
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg>
+      </button>
+      <button type="button" class="icon-btn mobile-menu-btn" aria-label="Abrir menú de navegación" aria-expanded="false" aria-controls="mobile-drawer">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" y1="6" x2="20" y2="6"></line><line x1="4" y1="12" x2="20" y2="12"></line><line x1="4" y1="18" x2="20" y2="18"></line></svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="drawer-backdrop" hidden></div>
+  <aside id="mobile-drawer" class="mobile-drawer" aria-label="Menú móvil" inert>
+    <button type="button" class="icon-btn drawer-close-btn" aria-label="Cerrar menú de navegación">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+    </button>
+    <nav aria-label="Menú móvil">
+      <a href="index.html" aria-current="page">{{NAV_1}}</a>
+      <a href="{{PAGE2_FILE}}">{{NAV_2}}</a>
+      <a href="{{PAGE3_FILE}}">{{NAV_3}}</a>
+    </nav>
+  </aside>
+
+  <main id="main-content" tabindex="-1">
+    <h1>{{PAGE_H1}}</h1>
+    <!-- Maquetación de la pantalla según el blueprint -->
+  </main>
+
+  <footer class="site-footer">
+    <p>{{FOOTER_COPY}}</p>
+  </footer>
+
+  <script src="main.js"></script>
+</body>
+</html>

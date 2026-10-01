@@ -5,6 +5,7 @@ const { spawn } = require('child_process');
 const { AgentEngine, StreamParser } = require('../lib/agent-engine');
 const OllamaAdapter = require('../lib/agent-engine/adapters/ollama-adapter');
 const LlamaCppAdapter = require('../lib/agent-engine/adapters/llamacpp-adapter');
+const AgyAdapter = require('../lib/agent-engine/adapters/agy-adapter');
 const { buildSpawnOptions, useUtf8Streams, killProcessTree } = require('../lib/agent-engine/adapters/cli-spawn');
 
 let passedTests = 0;
@@ -285,6 +286,191 @@ async function runSuite() {
     engine.cancelAll();
     assert.strictEqual(engine.isBusy(), false);
     assert.strictEqual(engine.sessionStore.get('b').isExecuting, false);
+  });
+
+  console.log('\n[3b] agy: stream interrumpido y reintentos:');
+  const { AgyEventTracker } = AgyAdapter;
+  const agyStep = (step) => JSON.stringify({ event: 'step_update', step_update: { conversation_id: 'c1', ...step } });
+  const agyResult = (result) => JSON.stringify({ event: 'result', result: { conversation_id: 'c1', ...result } });
+  const agyText = (index, text, state = 'ACTIVE') => agyStep({ step_index: index, step_type: 'agent_response', state, text_delta: text });
+  const agyError = (index) => agyStep({ step_index: index, step_type: 'error_message', state: 'DONE' });
+
+  // Reproduce lo que hace el motor con los chunks: acumula text_delta y aplica reset
+  function runAgy(lines) {
+    let text = '';
+    const resets = [];
+    const tracker = new AgyEventTracker({
+      onStdout: (chunk, type) => {
+        if (type === 'text_delta') text += chunk;
+        if (type === 'reset') { resets.push(Number(chunk)); text = text.slice(0, Number(chunk)); }
+      }
+    });
+    for (const line of lines) tracker.handleLine(line);
+    return { text, resets, outcome: tracker.finish() };
+  }
+
+  await it('should keep a clean turn untouched', () => {
+    const r = runAgy([agyText(1, '> **Blueprint**\n'), agyText(1, 'Pregunta final', 'DONE'), agyResult({ status: 'SUCCESS' })]);
+    assert.strictEqual(r.text, '> **Blueprint**\nPregunta final');
+    assert.deepStrictEqual(r.resets, []);
+    assert.strictEqual(r.outcome.incomplete, false);
+    assert.strictEqual(r.outcome.warning, null);
+  });
+
+  await it('should discard aborted attempts that restart the same text and keep the last one', () => {
+    const r = runAgy([
+      agyText(1, '> **Blueprint — Estado actual**\n> - Marca: Devin\n', 'DONE'),
+      agyError(2),
+      agyText(3, '> **Blueprint — Estado actual**\n'),
+      agyText(3, '> - Marca: Devin\n#### Etapa 3.4: Motion Tokens', 'DONE'),
+      agyResult({ status: 'SUCCESS' })
+    ]);
+    assert.strictEqual(r.text, '> **Blueprint — Estado actual**\n> - Marca: Devin\n#### Etapa 3.4: Motion Tokens');
+    assert.deepStrictEqual(r.resets, [0]);
+    assert.strictEqual(r.outcome.incomplete, false);
+  });
+
+  await it('should only drop the aborted attempt, not the text that came before it', () => {
+    const r = runAgy([
+      agyText(1, 'Texto previo. ', 'DONE'),
+      agyStep({ step_index: 2, step_type: 'tool_call', state: 'DONE', tool_name: 'view_file', tool_input: { AbsolutePath: 'C:\\x\\a.md' } }),
+      agyText(3, 'Intento que se corta aqui y es largo', 'DONE'),
+      agyError(4),
+      agyText(5, 'Intento que se corta aqui y es largo, ahora completo.', 'DONE'),
+      agyResult({ status: 'SUCCESS' })
+    ]);
+    assert.strictEqual(r.text, 'Texto previo. Intento que se corta aqui y es largo, ahora completo.');
+    assert.deepStrictEqual(r.resets, [14]);
+  });
+
+  await it('should treat text after an error as a continuation when it does not repeat the aborted one', () => {
+    const r = runAgy([
+      agyText(1, 'Primera parte del analisis. ', 'DONE'),
+      agyError(2),
+      agyText(3, 'Continuo con otra cosa distinta.', 'DONE'),
+      agyResult({ status: 'SUCCESS' })
+    ]);
+    assert.strictEqual(r.text, 'Primera parte del analisis. Continuo con otra cosa distinta.');
+    assert.deepStrictEqual(r.resets, []);
+  });
+
+  await it('should flag the turn as incomplete when it ends in ERROR right after an aborted attempt', () => {
+    const r = runAgy([
+      agyText(1, 'Un token de diseño es la unidad atómica mínima\n', 'DONE'),
+      agyError(2),
+      agyResult({ status: 'ERROR', error: 'The stream was interrupted. Please continue the task you were working on.' })
+    ]);
+    assert.strictEqual(r.outcome.incomplete, true);
+    assert(r.outcome.error.includes('stream was interrupted'));
+  });
+
+  await it('should flag the turn as incomplete when the last attempt never finished', () => {
+    const r = runAgy([
+      agyText(1, '> **Blueprint — Estado actual**\n> - Marca:'),
+      agyResult({ status: 'ERROR', error: 'The stream was interrupted.' })
+    ]);
+    assert.strictEqual(r.outcome.incomplete, true);
+  });
+
+  await it('should flag an ERROR result without any text as incomplete', () => {
+    const r = runAgy([agyResult({ status: 'ERROR', error: 'boom' })]);
+    assert.strictEqual(r.outcome.incomplete, true);
+  });
+
+  await it('should accept a finished last attempt even if the result says ERROR, with a warning', () => {
+    const r = runAgy([
+      agyText(1, 'Un token de diseño es la unidad', 'DONE'),
+      agyError(2),
+      agyText(3, 'Un token de diseño es la unidad mínima de decisión visual.\n', 'DONE'),
+      agyResult({ status: 'ERROR', error: 'The stream was interrupted.' })
+    ]);
+    assert.strictEqual(r.text, 'Un token de diseño es la unidad mínima de decisión visual.\n');
+    assert.strictEqual(r.outcome.incomplete, false);
+    assert(/reintent/.test(r.outcome.warning));
+  });
+
+  await it('engine: a reset chunk trims the stored reply and the SSE text, and an incomplete agy turn is an error', async () => {
+    const engine = new AgentEngine();
+    engine.registerAdapter('resets', new ScriptedAdapter(({ onStdout, onExit }) => {
+      setImmediate(() => {
+        onStdout('Intento abortado', 'text_delta');
+        onStdout('0', 'reset');
+        onStdout('Respuesta final', 'text_delta');
+        onExit(0);
+      });
+    }));
+    const stream = engine.executeTurn({ sessionId: 'resets', message: 'hola', engine: 'resets' });
+    const ev = collect(stream);
+    await tick();
+    assert.strictEqual(ev.done.length, 1);
+    const stored = engine.sessionStore.get('resets').messages.filter(m => m.role === 'assistant');
+    assert.strictEqual(stored.length, 1);
+    assert.strictEqual(stored[0].content, 'Respuesta final');
+    const resetChunks = ev.chunks.filter(c => c.type === 'reset');
+    assert.deepStrictEqual(resetChunks.map(c => c.keep), [0]);
+
+    const failing = new AgentEngine();
+    failing.registerAdapter('agy-fail', new ScriptedAdapter(({ onStdout, onError }) => {
+      setImmediate(() => {
+        onStdout('Texto a medias', 'text_delta');
+        onError(new Error('agy interrumpió la respuesta antes de terminar'));
+      });
+    }));
+    const failStream = failing.executeTurn({ sessionId: 'agy-fail', message: 'hola', engine: 'agy-fail' });
+    const failEv = collect(failStream);
+    await tick();
+    assert.strictEqual(failEv.error.length, 1);
+    assert.strictEqual(failEv.done.length, 0);
+    assert.strictEqual(failing.sessionStore.get('agy-fail').messages.length, 0, 'no se guarda la respuesta cortada');
+  });
+
+  console.log('\n[3c] Registro de turnos del motor:');
+  await it('should log each turn exactly once with its outcome, duration, sizes and agy resets', async () => {
+    const records = [];
+    const engine = new AgentEngine({ turnLogger: (record, dir) => records.push({ ...record, dir }) });
+
+    engine.registerAdapter('ok', new ScriptedAdapter(({ onStdout, onExit }) => {
+      setImmediate(() => { onStdout('Aborto', 'text_delta'); onStdout('0', 'reset'); onStdout('Final', 'text_delta'); onExit(0); onExit(0); });
+    }));
+    collect(engine.executeTurn({ sessionId: 'log-ok', message: 'hola', engine: 'ok' }));
+
+    engine.registerAdapter('bad', new ScriptedAdapter(({ onError }) => setImmediate(() => { onError(new Error('boom')); onError(new Error('otra vez')); })));
+    collect(engine.executeTurn({ sessionId: 'log-bad', message: 'hola', engine: 'bad' }));
+
+    const hang = new ScriptedAdapter(() => {});
+    engine.registerAdapter('hang2', hang);
+    const hanging = engine.executeTurn({ sessionId: 'log-hang', message: 'hola', engine: 'hang2' });
+    hanging.kill();
+    hang.params.onExit(null);
+    await tick(50);
+
+    assert.strictEqual(records.length, 3, `un registro por turno: ${JSON.stringify(records.map(r => r.outcome))}`);
+    const byEngine = Object.fromEntries(records.map(r => [r.engine, r]));
+    assert.strictEqual(byEngine.ok.outcome, 'done');
+    assert.strictEqual(byEngine.ok.resets, 1);
+    assert.strictEqual(byEngine.ok.responseChars, 'Final'.length);
+    assert(byEngine.ok.promptChars > 0 && byEngine.ok.durationMs >= 0 && byEngine.ok.dir);
+    assert.strictEqual(byEngine.bad.outcome, 'error');
+    assert.strictEqual(byEngine.bad.error, 'boom');
+    assert.strictEqual(byEngine.hang2.outcome, 'cancelled');
+    assert(!JSON.stringify(records).includes('hola'), 'sin contenido de la conversación');
+  });
+
+  await it('turn-log should append JSON lines, skip a truncated line and keep only recent turns when asked', () => {
+    const fs = require('fs');
+    const os = require('os');
+    const path = require('path');
+    const { appendTurnLog, readTurnLog } = require('../lib/turn-log');
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'turnlog-'));
+    try {
+      assert.deepStrictEqual(readTurnLog(dir), []);
+      for (let i = 1; i <= 5; i++) appendTurnLog(dir, { n: i });
+      fs.appendFileSync(path.join(dir, 'turns.jsonl'), '{"n": 6, "cortado');
+      assert.deepStrictEqual(readTurnLog(dir, 100).map(t => t.n), [1, 2, 3, 4, 5]);
+      assert.deepStrictEqual(readTurnLog(dir, 3).map(t => t.n), [3, 4, 5]);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   console.log('\n[4] Procesos hijo:');

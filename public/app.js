@@ -173,34 +173,28 @@ function updateExternalPreviewLink(tabId) {
 
 // 3. Tab switching y seguimiento en vivo
 // Modo "En vivo": la vista sigue la fase del flujo (1-3 Blueprint, 4 Showcase, 5 Prototipo).
-// Un clic manual en una pestaña lo pausa hasta que cambie la fase o se pulse el interruptor.
-const FOLLOW_LIVE_KEY = 'homium_follow_live';
+// Un clic manual en una pestaña lo pausa hasta que cambie la fase. El indicador es solo de lectura.
 const FOLLOW_TABS = ['tab-blueprint', 'tab-showcase', 'tab-prototype'];
 const FOLLOW_LABELS = { 'tab-blueprint': 'Blueprint', 'tab-showcase': 'Showcase', 'tab-prototype': 'Prototipo' };
-let followLive = true;
-followLive = store.get(FOLLOW_LIVE_KEY) !== 'off';
 let followPaused = false;
 let lastFollowTarget = null;
+// Clave de la versión anterior (interruptor manual): ya no se usa
+store.remove('homium_follow_live');
 
 function activateTab(tabId) {
   const btn = document.querySelector('.tab-btn[data-tab="' + tabId + '"]');
   if (btn && !btn.classList.contains('active')) btn.click();
 }
 
-function renderFollowButton() {
-  const btn = document.getElementById('btnFollowLive');
-  if (!btn) return;
+function renderFollowIndicator() {
+  const indicator = document.getElementById('followIndicator');
+  if (!indicator) return;
   const label = document.getElementById('followLiveLabel');
-  const mode = !followLive ? 'off' : (followPaused ? 'paused' : 'live');
-  btn.classList.toggle('is-paused', mode === 'paused');
-  btn.classList.toggle('is-off', mode === 'off');
-  btn.setAttribute('aria-pressed', String(mode === 'live'));
-  if (label) label.textContent = { live: 'En vivo', paused: 'Pausado', off: 'Manual' }[mode];
-  btn.title = {
-    live: 'Siguiendo el avance: la vista cambia sola según la fase. Clic para desactivar.',
-    paused: 'Seguimiento pausado por tu selección. Clic para retomar el avance.',
-    off: 'Seguimiento manual. Clic para que la vista siga el avance del flujo.'
-  }[mode];
+  indicator.classList.toggle('is-paused', followPaused);
+  if (label) label.textContent = followPaused ? 'Pausado' : 'En vivo';
+  indicator.title = followPaused
+    ? 'Seguimiento pausado porque elegiste una pestaña. Se reanuda cuando el flujo avance de fase.'
+    : 'Siguiendo el avance: la vista cambia sola según la fase.';
 }
 
 function resolveFollowTarget({ phase, showcaseExists, prototypeExists }) {
@@ -215,33 +209,19 @@ function followLiveTab(ctx) {
   const firstRun = lastFollowTarget === null;
   lastFollowTarget = target;
   if (changed) followPaused = false;
-  renderFollowButton();
-  if (!followLive || followPaused) return;
+  renderFollowIndicator();
+  if (followPaused) return;
   activateTab(target);
   if (changed && !firstRun) appendLog('[En vivo] Mostrando ' + FOLLOW_LABELS[target] + ' según el avance del flujo.');
 }
 
-const btnFollowLive = document.getElementById('btnFollowLive');
-if (btnFollowLive) {
-  btnFollowLive.addEventListener('click', () => {
-    if (followLive && followPaused) {
-      followPaused = false;
-    } else {
-      followLive = !followLive;
-      followPaused = false;
-      store.set(FOLLOW_LIVE_KEY, followLive ? 'on' : 'off');
-    }
-    renderFollowButton();
-    if (followLive && lastFollowTarget) activateTab(lastFollowTarget);
-  });
-}
-renderFollowButton();
+renderFollowIndicator();
 
 document.querySelectorAll('.tab-btn').forEach(btn => {
   btn.addEventListener('click', (e) => {
-    if (e && e.isTrusted && followLive && !followPaused) {
+    if (e && e.isTrusted && !followPaused) {
       followPaused = true;
-      renderFollowButton();
+      renderFollowIndicator();
     }
     document.querySelectorAll('.tab-btn').forEach(b => {
       b.classList.remove('active');
@@ -455,7 +435,7 @@ function resetClientView(systemText) {
   followPaused = false;
   lastFollowTarget = null;
   lastPendingAction = null;
-  renderFollowButton();
+  renderFollowIndicator();
   prevPrototypeVersion = null;
   prevShowcaseVersion = null;
   prototypeFrame.src = '/preview/prototype/index.html';
@@ -728,9 +708,42 @@ function formatInline(text) {
 }
 
 /**
- * HTML de un mensaje del agente. Con `interactive` las opciones numeradas finales pasan a ser botones.
+ * Separa el bloque Blueprint acumulativo (cita con ">") con el que empieza cada respuesta. Se repite en todos los
+ * mensajes y ya está en la pestaña Blueprint: en el chat se pliega para que la conversación sea legible.
+ * @returns {{ blueprint: string|null, rest: string }}
  */
-function renderAgentMessage(text, { interactive = true, gateActive = false } = {}) {
+function splitBlueprintBlock(text) {
+  const lines = String(text || '').split('\n');
+  let start = 0;
+  while (start < lines.length && !lines[start].trim()) start++;
+  if (start >= lines.length || !/^\s*>\s*\**\s*Blueprint/i.test(lines[start])) return { blueprint: null, rest: String(text || '') };
+
+  let end = start;
+  while (end < lines.length && /^\s*>/.test(lines[end])) end++;
+  const block = lines.slice(start, end).map(line => line.replace(/^\s*>\s?/, '')).join('\n');
+  return { blueprint: block, rest: lines.slice(end).join('\n') };
+}
+
+function renderChatBlueprint(block) {
+  const lines = block.split('\n');
+  const title = stripInlineMarkdown(lines[0] || 'Blueprint');
+  const items = lines.slice(1).filter(line => line.trim() && line.trim() !== '>').length;
+  return `<details class="chat-blueprint"><summary><span>${escapeHtml(title)}</span>` +
+    `<span class="chat-blueprint-count">${items} ${items === 1 ? 'dato' : 'datos'}</span></summary>` +
+    `<div class="chat-blueprint-body">${formatText(lines.slice(1).join('\n'))}</div></details>`;
+}
+
+/**
+ * HTML de un mensaje del agente: el Blueprint plegado y, debajo, el cuerpo (con opciones numeradas como botones
+ * cuando `interactive`).
+ */
+function renderAgentMessage(text, options = {}) {
+  const { blueprint, rest } = splitBlueprintBlock(text);
+  const body = renderAgentBody(rest, options);
+  return blueprint ? renderChatBlueprint(blueprint) + body : body;
+}
+
+function renderAgentBody(text, { interactive = true, gateActive = false } = {}) {
   const parsed = (interactive || gateActive) ? parseOptionBlock(text) : null;
   if (!parsed) return formatText(text);
 
@@ -831,7 +844,7 @@ function queueAgentRender(ctx) {
     ctx.renderQueued = false;
     if (ctx.finished) return;
     const stick = isNearBottom(chatMessages);
-    ctx.agentBody.innerHTML = formatText(ctx.fullResponse);
+    ctx.agentBody.innerHTML = renderAgentMessage(ctx.fullResponse, { interactive: false });
     if (stick) chatMessages.scrollTop = chatMessages.scrollHeight;
   });
 }
@@ -903,6 +916,10 @@ function handleChatEvent(event, ctx) {
     if (data.type === 'text_delta') {
       ctx.fullResponse += data.text || '';
       queueAgentRender(ctx);
+    } else if (data.type === 'reset') {
+      // El motor descartó un intento abortado (stream interrumpido): se conserva solo el texto previo a ese intento
+      ctx.fullResponse = ctx.fullResponse.slice(0, data.keep || 0);
+      queueAgentRender(ctx);
     } else if (data.type === 'tool_activity') {
       const text = (data.text || '').trim();
       const pill = ctx.agentDiv.querySelector('.agent-activity-pill');
@@ -930,7 +947,9 @@ function handleChatEvent(event, ctx) {
   }
 
   if (name === 'done') {
-    appendLog(`[AgentBridge] Turno completado (código: ${data.code ?? 0}).`);
+    const seconds = Number.isFinite(data.durationMs) ? ` en ${Math.round(data.durationMs / 1000)} s` : '';
+    const retried = data.resets > 0 ? ` · el motor reintentó ${data.resets} vez(es) por una interrupción del stream` : '';
+    appendLog(`[AgentBridge] Turno completado${seconds} (código: ${data.code ?? 0})${retried}.`, data.resets > 0 ? 'warn' : 'info');
     finishTurnRender(ctx, data);
     return 'done';
   }
@@ -2168,8 +2187,12 @@ function updatePhasePipeline(snapshot) {
   }
 }
 
+// Último estado del proyecto recibido: permite repintar la tarjeta de proyecto finalizado tras limpiar la compuerta
+let lastProjectState = null;
+
 function applyDeliverableSnapshot(snapshot) {
   if (!snapshot || !snapshot.status) return;
+  lastProjectState = snapshot.state || null;
 
   updateDeliverablesTracker(snapshot);
   updatePhasePipeline(snapshot);
@@ -2256,6 +2279,8 @@ function applyDeliverableSnapshot(snapshot) {
     showcaseExists: data.showcaseExists,
     prototypeExists: data.prototypeExists
   });
+
+  renderProjectFinished(lastProjectState);
 }
 
 // Canal reactivo SSE para entrega instantánea de cambios en disco
@@ -2357,6 +2382,8 @@ async function evaluateInteractiveActions(text, serverAction) {
 
   if (action && action.type === 'gate') {
     renderApprovalGate(action);
+  } else {
+    renderProjectFinished(lastProjectState);
   }
 }
 
@@ -2382,6 +2409,70 @@ function escapeHtml(str) {
     .replace(/'/g, '&#039;');
 }
 
+// Proyecto finalizado: resumen de entregables con acceso directo a descargar y a ver el prototipo.
+// Ocupa el sitio de la compuerta, nunca la pisa, y desaparece si el proyecto deja de estar finalizado.
+function renderProjectFinished(state) {
+  const container = document.getElementById('approvalGateContainer');
+  if (!container) return;
+  const showing = container.querySelector('.project-finished');
+  const finished = Boolean(state) && state.status === 'PROYECTO_FINALIZADO';
+
+  if (!finished) {
+    if (showing) {
+      container.innerHTML = '';
+      container.style.display = 'none';
+    }
+    return;
+  }
+  if (showing || container.querySelector('.approval-gate-banner')) return;
+
+  const files = Object.values(state.artifacts || {}).filter(value => typeof value === 'string' && value);
+  container.innerHTML = `
+    <div class="approval-gate-banner project-finished">
+      <div class="gate-header">
+        <span class="gate-title">${getIconSvg('check')} Proyecto finalizado</span>
+      </div>
+      <p class="gate-description">Las 5 fases están completas y aprobadas.${files.length ? ` Entregables: ${files.map(escapeHtml).join(', ')}.` : ''}</p>
+      <div class="gate-actions">
+        <button type="button" class="btn-gate-approve" data-finished-action="download">${getIconSvg('check')}<span>Descargar proyecto (.zip)</span></button>
+        <button type="button" class="btn-gate-adjust" data-finished-action="prototype">${getIconSvg('edit')}<span>Ver prototipo</span></button>
+      </div>
+    </div>`;
+  container.style.display = 'block';
+  container.querySelector('[data-finished-action="download"]')?.addEventListener('click', () => { window.location.href = '/api/workspace/download'; });
+  container.querySelector('[data-finished-action="prototype"]')?.addEventListener('click', () => { activateTab('tab-prototype'); });
+}
+
+const GATE_AUDIT_STATUS = { pass: 'Sin problemas', warn: 'Con advertencias', fail: 'Con errores', error: 'No se pudo ejecutar' };
+
+// Resultado de las auditorías que el servidor ejecutó sobre los archivos reales al abrir la compuerta (informativo)
+function renderGateAudit(audit) {
+  if (!audit || !Array.isArray(audit.checks) || audit.checks.length === 0) return '';
+  const rows = audit.checks.map(check => {
+    const status = GATE_AUDIT_STATUS[check.status] ? check.status : 'error';
+    const items = [
+      ...(check.errors || []).map(text => ({ kind: 'error', text })),
+      ...(check.warnings || []).map(text => ({ kind: 'warn', text }))
+    ];
+    // El contador es de lo que da nombre al estado: errores si falla, avisos si solo advierte (y los avisos aparte)
+    const errorCount = (check.errors || []).length;
+    const warnCount = (check.warnings || []).length;
+    const count = errorCount > 0
+      ? ` (${errorCount})${warnCount ? ` · ${warnCount} ${warnCount === 1 ? 'aviso' : 'avisos'}` : ''}`
+      : (warnCount ? ` (${warnCount})` : '');
+    const head = `<span class="gate-audit-name">${escapeHtml(check.label)}</span>` +
+      `<span class="gate-audit-status is-${status}">${GATE_AUDIT_STATUS[status]}${count}</span>`;
+    if (items.length === 0) {
+      return `<div class="gate-audit-row"><div class="gate-audit-head">${head}</div></div>`;
+    }
+    return `<details class="gate-audit-row"><summary class="gate-audit-head">${head}</summary>` +
+      `<ul class="gate-audit-list">${items.map(i => `<li class="is-${i.kind}">${escapeHtml(i.text)}</li>`).join('')}</ul></details>`;
+  }).join('');
+  const hasFail = audit.summary && audit.summary.fail > 0;
+  return `<div class="gate-audit" role="group" aria-label="Verificación automática">` +
+    `<div class="gate-audit-title">Verificación automática${hasFail ? ': hay errores que conviene revisar antes de aprobar' : ''}</div>${rows}</div>`;
+}
+
 function renderApprovalGate(gate) {
   const approvalGateContainer = document.getElementById('approvalGateContainer');
   if (!approvalGateContainer) return;
@@ -2395,6 +2486,7 @@ function renderApprovalGate(gate) {
         </span>
       </div>
       <p class="gate-description">${escapeHtml(gate.description)}</p>
+      ${renderGateAudit(gate.audit)}
       <div class="gate-actions">
         ${gate.options.map(opt => `
           <button type="button" class="${opt.variant === 'primary' ? 'btn-gate-approve' : 'btn-gate-adjust'}" data-val="${encodeURIComponent(opt.value)}">
@@ -2709,6 +2801,15 @@ function renderResumedChatState(data, fromCache = false) {
   messages.forEach((m, i) => { if (m.role === 'assistant') lastAssistantIndex = i; });
   const trailingUserMessages = data.busy ? messages.slice(lastAssistantIndex + 1).filter(m => m.role === 'user') : [];
 
+  // Turno que el servidor no llegó a cerrar (p. ej. se reinició): su mensaje se retiró del historial; se devuelve al cuadro de texto
+  if (Array.isArray(data.interrupted) && data.interrupted.length > 0) {
+    appendLog('[Aviso] Un turno anterior se interrumpió sin respuesta; reenvía tu mensaje.', 'warn');
+    if (userInput && !userInput.value.trim()) {
+      userInput.value = data.interrupted[data.interrupted.length - 1];
+      userInput.dispatchEvent(new Event('input'));
+    }
+  }
+
   // 2. Construir HTML con el banner de reanudación y mensaje activo
   let chatHtml = '';
 
@@ -2747,7 +2848,7 @@ function renderResumedChatState(data, fromCache = false) {
             <span class="sender-name">${senderName}</span>
             ${timeStr ? `<span class="message-time">${timeStr}</span>` : ''}
           </div>
-          <div class="message-body">${formatText(msgText)}</div>
+          <div class="message-body">${isUser ? formatText(msgText) : renderAgentMessage(msgText, { interactive: false })}</div>
         </div>
       `;
     });

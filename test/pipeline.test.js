@@ -118,6 +118,9 @@ it('should NOT open a gate from phase confirmations or other approval questions'
     '¿Confirmar la fase 3 para compilar el showcase y design system?',
     // Caso real: transición a Fase 4 no debe disparar la compuerta 1
     '¿Confirmas estos cimientos visuales de la Fase 3 para avanzar a la Fase 4: Validación Visual (Generación desacoplada: Spec Markdown Maestro + Showcase HTML), o deseas ajustar algún detalle?',
+    // Caso real (redacción de references/phases/phase-3-components.md): cierre de la Fase 3 que nombra el showcase como algo por construir
+    '¿Apruebas el catálogo consolidado para avanzar a la Fase 4 (Validación Visual), donde se construirán Devin_Design_System.md y el showcase vivo Devin_Design_System.html?',
+    '¿Apruebas el catálogo para avanzar a la **Fase 4 (VALIDACIÓN VISUAL)** donde se generarán `Acme_Design_System.md` y `Acme_Design_System.html`?',
     '¿Apruebas esta paleta cromática para continuar con la tipografía?',
     '¿Cuál es el modelo de negocio de tu marca (B2C, B2B, SaaS)?',
     '¿Dispones de un logo existente o creamos un isotipo SVG minimalista?'
@@ -186,6 +189,18 @@ it('should retrieve individual gate descriptors via getGate()', () => {
   assert.strictEqual(gate1.title, 'Compuerta 1: Aprobación del Design System');
   assert.strictEqual(pipeline.getGate('gate-2').options.length, 2);
   assert.strictEqual(pipeline.getGate('unknown-gate'), null);
+});
+
+it('should only consider a gate ready when its deliverable exists on disk', () => {
+  const pipeline = new Pipeline();
+  const gate1 = pipeline.getGate('gate-1');
+  const gate2 = pipeline.getGate('gate-2');
+  assert.strictEqual(pipeline.isGateReady(gate1, { showcaseExists: false, prototypeExists: false }), false);
+  assert.strictEqual(pipeline.isGateReady(gate1, { showcaseExists: true, prototypeExists: false }), true);
+  assert.strictEqual(pipeline.isGateReady(gate2, { showcaseExists: true, prototypeExists: false }), false);
+  assert.strictEqual(pipeline.isGateReady(gate2, { showcaseExists: true, prototypeExists: true }), true);
+  assert.strictEqual(pipeline.isGateReady(gate1, undefined), false);
+  assert.strictEqual(pipeline.isGateReady(null, {}), true, 'sin acción no hay nada que bloquear');
 });
 
 // 4. Turnos desviados: la detección no debe dispararse por explicaciones ajenas

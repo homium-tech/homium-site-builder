@@ -55,7 +55,7 @@ async function runSuite() {
 
   console.log('[1] Herramientas de la app (APP_ROOT):');
   await it('APP_ROOT should point at the repository that holds scripts, templates and phase docs', () => {
-    for (const rel of ['scripts/extract_reference_dna.cjs', 'scripts/verify_fidelity.cjs', 'scripts/audit_showcase.cjs', 'templates/design-system.html', 'references/phases/phase-4-validation.md']) {
+    for (const rel of ['scripts/extract_reference_dna.cjs', 'scripts/verify_fidelity.cjs', 'scripts/audit_showcase.cjs', 'scripts/audit_spec.cjs', 'scripts/audit_prototype.cjs', 'templates/design-system.html', 'references/phases/phase-4-validation.md']) {
       assert(fs.existsSync(path.join(rules.APP_ROOT, rel)), `${rel} debe existir bajo APP_ROOT`);
     }
   });
@@ -170,6 +170,13 @@ async function runSuite() {
   });
 
   console.log('\n[3] Coherencia de las directivas:');
+  await it('should require measured accessibility claims and a short closing message', () => {
+    const d = rules.SYSTEM_DIRECTIVES;
+    assert(d.includes('audit_prototype.cjs') && /anillo de foco cumple >= 3:1/.test(d), 'la directiva 8 exige foco >= 3:1 y audit_prototype');
+    assert(/no declares como verificado nada que/.test(d), 'no se declara verificado lo que ningún script midió');
+    assert(/mensaje de cierre tras aprobar la compuerta 2 es breve/.test(d), 'el cierre final es breve');
+  });
+
   await it('should not contradict itself: no bracket templates, no emoji swatches, 14 showcase sections', () => {
     const d = rules.SYSTEM_DIRECTIVES;
     assert(!/\[Nombre del Componente\]|\[descripción|\[valor|\[HEX\]|\[fuente\]/i.test(d), 'plantillas con corchetes contradicen la directiva 11');

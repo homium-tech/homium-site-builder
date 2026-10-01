@@ -1,0 +1,150 @@
+/* ==========================================================================
+   BASE DE ACCESIBILIDAD Y COMPORTAMIENTO DEL PROTOTIPO (no define diseño visual)
+   Reemplaza TODOS los valores de :root por palette.allowed_hexes y la tipografía por state.typography.
+   Cada tema redefine sus tokens de acento y de foco: el acento del tema oscuro no sirve como texto sobre
+   fondo claro. Los valores de ejemplo de abajo solo demuestran el contrato (contrastes medidos por
+   scripts/audit_prototype.cjs). Elimina estos comentarios al terminar.
+   ========================================================================== */
+
+:root {
+  --bg: #101313;
+  --surface: #171B1C;
+  --fg: #F1F3F3;
+  --fg-muted: #C9CFCF;
+  --accent: #00B2D6;            /* texto/acento sobre --bg: >= 4.5:1 */
+  --on-accent: #101313;
+  --focus-ring-color: #00B2D6;  /* >= 3:1 contra --bg, sin transparencia */
+  --border: #3A4244;
+
+  --font-ui: system-ui, sans-serif;     /* -> state.typography.font_ui */
+  --font-display: var(--font-ui);       /* -> state.typography.font_display */
+
+  --radius-md: 10px;
+  --motion-fast: 150ms;
+  --header-h: 64px;
+}
+
+html[data-theme="light"] {
+  --bg: #F1F3F3;
+  --surface: #FFFFFF;
+  --fg: #101313;
+  --fg-muted: #3A4244;
+  --accent: #0B2E5E;            /* tono oscuro de la rampa: legible como texto sobre --bg claro */
+  --on-accent: #FFFFFF;
+  --focus-ring-color: #0B2E5E;
+  --border: #9AA3A5;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background-color: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-ui);
+  line-height: 1.6;
+}
+
+h1, h2, h3 { font-family: var(--font-display); line-height: 1.15; }
+a { color: var(--accent); }
+
+/* Foco visible en TODO lo interactivo (contraste >= 3:1, sin depender de transparencias) */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: 3px solid var(--focus-ring-color);
+  outline-offset: 3px;
+}
+main:focus { outline: none; }
+
+/* Enlace "Saltar al contenido": solo visible al enfocarlo */
+.skip-link {
+  position: absolute;
+  left: 16px;
+  top: -64px;
+  z-index: 2000;
+  padding: 12px 16px;
+  background: var(--accent);
+  color: var(--on-accent);
+  border-radius: var(--radius-md);
+  transition: top var(--motion-fast);
+}
+.skip-link:focus { top: 16px; }
+
+/* Cabecera y navegación */
+.site-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: var(--header-h);
+  padding: 0 24px;
+  border-bottom: 1px solid var(--border);
+}
+.brand { font-family: var(--font-display); font-weight: 700; text-decoration: none; color: var(--fg); }
+.nav-desktop { display: flex; gap: 24px; }
+.nav-desktop a, .mobile-drawer nav a { color: var(--fg-muted); text-decoration: none; }
+.nav-desktop a[aria-current="page"], .mobile-drawer nav a[aria-current="page"] { color: var(--accent); font-weight: 600; }
+.header-actions { display: flex; gap: 8px; }
+
+.icon { width: 20px; height: 20px; }
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  background: transparent;
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+.mobile-menu-btn { display: none; }
+
+/* Drawer móvil: cerrado = fuera de pantalla Y oculto (visibility) para que sus enlaces no sean tabulables */
+.drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  background: rgba(0, 0, 0, 0.55);
+}
+.drawer-backdrop[hidden] { display: none; }
+.mobile-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  z-index: 1000;
+  width: min(320px, 85vw);
+  height: 100vh;
+  padding: 24px;
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  transform: translateX(100%);
+  visibility: hidden;
+  transition: transform var(--motion-fast) ease, visibility 0s linear var(--motion-fast);
+}
+.mobile-drawer.is-open {
+  transform: none;
+  visibility: visible;
+  transition: transform var(--motion-fast) ease, visibility 0s;
+}
+.mobile-drawer nav { display: flex; flex-direction: column; gap: 16px; margin-top: 24px; }
+
+@media (max-width: 1023px) {
+  .nav-desktop { display: none; }
+  .mobile-menu-btn { display: inline-flex; }
+}
+
+/* Movimiento reducido: sin transiciones ni animaciones */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -165,6 +165,282 @@ it('the template, the audit and the phase doc should agree on the same 14 sectio
   assert(/14 secciones/.test(phaseDoc) && !/15 secciones/.test(phaseDoc));
 });
 
+console.log('\n[1b] audit_spec (especificación maestra .md):');
+const CLEAN_SPEC = [
+  '# Design System Documentación Maestra: Acme Labs',
+  '',
+  '## ÍNDICE',
+  '',
+  ...[1, 2, 3, 4, 5].map(n => `## SECCIÓN ${n}: CONTENIDO\n\nTexto real de la sección ${n} con #0B2E5E.\n`),
+  '### 5.1. Variables CSS',
+  '',
+  '```css',
+  ':root { --color-primary: #0B2E5E; }',
+  '```',
+  ''
+].join('\n');
+
+function auditSpec(markdown, state = { ...STATE, export_format: 'css' }) {
+  const workspace = fs.mkdtempSync(path.join(tmp, 'ws-'));
+  fs.writeFileSync(path.join(workspace, 'design-system-state.json'), JSON.stringify(state));
+  fs.writeFileSync(path.join(workspace, 'Acme_Design_System.md'), markdown);
+  return run('audit_spec.cjs', ['Acme_Design_System.md', '--state', 'design-system-state.json'], workspace);
+}
+
+it('audit_spec should accept a clean spec', () => {
+  const res = auditSpec(CLEAN_SPEC);
+  assert.strictEqual(res.status, 0, res.stdout);
+  assert(/100% PASS/.test(res.stdout), res.stdout);
+});
+
+it('audit_spec should fail on unresolved placeholders, even inside a code block', () => {
+  const res = auditSpec(CLEAN_SPEC.replace('--color-primary: #0B2E5E;', '{{#EACH ACCENT_COLORS}} --x-{{name}}: {{value}}; {{/EACH}}'));
+  assert.strictEqual(res.status, 1, res.stdout);
+  assert(/Placeholders de plantilla sin resolver[^\n]*\{\{name\}\}/.test(res.stdout), res.stdout);
+});
+
+it('audit_spec should fail on leftover template comments but allow HTML comments inside code blocks', () => {
+  const withComment = CLEAN_SPEC.replace('## SECCIÓN 2: CONTENIDO', '<!-- INSTRUCCIÓN PARA EL AGENTE: generar esto -->\n## SECCIÓN 2: CONTENIDO');
+  const bad = auditSpec(withComment);
+  assert.strictEqual(bad.status, 1, bad.stdout);
+  assert(/1 con "INSTRUCCIÓN PARA EL AGENTE"/.test(bad.stdout), bad.stdout);
+
+  const inCode = CLEAN_SPEC.replace(':root {', '/* <!-- comentario de ejemplo en código --> */\n:root {');
+  assert.strictEqual(auditSpec(inCode).status, 0);
+});
+
+it('audit_spec should fail when a canonical section is missing', () => {
+  const res = auditSpec(CLEAN_SPEC.replace(/## SECCIÓN 4:[^\n]*\n/, ''));
+  assert.strictEqual(res.status, 1, res.stdout);
+  assert(/SECCIÓN 4/.test(res.stdout), res.stdout);
+});
+
+it('audit_spec should require the block of the export format chosen in stage 4.1', () => {
+  const tailwind = { ...STATE, export_format: 'tailwind' };
+  const missing = auditSpec(CLEAN_SPEC, tailwind);
+  assert.strictEqual(missing.status, 1, missing.stdout);
+  assert(/formato de exportación elegido \("tailwind"\)/.test(missing.stdout), missing.stdout);
+
+  const present = auditSpec(CLEAN_SPEC.replace('```css', '```css\n@import "tailwindcss";\n@theme { --color-brand: #0B2E5E; }\n```\n\n```css'), tailwind);
+  assert.strictEqual(present.status, 0, present.stdout);
+});
+
+it('audit_spec should only warn about "(Opcional)" headings and colors outside the allowlist', () => {
+  const res = auditSpec(CLEAN_SPEC.replace('### 5.1. Variables CSS', '### 5.1. Variables CSS (Opcional)') + '\nColor suelto #123456.\n');
+  assert.strictEqual(res.status, 0, res.stdout);
+  assert(/\(Opcional\)/.test(res.stdout) && /#123456/.test(res.stdout), res.stdout);
+});
+
+it('the md template, audit_spec and the phase doc should agree on the five canonical sections', () => {
+  const template = fs.readFileSync(path.join(ROOT, 'templates', 'design-system.md'), 'utf-8');
+  const sections = [...template.matchAll(/^##\s+SECCIÓN\s+(\d)\b/gm)].map(m => m[1]);
+  assert.deepStrictEqual(sections, ['1', '2', '3', '4', '5']);
+
+  // La plantilla sin rellenar es, por definición, una especificación sin terminar: el audit debe rechazarla
+  const workspace = fs.mkdtempSync(path.join(tmp, 'ws-'));
+  fs.writeFileSync(path.join(workspace, 'Template.md'), template);
+  assert.strictEqual(run('audit_spec.cjs', ['Template.md'], workspace).status, 1);
+
+  const phaseDoc = fs.readFileSync(path.join(ROOT, 'references', 'phases', 'phase-4-validation.md'), 'utf-8');
+  assert(phaseDoc.includes('<APP_ROOT>/scripts/audit_spec.cjs'), 'la guía de la Fase 4 debe invocar audit_spec.cjs por APP_ROOT');
+});
+
+it('the chosen export format should be the main handoff in the template and the phase 4 guide, not an optional section', () => {
+  const template = fs.readFileSync(path.join(ROOT, 'templates', 'design-system.md'), 'utf-8');
+  const heading = template.match(/^### 5\.2\..*$/m)[0];
+  assert(/Exportación principal/.test(heading) && !/Opcional/.test(heading), heading);
+
+  const phaseDoc = fs.readFileSync(path.join(ROOT, 'references', 'phases', 'phase-4-validation.md'), 'utf-8');
+  assert(/no una sección opcional/.test(phaseDoc), 'la guía debe decir que §5.2 no es opcional');
+  assert(/theme\.extend/.test(phaseDoc) && /@theme/.test(phaseDoc), 'la guía distingue Tailwind v3 (theme.extend) de v4 (@theme)');
+});
+
+console.log('\n[1c] Auditorías de compuerta (lib/audits):');
+const { runGateAudits, parseTextAudit } = require('../lib/audits');
+
+it('parseTextAudit should read warnings and critical errors from the audit scripts output', () => {
+  const stdout = [
+    '========================================',
+    'AUDITORÍA TÉCNICA DEL SHOWCASE: X.html',
+    '========================================',
+    '⚠️  ADVERTENCIAS (2):',
+    '   - primera advertencia',
+    '   - segunda advertencia',
+    '❌ ERRORES CRÍTICOS (1):',
+    '   - falta la sección #sec-code',
+    '',
+    'El archivo no cumple con la compuerta de aprobación de la Fase 4.'
+  ].join('\n');
+  assert.deepStrictEqual(parseTextAudit(stdout), {
+    errors: ['falta la sección #sec-code'],
+    warnings: ['primera advertencia', 'segunda advertencia']
+  });
+  assert.deepStrictEqual(parseTextAudit('✅ ESTADO: 100% PASS'), { errors: [], warnings: [] });
+});
+
+it('runGateAudits(gate-1) should combine showcase, spec and palette audits and flag a missing spec', () => {
+  const workspace = fs.mkdtempSync(path.join(tmp, 'ws-'));
+  fs.writeFileSync(path.join(workspace, 'design-system-state.json'), JSON.stringify(STATE));
+  assert.strictEqual(run('compile_showcase.cjs', ['design-system-state.json'], workspace).status, 0);
+
+  let audit = runGateAudits('gate-1', workspace);
+  const byId = Object.fromEntries(audit.checks.map(c => [c.id, c]));
+  assert.deepStrictEqual(Object.keys(byId).sort(), ['palette', 'showcase', 'spec']);
+  assert.strictEqual(byId.spec.status, 'fail');
+  assert(/No se encontró/.test(byId.spec.errors[0]));
+  assert(audit.summary.fail >= 1);
+
+  fs.writeFileSync(path.join(workspace, 'AcmeLabs_Design_System.md'), CLEAN_SPEC);
+  audit = runGateAudits('gate-1', workspace);
+  assert.strictEqual(audit.checks.find(c => c.id === 'spec').status, 'pass');
+
+  fs.writeFileSync(path.join(workspace, 'AcmeLabs_Design_System.md'), CLEAN_SPEC + '\n{{PENDIENTE}}\n');
+  const bad = runGateAudits('gate-1', workspace).checks.find(c => c.id === 'spec');
+  assert.strictEqual(bad.status, 'fail');
+  assert(/PENDIENTE/.test(bad.errors[0]));
+});
+
+it('runGateAudits(gate-2) should report the offending color of the prototype', () => {
+  const workspace = fs.mkdtempSync(path.join(tmp, 'ws-'));
+  fs.writeFileSync(path.join(workspace, 'design-system-state.json'), JSON.stringify(STATE));
+  fs.mkdirSync(path.join(workspace, 'prototype'));
+  fs.writeFileSync(path.join(workspace, 'prototype', 'index.html'), '<style>body{color:#0B2E5E}</style>');
+  const palette = (audit) => audit.checks.find(c => c.id === 'palette');
+  assert.strictEqual(palette(runGateAudits('gate-2', workspace)).status, 'pass');
+
+  fs.writeFileSync(path.join(workspace, 'prototype', 'index.html'), '<style>body{color:#0B2E5E;background:#ABCDEF}</style>');
+  const failed = runGateAudits('gate-2', workspace);
+  assert.strictEqual(palette(failed).status, 'fail');
+  assert(/#ABCDEF/i.test(palette(failed).errors.join(' ')), palette(failed).errors.join(' '));
+  assert(failed.checks.some(c => c.id === 'a11y'), 'la compuerta 2 también audita accesibilidad y estructura');
+});
+
+it('runGateAudits should return null when there is nothing to audit', () => {
+  assert.strictEqual(runGateAudits('gate-1', path.join(tmp, 'no-existe')), null);
+  assert.strictEqual(runGateAudits('gate-2', fs.mkdtempSync(path.join(tmp, 'ws-'))), null);
+  assert.strictEqual(runGateAudits('otra', fs.mkdtempSync(path.join(tmp, 'ws-'))), null);
+});
+
+console.log('\n[1d] audit_prototype (accesibilidad y estructura del prototipo):');
+const GOOD_PROTO = {
+  'index.html': [
+    '<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">',
+    '<title>Acme</title><link rel="icon" href="data:,"><link rel="stylesheet" href="styles.css"></head><body>',
+    '<a href="#main" class="skip">Saltar al contenido</a>',
+    '<header><nav aria-label="Principal"><a href="index.html" aria-current="page">Inicio</a></nav>',
+    '<button type="button" class="menu-btn" aria-label="Abrir menú" aria-expanded="false" aria-controls="drawer">Menú</button></header>',
+    '<aside id="drawer" class="mobile-drawer" aria-label="Menú móvil" inert><a href="index.html">Inicio</a></aside>',
+    '<main id="main"><h1>Acme</h1><label for="n">Nombre</label><input id="n"></main></body></html>'
+  ].join('\n'),
+  'styles.css': [
+    ':root{--bg:#101313;--fg:#F1F3F3;--accent:#00B2D6;--ring:#00B2D6}',
+    'html[data-theme="light"]{--bg:#F1F3F3;--fg:#101313;--accent:#0B2E5E;--ring:#0B2E5E}',
+    'body{background-color:var(--bg);color:var(--fg)}',
+    '.stat{color:var(--accent)}',
+    ':focus-visible{outline:3px solid var(--ring)}',
+    '.mobile-drawer{position:fixed;right:-100%;visibility:hidden}'
+  ].join('\n')
+};
+
+function auditProto(mutate = {}, args = []) {
+  const workspace = fs.mkdtempSync(path.join(tmp, 'ws-'));
+  fs.writeFileSync(path.join(workspace, 'design-system-state.json'), JSON.stringify(STATE));
+  fs.mkdirSync(path.join(workspace, 'prototype'));
+  const files = { ...GOOD_PROTO };
+  for (const [name, fn] of Object.entries(mutate)) files[name] = fn(files[name]);
+  for (const [name, content] of Object.entries(files)) fs.writeFileSync(path.join(workspace, 'prototype', name), content);
+  return run('audit_prototype.cjs', ['--dir', 'prototype', '--state', 'design-system-state.json', ...args], workspace);
+}
+
+it('audit_prototype should accept a clean prototype', () => {
+  const res = auditProto();
+  assert.strictEqual(res.status, 0, res.stdout);
+  assert(/100% PASS/.test(res.stdout), res.stdout);
+});
+
+it('audit_prototype should fail when an accent that works on dark is used as text on the light theme', () => {
+  const res = auditProto({ 'styles.css': css => css.replace('--accent:#0B2E5E', '--accent:#FFB300') });
+  assert.strictEqual(res.status, 1, res.stdout);
+  assert(/Contraste \(tema light\): "\.stat"[^\n]*#FFB300/.test(res.stdout), res.stdout);
+});
+
+it('audit_prototype should measure the focus ring composited with its alpha against the background', () => {
+  const res = auditProto({
+    'styles.css': css => css.replace(':focus-visible{outline:3px solid var(--ring)}', ':focus-visible{box-shadow:0 0 0 3px rgba(0,178,214,0.15)}')
+  });
+  assert.strictEqual(res.status, 1, res.stdout);
+  assert(/Anillo de foco \(tema base\)/.test(res.stdout), res.stdout);
+});
+
+it('audit_prototype should fail an off-canvas drawer that stays reachable by keyboard, and a menu button without aria-expanded', () => {
+  const res = auditProto({
+    'index.html': html => html.replace(' inert', '').replace(' aria-expanded="false" aria-controls="drawer"', ''),
+    'styles.css': css => css.replace(';visibility:hidden', '')
+  });
+  assert.strictEqual(res.status, 1, res.stdout);
+  assert(/tabulables/.test(res.stdout) && /aria-expanded/.test(res.stdout), res.stdout);
+});
+
+it('audit_prototype should fail missing h1, images without alt and unlabeled controls', () => {
+  const res = auditProto({
+    'index.html': html => html.replace('<h1>Acme</h1>', '<img src="a.png">').replace('<label for="n">Nombre</label>', '')
+  });
+  assert.strictEqual(res.status, 1, res.stdout);
+  assert(/no tiene <h1>/.test(res.stdout) && /sin atributo alt/.test(res.stdout) && /sin <label>/.test(res.stdout), res.stdout);
+});
+
+it('audit_prototype should only warn about unapproved fonts, missing skip link and external dependencies', () => {
+  const res = auditProto({
+    'index.html': html => html.replace(/<a href="#main"[^>]*>[^<]*<\/a>/, ''),
+    'styles.css': css => `@import url('https://fonts.googleapis.com/css2?family=Comic+Neue:wght@400;500&display=swap');\n${css}\nbody{font-family:'Comic Neue',cursive}`
+  });
+  assert.strictEqual(res.status, 0, res.stdout);
+  assert(/Saltar al contenido/.test(res.stdout) && /comic neue/i.test(res.stdout) && /fonts\.googleapis\.com/.test(res.stdout), res.stdout);
+});
+
+it('audit_prototype should warn about links whose estimated touch target is under 24px and accept a sized one', () => {
+  const small = auditProto({ 'styles.css': css => css + '\n.footer-links a{font-size:0.8rem;line-height:1.2}' });
+  assert.strictEqual(small.status, 0, small.stdout);
+  assert(/Objetivo táctil pequeño: "\.footer-links a" mide ~15px/.test(small.stdout), small.stdout);
+
+  const sized = auditProto({ 'styles.css': css => css + '\n.footer-links a{font-size:0.8rem;line-height:1.2;display:inline-flex;min-height:44px}' });
+  assert(!/Objetivo táctil/.test(sized.stdout), sized.stdout);
+});
+
+it('audit_prototype should not let an @import with ";" inside its URL swallow the :root variables', () => {
+  const res = auditProto({
+    'styles.css': css => `@import url('https://fonts.googleapis.com/css2?family=Rubik:wght@0,600;0,700&display=swap');\n${css}`
+  });
+  assert.strictEqual(res.status, 0, res.stdout);
+  assert(!/no se encontró el fondo/.test(res.stdout), res.stdout);
+});
+
+it('the prototype base (templates/prototype) should pass audit_prototype once its markers are filled', () => {
+  const dir = path.join(ROOT, 'templates', 'prototype');
+  const workspace = fs.mkdtempSync(path.join(tmp, 'ws-'));
+  fs.writeFileSync(path.join(workspace, 'design-system-state.json'), JSON.stringify(STATE));
+  fs.mkdirSync(path.join(workspace, 'prototype'));
+  fs.writeFileSync(path.join(workspace, 'prototype', 'index.html'), fs.readFileSync(path.join(dir, 'base.html'), 'utf-8').replace(/\{\{[A-Z0-9_]+\}\}/g, 'x'));
+  fs.writeFileSync(path.join(workspace, 'prototype', 'styles.css'), fs.readFileSync(path.join(dir, 'base.css'), 'utf-8'));
+  fs.writeFileSync(path.join(workspace, 'prototype', 'main.js'), fs.readFileSync(path.join(dir, 'base.js'), 'utf-8'));
+  const res = run('audit_prototype.cjs', ['--dir', 'prototype', '--state', 'design-system-state.json'], workspace);
+  assert.strictEqual(res.status, 0, res.stdout);
+  assert(/100% PASS/.test(res.stdout), res.stdout);
+});
+
+it('the phase 5 guide should point to the prototype base and state the delivery rules', () => {
+  const doc = fs.readFileSync(path.join(ROOT, 'references', 'phases', 'phase-5-prototype.md'), 'utf-8');
+  assert(doc.includes('templates/prototype/') && doc.includes('Reglas de Entrega del Prototipo'));
+  for (const rule of ['Fuentes', 'Iconos', 'Anillo de foco', 'Temas', 'Estilos', 'Contenido de ejemplo']) {
+    assert(doc.includes(`**${rule}:**`), `falta la regla "${rule}"`);
+  }
+});
+
+it('the phase 5 guide should invoke audit_prototype through <APP_ROOT>', () => {
+  const doc = fs.readFileSync(path.join(ROOT, 'references', 'phases', 'phase-5-prototype.md'), 'utf-8');
+  assert(doc.includes('<APP_ROOT>/scripts/audit_prototype.cjs'));
+});
+
 console.log('\n[2] verify_fidelity --check A (allowlist cromática de un archivo):');
 function checkA(colorsInHtml, allowed = STATE.palette.allowed_hexes) {
   const workspace = fs.mkdtempSync(path.join(tmp, 'ws-'));

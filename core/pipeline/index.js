@@ -147,6 +147,8 @@ function lastQuestion(normalizedText) {
 const STRONG_APPROVAL = /\b(apruebas|apruebes|aprueba|aprobar|apruebe|aprobacion)\b/;
 const SOFT_APPROVAL = /\b(conforme|de acuerdo|visto bueno)\b/;
 const FORWARD_TO_PROTOTYPE = /(proceder|avanzar|pasar|construir|construccion|iniciar|generar|continuar|seguir).{0,60}(fase 5|prototipo)/;
+// Cierre de la Fase 3 hacia la Fase 4: nombra el Design System y el showcase como lo que se construirá, no como algo listo para revisar
+const FORWARD_TO_VALIDATION = /(proceder|avanzar|pasar|iniciar|continuar|seguir).{0,60}(fase 4|validacion visual)/;
 
 /**
  * Clasifica la pregunta de aprobación en compuerta 1 (Design System -> construir prototipo) o compuerta 2
@@ -162,6 +164,8 @@ function classifyGateQuestion(question, tail) {
 
   const strong = STRONG_APPROVAL.test(question);
   const forward = FORWARD_TO_PROTOTYPE.test(question);
+  // "¿Apruebas el catálogo para avanzar a la Fase 4 ... showcase?" es la confirmación de la Fase 3, no la compuerta 1
+  if (!forward && FORWARD_TO_VALIDATION.test(question)) return null;
   if (strong && /(prototipo|prototype|pantallas)/.test(question) && !forward) return 'gate-2';
   if (forward || (strong && /(design system|showcase|sistema de diseno)/.test(question))) return 'gate-1';
 
@@ -263,6 +267,23 @@ class Pipeline {
     }
 
     return detectGate(agentText);
+  }
+
+  /**
+   * ¿Existe en disco el entregable que la compuerta pide revisar? La compuerta 1 revisa el showcase y la 2 el
+   * prototipo: sin ellos la compuerta sería un falso positivo (p. ej. una confirmación de fase redactada como
+   * aprobación) y aprobarla saltaría la fase que construye ese entregable. Lo que no es compuerta pasa tal cual.
+   *
+   * @param {Object|null} action Descriptor devuelto por detectAction / guardado en el historial
+   * @param {{ showcaseExists?: boolean, prototypeExists?: boolean }} status Estado de entregables en disco
+   * @returns {boolean}
+   */
+  isGateReady(action, status) {
+    if (!action || action.type !== 'gate') return true;
+    const s = status || {};
+    if (action.stepId === 'gate-1') return Boolean(s.showcaseExists);
+    if (action.stepId === 'gate-2') return Boolean(s.prototypeExists);
+    return true;
   }
 
   /**

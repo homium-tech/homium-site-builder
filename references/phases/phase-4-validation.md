@@ -40,7 +40,7 @@ Lead Design System Documentation Engineer & Visual Specification Writer. Redacci
    - **§2 Foundations:** tokens W3C con rampas HCT 13 tonos, escala tipográfica completa verbatim de `state.typography`, grilla 5 breakpoints, densidad dual, elevación, iconografía.
    - **§3 Componentes:** catálogo completo de átomos/moléculas/organismos aprobados en Fase 3 con 6 estados por componente interactivo.
    - **§4 Auditoría WCAG 2.2 AAA:** matriz de contraste de todos los pares críticos (texto/fondo, estados activos, focus ring) con ratios medidos.
-   - **§5 Handoff de Código:** bloque `:root` completo con TODOS los tokens del sistema + formato de exportación elegido en la Etapa 4.3.
+   - **§5 Handoff de Código:** bloque `:root` completo con TODOS los tokens del sistema (§5.1) + el bloque del **formato de exportación elegido por el usuario** (§5.2), ver la regla de abajo.
 
    - **Tokens en formato W3C DTCG:** en §2 expresa los tokens (color, tipografía, espaciado, radios, sombras, movimiento) como bloque JSON DTCG con `$value`, `$type` y `$description` por token (ver la plantilla `templates/design-system.md`, §2.3), además de la lista legible. Convención de nombres jerárquica: categoría-propiedad-variante-estado (ej: `color-background-primary-hover`).
    - **Documentación por componente en el `.md`:** para cada átomo, molécula y organismo escribe anatomía, los 6 estados, comportamiento responsive y notas de accesibilidad (rol ARIA, orden de tabulación, atajos de teclado si aplica) tomados de `components.*` del estado. No los vuelques en el chat.
@@ -50,7 +50,15 @@ Lead Design System Documentation Engineer & Visual Specification Writer. Redacci
 4. **Adaptaciones por la estructura de 5 fases** (sin sitemap ni selección de stack):
    - §1.1: No incluir campos de `Frontend Framework`, `CSS Framework` ni `Tipo de Sitio` — el skill no cubre selección de stack.
    - §1.3: Omitir completamente la sección "Arquitectura de Páginas y Mapa del Sitio" — la fase sitemap fue eliminada del flujo.
-   - §5.2: Incluir el bloque Tailwind CSS solo si `state.export_format === "tailwind"` (se confirma en la Etapa 4.3).
+   - §5.2: es la exportación elegida por el usuario, no una sección opcional. Las preguntas de formato y plataforma de exportación se hacen **antes** de generar el `.md` y el `.html`, y su respuesta (`export_format`, `export_platform`) se guarda en el estado en ese momento. §5.2 lleva el encabezado `5.2. Exportación principal: <formato elegido>` (sin "(Opcional)") y el bloque correspondiente:
+     - **CSS Custom Properties:** §5.1 ya es la exportación; en §5.2 documenta cómo consumirlos (importación, `data-theme`) en 5 líneas.
+     - **Tailwind:** bloque `@import "tailwindcss"; @theme { ... }` (Tailwind v4, CSS-first). Si el usuario menciona Tailwind v3 o `theme.extend`, entrega en su lugar un `tailwind.config.js` con `theme: { extend: { colors, fontFamily, borderRadius, boxShadow } }`. Declara la versión usada en el encabezado.
+     - **JSON DTCG / Style Dictionary:** bloque JSON con `$value`, `$type` y `$description` por token (`tokens.json`).
+     - **SCSS:** variables `$nombre: valor;` y mapas (`$colors: (...)`) por categoría.
+     - **Personalizado:** el formato que pidió el usuario, con el mismo alcance (colores, tipografía, radios, elevación, movimiento).
+
+     Expande los bucles de la plantilla (`{{#EACH ...}}`) con una línea por token y sustituye todos los `{{...}}`: `audit_spec.cjs` rechaza cualquier marcador sobrante y comprueba que el formato elegido tenga su bloque.
+   - El `#sec-code` del showcase muestra el `:root` completo y, debajo, un segundo `<pre>` con el mismo bloque de exportación elegido (con un `<h3>` que nombre el formato).
 
 5. **Nombre del archivo:** `[BrandSlug]_Design_System.md` donde `BrandSlug` es el valor de `state.brand.name` en snake_case sin acentos ni caracteres especiales (ej: `"Acme Corp"` → `Acme_Corp_Design_System.md`).
 
@@ -336,11 +344,14 @@ Genera el bloque de exportación correspondiente al final de `#sec-code` en el H
 
 ### Verificación Mecánica Obligatoria
 
-Tras guardar `[Brand]_Design_System.html`, ejecuta:
+Tras guardar `[Brand]_Design_System.md` y `[Brand]_Design_System.html`, ejecuta:
 
 ```bash
 node "<APP_ROOT>/scripts/audit_showcase.cjs" "[Brand]_Design_System.html"
+node "<APP_ROOT>/scripts/audit_spec.cjs" "[Brand]_Design_System.md" --state design-system-state.json
 ```
+
+`audit_spec.cjs` revisa la especificación maestra y falla (código 1) si queda cualquier `{{PLACEHOLDER}}` (incluidos los bucles `{{#EACH ...}}`, que se expanden uno por elemento), comentarios `<!-- -->` de la plantilla (las "INSTRUCCIÓN PARA EL AGENTE" se eliminan al generar el entregable), alguna de las 5 secciones canónicas ausente, o si el formato de exportación elegido en la Etapa 4.1 no tiene su bloque en la SECCIÓN 5. Advierte encabezados que conservan "(Opcional)" en secciones ya generadas y colores fuera de `palette.allowed_hexes`. Corrige el `.md` hasta que pase; nunca presentes una especificación con marcas de plantilla.
 
 Si detecta:
 - `{{PLACEHOLDER}}` sin reemplazar → corregir antes de presentar
