@@ -55,6 +55,25 @@ it('should load app.js without a browser and render a legitimate state', () => {
   assert(html.includes('Diseño web'));
 });
 
+it('should show a readable label when the logo is an object in the state, never [object Object]', () => {
+  const html = renderBlueprint({
+    brand: { name: 'Acme', logo: { type: 'SVG_ISOTYPE_TYPOGRAPHIC', source: 'generated' } }
+  });
+  assert(!html.includes('[object Object]'));
+  assert(html.includes('SVG ISOTYPE TYPOGRAPHIC (generated)'));
+});
+
+it('should not repeat the numbered options in the message when the approval gate is active', () => {
+  const app = loadApp();
+  app.context.__text = '¿Apruebas el sistema de diseño?\n\n1. Aprobar y continuar\n2. Solicitar ajustes\n3. (Escribir mi propia opción personalizada)';
+  const withButtons = app.run('renderAgentMessage(__text)');
+  assert(withButtons.includes('inline-option'), 'sin compuerta las opciones son botones');
+  const withGate = app.run('renderAgentMessage(__text, { gateActive: true })');
+  assert(!withGate.includes('inline-option'), 'con compuerta no hay botones duplicados');
+  assert(!withGate.includes('Aprobar y continuar'), 'con compuerta no se repite la lista');
+  assert(withGate.includes('¿Apruebas el sistema de diseño?'), 'la pregunta se conserva');
+});
+
 it('should escape strings coming from the state before building innerHTML', () => {
   const html = renderBlueprint({
     brand: { name: EVIL, purpose: EVIL, business_model: EVIL, logo_type: EVIL },

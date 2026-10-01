@@ -730,9 +730,14 @@ function formatInline(text) {
 /**
  * HTML de un mensaje del agente. Con `interactive` las opciones numeradas finales pasan a ser botones.
  */
-function renderAgentMessage(text, { interactive = true } = {}) {
-  const parsed = interactive ? parseOptionBlock(text) : null;
+function renderAgentMessage(text, { interactive = true, gateActive = false } = {}) {
+  const parsed = (interactive || gateActive) ? parseOptionBlock(text) : null;
   if (!parsed) return formatText(text);
+
+  // La compuerta de aprobación ya ofrece esas mismas respuestas (aprobar / ajustar): no se repiten en el mensaje
+  if (gateActive) {
+    return [parsed.before, parsed.after].filter(part => part.trim()).map(formatText).join('');
+  }
 
   const buttons = parsed.options.map(opt => {
     const plain = stripInlineMarkdown(opt.label);
@@ -859,21 +864,6 @@ function finishTurnRender(ctx, doneData) {
   hideTurnPill(ctx);
   clearGateInProgress();
 
-  if (!ctx.fullResponse.trim()) {
-    if (doneData.code && doneData.code !== 0) {
-      ctx.agentBody.innerHTML = `<p style="color:#ffb86c;display:flex;align-items:center;gap:6px;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg><span>El motor <strong>${escapeHtml(ctx.engineLabel)}</strong> finalizó con código de error ${escapeHtml(doneData.code)} sin emitir texto. Revisa la pestaña Consola para verificar el registro técnico o cambia de motor en el menú superior.</span></p>`;
-    } else {
-      ctx.agentBody.innerHTML = formatText('Respuesta completada.');
-    }
-  } else {
-    const stick = isNearBottom(chatMessages);
-    ctx.agentBody.innerHTML = renderAgentMessage(ctx.fullResponse);
-    if (stick) chatMessages.scrollTop = chatMessages.scrollHeight;
-  }
-
-  const timeSpan = ctx.agentDiv.querySelector('.message-time');
-  if (timeSpan) timeSpan.textContent = 'Ahora';
-
   // Acción pendiente: si la respuesta fue un desvío (sin título de Etapa/Fase) la pregunta del flujo
   // sigue vigente, así que se restauran sus controles en vez de dejar la compuerta vacía
   let nextAction = doneData.action || null;
@@ -884,6 +874,22 @@ function finishTurnRender(ctx, doneData) {
   } else {
     lastPendingAction = null;
   }
+
+  if (!ctx.fullResponse.trim()) {
+    if (doneData.code && doneData.code !== 0) {
+      ctx.agentBody.innerHTML = `<p style="color:#ffb86c;display:flex;align-items:center;gap:6px;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg><span>El motor <strong>${escapeHtml(ctx.engineLabel)}</strong> finalizó con código de error ${escapeHtml(doneData.code)} sin emitir texto. Revisa la pestaña Consola para verificar el registro técnico o cambia de motor en el menú superior.</span></p>`;
+    } else {
+      ctx.agentBody.innerHTML = formatText('Respuesta completada.');
+    }
+  } else {
+    const stick = isNearBottom(chatMessages);
+    ctx.agentBody.innerHTML = renderAgentMessage(ctx.fullResponse, { gateActive: nextAction?.type === 'gate' });
+    if (stick) chatMessages.scrollTop = chatMessages.scrollHeight;
+  }
+
+  const timeSpan = ctx.agentDiv.querySelector('.message-time');
+  if (timeSpan) timeSpan.textContent = 'Ahora';
+
   evaluateInteractiveActions(ctx.fullResponse, nextAction);
   loadWorkspaceInfo();
   syncSessionCache();
@@ -1428,6 +1434,22 @@ function renderBlueprint(s) {
   }
 }
 
+// El agente puede guardar un campo de texto como objeto ({ type, source }); lo reduce a una etiqueta legible
+function stateValueToLabel(v) {
+  if (v === null || v === undefined) return '';
+  if (typeof v === 'string') return v;
+  if (typeof v === 'number' || typeof v === 'boolean') return String(v);
+  if (Array.isArray(v)) return v.map(stateValueToLabel).filter(Boolean).join(', ');
+  if (typeof v !== 'object') return '';
+  const humanize = (t) => t.replace(/_/g, ' ');
+  const main = ['type', 'tipo', 'name', 'nombre', 'label', 'status', 'estado', 'value', 'description', 'descripcion']
+    .map(k => (typeof v[k] === 'string' ? v[k].trim() : ''))
+    .find(Boolean);
+  const source = typeof v.source === 'string' ? v.source.trim() : '';
+  if (main) return humanize(source ? `${main} (${source})` : main);
+  return humanize(Object.values(v).filter(x => typeof x === 'string' && x.trim()).join(' · '));
+}
+
 function renderBlueprintRaw(s) {
   if (!s) return;
   // Helper: lee s.confirmed con keys en español (schema de OpenCode/Muse Spark)
@@ -1450,10 +1472,10 @@ function renderBlueprintRaw(s) {
   const brandBusinessModel = (typeof _rawBizModel === 'string' && _rawBizModel.length < 120 &&
     !_rawBizModel.trimStart().startsWith('{') && !_rawBizModel.trimStart().startsWith('[')) ? _rawBizModel : '';
 
-  const brandLogo = s.logo || s.logo_type || s.brand?.logo_type || s.brand?.logo ||
+  const brandLogo = stateValueToLabel(s.logo || s.logo_type || s.brand?.logo_type || s.brand?.logo ||
     s.brand?.logo_url || s.brand?.isotipo ||
     _cKey(['Logo', 'logo', 'Isotipo', 'isotipo', 'logo_type']) ||
-    s.completed_steps?.['1.4']?.logo || '';
+    s.completed_steps?.['1.4']?.logo || '');
 
   const brandFidelity = resolveFidelityLabel(s) ||
     _cKey(['Fidelidad', 'fidelidad', 'fidelity', 'Fidelity']) || '';
@@ -1805,7 +1827,7 @@ function renderBlueprintRaw(s) {
   const hasPersonality = Boolean(personality.archetype || personality.tone);
   const personalityHtml = hasPersonality ? `
     <div class="blueprint-card">
-      <span class="category-eyebrow">Fase 2 · Personalidad & Arquetipo</span>
+      <span class="category-eyebrow">Fase 1 · Personalidad & Arquetipo</span>
       <h4>
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
         Arquetipo de Marca & Tono de Voz
@@ -2746,7 +2768,7 @@ function renderResumedChatState(data, fromCache = false) {
         <span class="message-time">Estado restaurado</span>
       </div>
       <div class="message-body">
-        ${renderAgentMessage(activeAssistantMessage, { interactive: canAnswerOptions })}
+        ${renderAgentMessage(activeAssistantMessage, { interactive: canAnswerOptions, gateActive: data.pendingAction?.type === 'gate' })}
       </div>
     </div>
   `;
