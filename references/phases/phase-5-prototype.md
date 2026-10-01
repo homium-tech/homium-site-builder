@@ -65,6 +65,7 @@ Estas reglas aplican a las 3 pantallas, sean cuales sean la fidelidad o la refer
 
 > [!CRITICAL_RULE]
 > - **Fuentes:** solo las familias de `state.typography` (`font_display`, `font_accent_italic`, `font_ui` y `font_mono` si existe). Si el estado no define fuente monoespaciada, usa la pila del sistema (`ui-monospace, monospace`): no importes otra. Aplica también a `@import` y `<link>` de fuentes.
+- **Versiones de CDN:** toda librería externa se carga con versión exacta (`lenis@1.3.26`, `gsap/3.12.5`), nunca con `@latest` ni sin versión: una versión nueva puede cambiar o romper el prototipo sin que nadie lo toque. `audit_prototype` advierte cada `@latest`.
 > - **Iconos:** si `state.typography.icons` define un sistema (ej: Lucide Icons), cada icono del prototipo es un `<svg>` inline de ese sistema (`viewBox="0 0 24 24"`, `stroke="currentColor"`, `aria-hidden="true"`). No los sustituyas por caracteres (`✓`, `→`) ni por emojis.
 > - **Anillo de foco:** define un token propio (`--focus-ring-color`) con un tono de la paleta que alcance ≥ 3:1 contra el fondo **de cada tema**; no uses el primario con transparencia baja. Aplícalo con `:focus-visible` a `a`, `button`, `input`, `select`, `textarea` y `[tabindex]`.
 > - **Temas:** si hay tema claro y oscuro, cada uno redefine los tokens de acento y de estado (éxito, advertencia, error, info) con tonos que sean legibles **como texto** sobre su fondo (≥ 4.5:1; usa los tonos oscuros de las rampas en el tema claro). Un acento brillante pensado para fondo oscuro no sirve de color de texto sobre fondo claro.
@@ -201,8 +202,8 @@ Estas reglas aplican a las 3 pantallas, sean cuales sean la fidelidad o la refer
 
     **CDNs a usar:**
     - **Three.js r165:** `<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.165.0/three.min.js"></script>`
-    - **tsParticles slim:** `<script src="https://cdn.jsdelivr.net/npm/tsparticles-slim@2/tsparticles.slim.bundle.min.js"></script>`
-    - **Vanta.js:** `<script src="https://cdn.jsdelivr.net/npm/vanta/dist/vanta.waves.min.js"></script>`
+    - **tsParticles slim:** `<script src="https://cdn.jsdelivr.net/npm/tsparticles-slim@2.12.0/tsparticles.slim.bundle.min.js"></script>`
+    - **Vanta.js:** `<script src="https://cdn.jsdelivr.net/npm/vanta@0.5.24/dist/vanta.waves.min.js"></script>`
     - **GSAP + ScrollTrigger:** `<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>` + `<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>`
 
     > [!CRITICAL_RULE]
@@ -213,13 +214,14 @@ Estas reglas aplican a las 3 pantallas, sean cuales sean la fidelidad o la refer
     > ```css
     > /* Self-hosted en referencia: 'Silka' — aprox. GF: 'DM Sans' */
     > ```
+    > Registra además la aproximación en `state.typography` (`font_display_fallback`, `font_ui_fallback`, `font_mono`): `audit_prototype` solo da por aprobadas las familias del estado, sus respaldos y las `self_hosted_fonts` medidas en la referencia.
 
   > [!CRITICAL_RULE]
   > **CARRUSEL/SLIDER — BLOSSOM CAROUSEL (NON-BYPASSABLE):** Si `has_slider: true`, implementar con **Blossom Carousel**. NO usar Embla, Swiper ni grid estático.
   > ```js
   > const hasMouse = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
   > if (hasMouse) {
-  >   const { Blossom } = await import('https://cdn.jsdelivr.net/npm/@blossom-carousel/core/+esm');
+  >   const { Blossom } = await import('https://cdn.jsdelivr.net/npm/@blossom-carousel/core@1.1.8/+esm');
   >   const el = document.querySelector('#section-N-carousel');
   >   const carousel = Blossom(el);
   >   carousel.init();
@@ -285,8 +287,8 @@ Estas reglas aplican a las 3 pantallas, sean cuales sean la fidelidad o la refer
   >
   > **(m.2) SMOOTH SCROLL — LENIS (condicional: `motion_dna.has_smooth_scroll: true`):**
   > ```html
-  > <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lenis@latest/dist/lenis.css">
-  > <script src="https://cdn.jsdelivr.net/npm/lenis@latest/dist/lenis.min.js"></script>
+  > <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lenis@1.3.26/dist/lenis.css">
+  > <script src="https://cdn.jsdelivr.net/npm/lenis@1.3.26/dist/lenis.min.js"></script>
   > ```
   > ```js
   > if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {

@@ -364,9 +364,9 @@ const GOOD_PROTO = {
   ].join('\n')
 };
 
-function auditProto(mutate = {}, args = []) {
+function auditProto(mutate = {}, args = [], state = STATE) {
   const workspace = fs.mkdtempSync(path.join(tmp, 'ws-'));
-  fs.writeFileSync(path.join(workspace, 'design-system-state.json'), JSON.stringify(STATE));
+  fs.writeFileSync(path.join(workspace, 'design-system-state.json'), JSON.stringify(state));
   fs.mkdirSync(path.join(workspace, 'prototype'));
   const files = { ...GOOD_PROTO };
   for (const [name, fn] of Object.entries(mutate)) files[name] = fn(files[name]);
@@ -418,6 +418,23 @@ it('audit_prototype should only warn about unapproved fonts, missing skip link a
   });
   assert.strictEqual(res.status, 0, res.stdout);
   assert(/Saltar al contenido/.test(res.stdout) && /comic neue/i.test(res.stdout) && /fonts\.googleapis\.com/.test(res.stdout), res.stdout);
+});
+
+it('audit_prototype should not count social <a href> links as dependencies, and should warn about @latest', () => {
+  const res = auditProto({
+    'index.html': html => html.replace('</body>', '<a href="https://linkedin.com/acme">in</a><script src="https://cdn.jsdelivr.net/npm/lenis@latest/dist/lenis.min.js"></script></body>')
+  });
+  assert.strictEqual(res.status, 0, res.stdout);
+  assert(!/linkedin\.com/.test(res.stdout), 'un enlace de navegación no es una dependencia');
+  assert(/Dependencia externa \(cdn\.jsdelivr\.net\)/.test(res.stdout) && /usa @latest/.test(res.stdout), res.stdout);
+});
+
+it('audit_prototype should accept every family of a saved font stack, its fallbacks and the self-hosted ones', () => {
+  const state = { ...STATE, typography: { font_display: 'Fira Code, sans-serif', font_display_fallback: 'Rubik, sans-serif', font_ui: 'Inter', self_hosted_fonts: [{ family: 'Space Mono' }] } };
+  const ok = auditProto({ 'styles.css': css => css + "\n.x{font-family:'Fira Code','Rubik',sans-serif}.y{font-family:'Space Mono',monospace}" }, [], state);
+  assert(!/no están en el estado/.test(ok.stdout), ok.stdout);
+  const bad = auditProto({ 'styles.css': css => css + "\n.x{font-family:'Comic Neue',cursive}" }, [], state);
+  assert(/comic neue/i.test(bad.stdout), bad.stdout);
 });
 
 it('audit_prototype should warn about links whose estimated touch target is under 24px and accept a sized one', () => {

@@ -326,15 +326,35 @@ if (sawActiveClassWithoutCurrent) warnings.push('La navegación marca la página
 // 5. Dependencias externas, fuentes y sistema de iconos
 // ---------------------------------------------------------------------------
 const external = new Set();
+const unpinned = new Set();
+// Solo recursos que se cargan (link/script/img/…, @import, url()); un <a href> a una red social es navegación, no dependencia
+const LOADED_RESOURCE = /<(?:link|script|img|source|video|audio|iframe|embed)\b[^>]*?\s(?:src|href)="(?:https?:)?\/\/([^/"]+)([^"]*)|@import\s+(?:url\()?['"]?(?:https?:)?\/\/([^/'")]+)([^'")]*)|url\(\s*['"]?(?:https?:)?\/\/([^/'")]+)([^'")]*)/gi;
 for (const src of [css, ...pages.map(p => p.html)]) {
-  for (const m of src.matchAll(/(?:src|href)="(https?:)?\/\/([^/"]+)|@import\s+url\(['"]?(?:https?:)?\/\/([^/'")]+)/gi)) external.add(m[2] || m[3]);
+  for (const m of src.matchAll(LOADED_RESOURCE)) {
+    const host = m[1] || m[3] || m[5];
+    external.add(host);
+    if (/@latest\b/.test(m[2] || m[4] || m[6] || '')) unpinned.add(host);
+  }
+}
+for (const host of unpinned) {
+  warnings.push(`La dependencia de ${host} usa @latest: fija una versión (p. ej. @1.3.4) para que el prototipo no cambie ni se rompa cuando salga una versión nueva.`);
 }
 for (const host of [...external].filter(h => !/^(www\.)?w3\.org$/.test(h))) {
   warnings.push(`Dependencia externa (${host}): el prototipo no funciona sin conexión y su contenido no está bajo control del proyecto.`);
 }
 
 if (state && state.typography) {
-  const approved = new Set(Object.entries(state.typography).filter(([k, v]) => /^font_/.test(k) && typeof v === 'string').map(([, v]) => v.toLowerCase()));
+  // Las fuentes se guardan como pilas ("Bagoss, sans-serif"): cada familia cuenta por separado, junto con las de
+  // respaldo (font_*_fallback) y las autoalojadas que midió la referencia
+  const approved = new Set();
+  const addFamilies = (v) => String(v).split(',').forEach(p => {
+    const n = p.trim().replace(/^['"]|['"]$/g, '').toLowerCase();
+    if (n) approved.add(n);
+  });
+  for (const [k, v] of Object.entries(state.typography)) if (/^font_/.test(k) && typeof v === 'string') addFamilies(v);
+  for (const f of Array.isArray(state.typography.self_hosted_fonts) ? state.typography.self_hosted_fonts : []) {
+    if (f && f.family) addFamilies(f.family);
+  }
   const SYSTEM = /^(serif|sans-serif|monospace|cursive|fantasy|system-ui|ui-[\w-]+|-apple-system|blinkmacsystemfont|inherit|initial|georgia|arial|helvetica( neue)?|times( new roman)?|segoe ui|roboto|courier( new)?|consolas|menlo|monaco|sf mono|tahoma|verdana|var\(.*\))$/;
   const used = new Set();
   for (const m of css.matchAll(/font-family\s*:\s*([^;}]+)|--font[\w-]*\s*:\s*([^;}]+)/gi)) {

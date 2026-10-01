@@ -184,7 +184,7 @@ Define los tokens de movimiento del sistema:
 | `--motion-easing-accelerate` | `cubic-bezier(0.4, 0, 1, 1)` | Elementos que salen |
 | `--motion-easing-emphasized` | `cubic-bezier(0.2, 0, 0, 1)` | Transiciones destacadas (hero, cambios de contexto) |
 
-- Si `motion_dna.has_smooth_scroll: true` → implementar Lenis smooth scroll en el prototipo (Fase 5) con CDN `https://cdn.jsdelivr.net/npm/lenis@latest/dist/lenis.mjs`
+- Si `motion_dna.has_smooth_scroll: true` → implementar Lenis smooth scroll en el prototipo (Fase 5) con CDN `https://cdn.jsdelivr.net/npm/lenis@1.3.26/dist/lenis.mjs`
 - Si `motion_dna.has_custom_cursor: true` → implementar cursor personalizado según `cursor_selector`
 - GSAP 3 + ScrollTrigger para reveals y stagger animations
 - Respetar `@media (prefers-reduced-motion: reduce)` en todos los tokens de movimiento
