@@ -96,7 +96,7 @@ El asistente ejecuta de inmediato la inspección técnica forense exhaustiva y o
 > **VERIFICACIÓN DE CAPTURAS POST-EXTRACTOR (NON-BYPASSABLE):**
 > Tras ejecutar el extractor, verificar que existen en disco:
 > - `scratch/screenshots/ref_hero.webp`
-> - `scratch/screenshots/ref_section_1.webp` (al menos la primera sección)
+> - `scratch/screenshots/ref_section_1.webp` … `ref_section_N.webp` (una por cada sección de `section_sequence`; el extractor genera todas, no te quedes con la primera)
 >
 > Si NO existen, las capturas fallaron silenciosamente y la Fase 5 operará sin ancla visual (máximo riesgo de alucinación). Remediar de inmediato con el Browser del asistente: navegar a la URL de referencia, tomar captura de pantalla de cada sección visible y guardarla en `scratch/screenshots/`. **Prohibido avanzar a Fase 4/5 sin capturas de referencia.**
 
@@ -196,6 +196,8 @@ El asistente presenta la **Ficha Técnica Forense Completa Consolidada** usando 
 > | Botón Primario | {{RADIO_PX}} | {{PAD_X}}×{{PAD_Y}} | `{{BG_HEX}}` / `{{TEXT_HEX}}` | {{COUNT}} instancias |
 > | Input estándar | {{RADIO_PX}} | altura {{H_PX}}px | borde {{BORDER}} | {{COUNT}} campos |
 >
+> **COBERTURA DE LA EXTRACCIÓN (NON-BYPASSABLE):** Muestra en la ficha `structural_blueprint.global.coverage_pct` (altura capturada ÷ altura de la página, con `captured_height_px` y `coverage_base_px`) y el número de secciones capturadas. Si `coverage_pct` es menor a 70, dilo explícitamente: *"Solo se capturó el X % de la página; las secciones restantes no se replicarán 1:1"* y anótalo en `fidelity_notes` (ver contrato de estado). Del mismo modo, si `navbar.nav_links` solo trae enlaces de salto ("Skip Navigation"), usa `navbar.menu_overlay` (enlaces del menú desplegable y botón disparador) y no inventes la navegación.
+>
 > **SEÑALIZACIÓN OBLIGATORIA DE DATOS ESTRUCTURALES INCOMPLETOS:** Al presentar la Secuencia de Secciones, revisar el JSON del extractor sección por sección. Para toda sección donde `columns_ratios_pct: null` Y `estimated_cards > 1` (o `layout_type: 'standard_flow'` con cards visibles), añadir el indicador `(!) grid no capturado` junto al nombre de la sección en la tabla. Esto ocurre cuando el grid/flex está en un `div` hijo y no en el `<section>` directamente (`layout_source: 'inner_container'`). Preguntar al usuario al final de la tabla: *"Las secciones marcadas con (!) tienen estructura de grilla detectada visualmente pero sin valores numéricos capturados. ¿Deseas que ajuste manualmente sus columnas y proporciones antes de bloquear el blueprint, o confirmo todo para que la Fase 5 las derive desde la captura de pantalla?"*
 
 La primera pregunta de cierre es SOLO sobre la confirmación del blueprint (NO mezclar aún con el stack):
@@ -209,7 +211,7 @@ La primera pregunta de cierre es SOLO sobre la confirmación del blueprint (NO m
 
 #### Etapa B — Persistencia y Salto a Fase 4 (Solo tras confirmar el Blueprint)
 
-Guarda inmediatamente el estado completo en `design-system-state.json` (incluyendo `brand`, `visual_dna` con `fidelity_mode: "TOTAL_ARCHITECTURAL_FIDELITY"` y `reference_screenshots` tomadas de `screenshots` del extractor, `structural_blueprint`, `palette` con `allowed_hexes`, `typography`, `personality`, `density_mode` y `modular_scale`).
+Guarda inmediatamente el estado completo en `design-system-state.json` (incluyendo `brand`, `visual_dna` con `fidelity_mode: "TOTAL_ARCHITECTURAL_FIDELITY"` y `reference_screenshots` tomadas de `screenshots` del extractor (`full_page`, `hero_viewport` y **todas** las `section_N`, no solo `section_1`), `structural_blueprint`, `palette` con `allowed_hexes`, `typography`, `personality`, `density_mode` y `modular_scale`).
 
 > [!CRITICAL_RULE — NON-BYPASSABLE]
 > **PROFUNDIDAD IDÉNTICA EN `visual_dna.secondary_pages` (NO RESUMIR):**

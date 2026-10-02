@@ -2511,6 +2511,44 @@ function renderGateAudit(audit) {
     `<div class="gate-audit-title">Verificación automática${hasFail ? ': hay errores que conviene revisar antes de aprobar' : ''}</div>${rows}</div>`;
 }
 
+const FIDELITY_KIND_LABELS = {
+  sustituido: 'Sustituido',
+  no_replicado: 'No replicado',
+  parcial: 'Parcial',
+  no_capturado: 'No capturado',
+  nota_agente: 'Nota del agente'
+};
+const FIDELITY_KIND_ORDER = ['sustituido', 'no_replicado', 'parcial', 'no_capturado', 'nota_agente'];
+
+// Qué no se pudo replicar de la referencia y por qué (informe calculado por el servidor, informativo)
+function renderFidelityReport(fidelity) {
+  if (!fidelity || !Array.isArray(fidelity.items) || fidelity.items.length === 0) return '';
+  const groups = FIDELITY_KIND_ORDER
+    .map(kind => ({ kind, items: fidelity.items.filter(item => item && item.kind === kind) }))
+    .filter(group => group.items.length > 0);
+  if (groups.length === 0) return '';
+  const rows = groups.map(group => {
+    const list = group.items.map(item => {
+      const instead = item.instead ? `<div class="gate-fidelity-instead"><strong>En su lugar:</strong> ${escapeHtml(item.instead)}</div>` : '';
+      return `<li><div class="gate-fidelity-item-title">${escapeHtml(item.title)}</div>` +
+        `<div class="gate-fidelity-reason"><strong>Motivo:</strong> ${escapeHtml(item.reason)}</div>${instead}</li>`;
+    }).join('');
+    const head = `<span class="gate-audit-name">${escapeHtml(FIDELITY_KIND_LABELS[group.kind])}</span>` +
+      `<span class="gate-audit-status is-warn">${group.items.length}</span>`;
+    return `<details class="gate-audit-row"><summary class="gate-audit-head">${head}</summary>` +
+      `<ul class="gate-audit-list gate-fidelity-list">${list}</ul></details>`;
+  }).join('');
+  let verifyLine = '';
+  const verify = fidelity.verify;
+  if (verify && typeof verify === 'object') {
+    const pct = (n) => (typeof n === 'number' ? `${Math.round(n * 100)} %` : 'sin dato');
+    const when = typeof verify.at === 'string' ? verify.at.slice(0, 10) : '';
+    verifyLine = `<div class="gate-fidelity-verify">Última comparación visual${when ? ` (${escapeHtml(when)})` : ''}: hero ${pct(verify.hero)}, página completa ${pct(verify.full_page)}${verify.stale ? ' (desactualizada)' : ''}.</div>`;
+  }
+  return `<div class="gate-audit gate-fidelity" role="group" aria-label="Qué no se pudo replicar y por qué">` +
+    `<div class="gate-audit-title">Qué no se pudo replicar y por qué</div>${rows}${verifyLine}</div>`;
+}
+
 function renderApprovalGate(gate) {
   const approvalGateContainer = document.getElementById('approvalGateContainer');
   if (!approvalGateContainer) return;
@@ -2525,6 +2563,7 @@ function renderApprovalGate(gate) {
       </div>
       <p class="gate-description">${escapeHtml(gate.description)}</p>
       ${renderGateAudit(gate.audit)}
+      ${renderFidelityReport(gate.audit && gate.audit.fidelity)}
       <div class="gate-actions">
         ${gate.options.map(opt => `
           <button type="button" class="${opt.variant === 'primary' ? 'btn-gate-approve' : 'btn-gate-adjust'}" data-val="${encodeURIComponent(opt.value)}">

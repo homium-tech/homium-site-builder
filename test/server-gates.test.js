@@ -147,6 +147,36 @@ async function runSuite() {
       }
     });
 
+    await it('should attach the fidelity limitations report to gate 2, on the reply and after a reload, without blocking it', async () => {
+      fs.writeFileSync(path.join(projectDir, 'design-system-state.json'), JSON.stringify({
+        brand: { name: 'Acme' },
+        current_phase: 5,
+        fidelity_notes: [{ topic: 'Hero WebGL', reason: 'Depende del código de la referencia', substitute: 'Degradado CSS' }],
+        visual_dna: {
+          fidelity_mode: 'TOTAL_ARCHITECTURAL_FIDELITY',
+          typography: { font_display: 'Bagoss, sans-serif', font_display_fallback: 'Syne, sans-serif', self_hosted_fonts: [{ family: 'Bagoss', woff2_src: '/fonts/Bagoss.woff2' }] },
+          structural_blueprint: { global: {}, section_sequence: [] }
+        }
+      }));
+      fs.mkdirSync(path.join(projectDir, 'prototype'), { recursive: true });
+      fs.writeFileSync(path.join(projectDir, 'prototype', 'index.html'), '<!doctype html><html lang="es"><head><title>A</title></head><body><main><h1>A</h1></main></body></html>');
+      await waitFor(async () => (await (await srv.api('/api/deliverables')).json()).status.prototypeExists, { timeoutMs: 8000 });
+
+      const events = await chat(srv, 'muestra el prototipo en la compuerta 2');
+      const action = events.find(e => e.name === 'done').data.action;
+      assert(action && action.stepId === 'gate-2', 'la respuesta abre la compuerta 2');
+      const fidelity = action.audit && action.audit.fidelity;
+      assert(fidelity && Array.isArray(fidelity.items), 'la compuerta 2 lleva el informe de fidelidad');
+      const byKind = (kind) => fidelity.items.filter(i => i.kind === kind);
+      assert(byKind('sustituido').some(i => /Bagoss/.test(i.title) && i.instead === 'Syne'), 'fuente sustituida');
+      assert(byKind('nota_agente').some(i => i.title === 'Hero WebGL' && i.instead === 'Degradado CSS'), 'nota del agente');
+      assert(action.options.length >= 1 && action.audit.summary.fail >= 0, 'el informe es informativo: las opciones siguen disponibles');
+
+      const reloaded = (await history(srv)).pendingAction;
+      assert.strictEqual(reloaded.stepId, 'gate-2');
+      assert(reloaded.audit.fidelity && reloaded.audit.fidelity.items.length === fidelity.items.length, 'tras recargar vuelve el informe');
+    });
+
     await it('should start a new project without archiving the current one, and resume it by brand name', async () => {
       const res = await srv.api('/api/project/new', { method: 'POST', body: { sessionId: 'session-gates-1' } });
       const body = await res.json();

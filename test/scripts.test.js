@@ -480,6 +480,139 @@ it('the phase 5 guide should invoke audit_prototype through <APP_ROOT>', () => {
   assert(doc.includes('<APP_ROOT>/scripts/audit_prototype.cjs'));
 });
 
+console.log('\n[1e] fidelity_report (qué no se pudo replicar y por qué):');
+const FIDELITY_STATE = {
+  ...STATE,
+  typography: {},
+  fidelity_notes: [{ topic: 'Menú overlay', reason: 'Se simplificó a un drawer', substitute: 'Drawer lateral' }],
+  visual_dna: {
+    fidelity_mode: 'TOTAL_ARCHITECTURAL_FIDELITY',
+    typography: {
+      font_display: 'Bagoss, sans-serif', font_display_fallback: 'Syne, sans-serif',
+      font_ui: 'ABC Diatype, sans-serif', font_ui_fallback: 'Inter, sans-serif',
+      self_hosted_fonts: [{ family: 'Bagoss', woff2_src: '/fonts/Bagoss.woff2' }, { family: 'ABC Diatype', woff2_src: '/fonts/Diatype.woff2' }]
+    },
+    structural_blueprint: {
+      global: {},
+      motion_dna: { has_smooth_scroll: true, has_custom_cursor: false },
+      hero: { has_canvas: true, page_canvas_count: 2, heading_color_runs: null },
+      section_sequence: [{ index: 1, media_slots: [{ role: 'embedded_iframe', is_embedded_iframe: true, embed_provider: 'vimeo' }] }]
+    }
+  }
+};
+const FIDELITY_PROTO = {
+  'index.html': '<!doctype html><html lang="es"><head><title>A</title><link rel="stylesheet" href="styles.css"></head><body><main><h1>A</h1><section>x</section></main></body></html>',
+  'about.html': '<!doctype html><html lang="es"><head><title>B</title></head><body><main><h1>B</h1></main></body></html>',
+  'styles.css': "@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400&family=Syne:wght@600&display=swap');\n:root{--font-display:'Bagoss','Syne',sans-serif;--font-ui:'ABC Diatype','Inter',sans-serif}\nbody{font-family:var(--font-ui)}"
+};
+function fidelityReport(state, protoMutate = {}, extra = {}) {
+  const workspace = fs.mkdtempSync(path.join(tmp, 'ws-'));
+  fs.writeFileSync(path.join(workspace, 'design-system-state.json'), JSON.stringify(state));
+  fs.mkdirSync(path.join(workspace, 'prototype'));
+  const files = { ...FIDELITY_PROTO };
+  for (const [name, fn] of Object.entries(protoMutate)) files[name] = fn(files[name]);
+  for (const [name, content] of Object.entries(files)) fs.writeFileSync(path.join(workspace, 'prototype', name), content);
+  for (const [rel, content] of Object.entries(extra)) {
+    fs.mkdirSync(path.dirname(path.join(workspace, rel)), { recursive: true });
+    fs.writeFileSync(path.join(workspace, rel), content);
+  }
+  const res = run('fidelity_report.cjs', ['--dir', 'prototype', '--state', 'design-system-state.json'], workspace);
+  assert.strictEqual(res.status, 0, res.stderr);
+  return { report: JSON.parse(res.stdout), workspace };
+}
+const titles = (report, kind) => report.items.filter(i => i.kind === kind).map(i => i.title);
+
+it('fidelity_report should list proprietary fonts that the prototype does not load, with their substitute', () => {
+  const { report } = fidelityReport(FIDELITY_STATE);
+  const fonts = report.items.filter(i => i.kind === 'sustituido' && /fuente/.test(i.title));
+  assert.strictEqual(fonts.length, 2);
+  const bagoss = fonts.find(i => /Bagoss/.test(i.title));
+  const diatype = fonts.find(i => /ABC Diatype/.test(i.title));
+  assert.strictEqual(bagoss.instead, 'Syne');
+  assert.strictEqual(diatype.instead, 'Inter');
+  assert(/autoalojada/.test(bagoss.reason));
+});
+
+it('fidelity_report should not list a font that the prototype does load', () => {
+  const { report } = fidelityReport(FIDELITY_STATE, { 'styles.css': (css) => css + "\n@font-face{font-family:'Bagoss';src:url(b.woff2)}" });
+  assert(!report.items.some(i => /Bagoss/.test(i.title)));
+});
+
+it('fidelity_report should flag motion, canvas and embedded video that the prototype does not reproduce', () => {
+  const { report } = fidelityReport(FIDELITY_STATE);
+  assert(titles(report, 'no_replicado').some(t => /Scroll suave/.test(t)));
+  assert(titles(report, 'no_replicado').some(t => /canvas/.test(t) && /2 capas/.test(t)));
+  assert(titles(report, 'sustituido').some(t => /Video embebido \(vimeo\)/.test(t)));
+  assert(titles(report, 'parcial').some(t => /Animaciones de entrada/.test(t)));
+});
+
+it('fidelity_report should not flag motion that the prototype does reproduce', () => {
+  const { report } = fidelityReport(FIDELITY_STATE, {
+    'index.html': (h) => h.replace('<main>', '<script src="https://cdn.jsdelivr.net/npm/lenis@1.3.26/dist/lenis.min.js"></script><canvas id="g"></canvas><iframe src="x"></iframe><main>')
+  });
+  assert(!titles(report, 'no_replicado').length, JSON.stringify(report.items));
+  assert(!titles(report, 'sustituido').some(t => /Video/.test(t)));
+});
+
+it('fidelity_report should say that coverage is unavailable for an old state, and report a low coverage', () => {
+  const { report } = fidelityReport(FIDELITY_STATE);
+  assert.strictEqual(report.coverage.available, false);
+  assert(titles(report, 'no_capturado').some(t => /Cobertura de la referencia no disponible/.test(t)));
+  const low = JSON.parse(JSON.stringify(FIDELITY_STATE));
+  low.visual_dna.structural_blueprint.global = { coverage_pct: 18 };
+  const lowReport = fidelityReport(low).report;
+  assert.strictEqual(lowReport.coverage.pct, 18);
+  assert(titles(lowReport, 'no_capturado').some(t => /18 %/.test(t)));
+  const ok = JSON.parse(JSON.stringify(FIDELITY_STATE));
+  ok.visual_dna.structural_blueprint.global = { coverage_pct: 92 };
+  const okReport = fidelityReport(ok).report;
+  assert(!titles(okReport, 'no_capturado').some(t => /Cobertura|Solo se captur/.test(t)));
+});
+
+it('fidelity_report should mention secondary pages without a blueprint of their own', () => {
+  const { report } = fidelityReport(FIDELITY_STATE);
+  assert(titles(report, 'parcial').some(t => /about\.html/.test(t)));
+});
+
+it('fidelity_report should append the notes of the agent as they are', () => {
+  const { report } = fidelityReport(FIDELITY_STATE);
+  const note = report.items.find(i => i.kind === 'nota_agente');
+  assert.deepStrictEqual({ title: note.title, reason: note.reason, instead: note.instead }, { title: 'Menú overlay', reason: 'Se simplificó a un drawer', instead: 'Drawer lateral' });
+});
+
+it('fidelity_report should read the last visual verification and mark it stale when the prototype changed later', () => {
+  const fresh = new Date(Date.now() + 60000).toISOString();
+  const { report } = fidelityReport(FIDELITY_STATE, {}, { 'scratch/fidelity_verify.json': JSON.stringify({ at: fresh, hero: 0.9, full_page: 0.7 }) });
+  assert.strictEqual(report.verify.stale, false);
+  assert(titles(report, 'parcial').some(t => /Similitud visual baja/.test(t)));
+  const old = new Date(Date.now() - 3600000).toISOString();
+  const stale = fidelityReport(FIDELITY_STATE, {}, { 'scratch/fidelity_verify.json': JSON.stringify({ at: old, hero: 0.95, full_page: 0.9 }) }).report;
+  assert.strictEqual(stale.verify.stale, true);
+  assert(titles(stale, 'parcial').some(t => /desactualizada/.test(t)));
+  assert(titles(report, 'no_capturado').every(t => !/Sin comparación visual/.test(t)));
+});
+
+it('fidelity_report should only check fonts and agent notes outside the total fidelity mode, and never fail', () => {
+  const state = JSON.parse(JSON.stringify(FIDELITY_STATE));
+  state.visual_dna.fidelity_mode = 'INSPIRATION';
+  const { report } = fidelityReport(state);
+  assert(report.items.every(i => i.kind === 'sustituido' || i.kind === 'nota_agente'), JSON.stringify(report.items));
+  const broken = run('fidelity_report.cjs', ['--dir', 'prototype', '--state', 'no-existe.json'], fs.mkdtempSync(path.join(tmp, 'ws-')));
+  assert.strictEqual(broken.status, 0);
+  assert.deepStrictEqual(JSON.parse(broken.stdout).items, []);
+});
+
+it('verify_fidelity should score the full page and write the visual summary for the report', () => {
+  const src = fs.readFileSync(script('verify_fidelity.cjs'), 'utf-8');
+  assert(/simFull < 0\.65/.test(src) && /simFull < 0\.80/.test(src), 'puntúa la página completa');
+  assert(src.includes('fidelity_verify.json'), 'escribe el resumen para el informe');
+});
+
+it('the phase 5 guide should ask the agent to register fidelity_notes', () => {
+  const doc = fs.readFileSync(path.join(ROOT, 'references', 'phases', 'phase-5-prototype.md'), 'utf-8');
+  assert(doc.includes('**Limitaciones de fidelidad:**') && doc.includes('fidelity_notes'));
+});
+
 console.log('\n[2] verify_fidelity --check A (allowlist cromática de un archivo):');
 function checkA(colorsInHtml, allowed = STATE.palette.allowed_hexes) {
   const workspace = fs.mkdtempSync(path.join(tmp, 'ws-'));

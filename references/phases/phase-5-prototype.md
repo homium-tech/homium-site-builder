@@ -72,6 +72,7 @@ Estas reglas aplican a las 3 pantallas, sean cuales sean la fidelidad o la refer
 > - **Estilos:** nada de `style=""` salvo valores dinámicos asignados por JS. Escribe clases en `styles.css` con los tokens (utilidades de espaciado, color y layout). Más de 15 estilos en línea por pantalla es una advertencia del audit.
 > - **Menú móvil y comportamiento:** parte de la base de `templates/prototype/` (`base.html`, `base.css`, `base.js`): enlace "Saltar al contenido", `aria-current="page"`, drawer cerrado con `visibility: hidden` e `inert`, botón con `aria-expanded`/`aria-controls`, gestión de foco (entra al abrir, vuelve al cerrar, Escape), conteos y canvas que respetan `prefers-reduced-motion` y se pausan fuera de pantalla. La base **no define diseño visual**: reemplaza sus valores de `:root` por `palette.allowed_hexes` y la tipografía por la de `state.typography`, y construye la maquetación desde el blueprint como siempre.
 > - **Contenido de ejemplo:** todo dato que el usuario no entregó (correo, teléfono, direcciones, precios, plazos como "respuesta en 24 horas", certificaciones, cláusulas legales, comparativas con la competencia) se escribe como ejemplo evidente: dominios reservados (`example.com`), sin cifras ni promesas concretas. Decláralos al usuario en la compuerta como "contenido de ejemplo" y regístralos en `Vacíos Conocidos`.
+> - **Limitaciones de fidelidad:** cada vez que sustituyas u omitas algo de la referencia (fuente propietaria sin archivo ni licencia, animación o efecto WebGL no transmitido, elemento del hero, sección o página no replicados), regístralo en `state.fidelity_notes` como `{ "topic": "...", "reason": "...", "substitute": "..." }` con el motivo real y lo que usaste en su lugar. La tarjeta de la compuerta calcula sola lo comprobable (fuentes, movimiento, cobertura, verificación visual) con `fidelity_report.cjs`; tus notas se muestran tal cual junto a ese informe. No ocultes una limitación porque el verificador aprobó.
 
 ---
 
@@ -382,6 +383,8 @@ Estas reglas aplican a las 3 pantallas, sean cuales sean la fidelidad o la refer
 ---
 
 ## Compuerta de Aprobación del Prototipo (Approval Gate — Entregable Final)
+
+Antes de abrir la compuerta, asegúrate de que `state.fidelity_notes` recoge todo lo que no se replicó y por qué; menciónalo en una línea ("la tarjeta de la compuerta lista lo que no se pudo replicar y el motivo"), sin repetir el detalle en el chat.
 
 Presenta el prototipo al usuario junto con el reporte JSON final de `verify_fidelity.cjs`:
 

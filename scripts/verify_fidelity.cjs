@@ -1317,6 +1317,12 @@ function aggregateSeverity(checks) {
       if (visualRequiredStrictly && !ONLY_SECTION && simGlobal < 0.70) report.summary.critical += 1;
       else if (simGlobal < 0.85) report.summary.warnings += 1;
     }
+    // Página completa: un hero parecido no basta si el resto de la página no se parece a la referencia
+    const simFull = v.similarity_vs_reference ? v.similarity_vs_reference.full_page : null;
+    if (simFull !== null && simFull !== undefined && !ONLY_SECTION) {
+      if (visualRequiredStrictly && simFull < 0.65) report.summary.critical += 1;
+      else if (simFull < 0.80) report.summary.warnings += 1;
+    }
     (v.section_scores || []).forEach(sc => {
       if (sc.status === 'MISSING') { report.summary.warnings += 1; return; }
       if (sc.similarity !== null && sc.similarity !== undefined) {
@@ -1326,6 +1332,29 @@ function aggregateSeverity(checks) {
       if (sc.aspect_delta_pct !== null && sc.aspect_delta_pct > 25) report.summary.warnings += 1;
     });
   }
+}
+
+// Resumen de la última verificación visual para fidelity_report.cjs (tarjeta del gate 2): el informe lo lee de
+// scratch/fidelity_verify.json y lo marca desactualizado si el prototipo cambió después.
+function writeVisualSummary(exitCode) {
+  const v = report.checks.visual;
+  if (!v || v.status !== 'MEASURED') return;
+  const sim = v.similarity_vs_reference || {};
+  const summary = {
+    at: report.executed_at,
+    mode: report.mode,
+    hero: sim.hero === undefined ? null : sim.hero,
+    full_page: sim.full_page === undefined ? null : sim.full_page,
+    sections: (v.section_scores || []).map(sc => ({ section: sc.section, similarity: sc.similarity === undefined ? null : sc.similarity, status: sc.status || null })),
+    critical: report.summary.critical,
+    warnings: report.summary.warnings,
+    approved: exitCode === 0
+  };
+  try {
+    const out = path.join(path.dirname(REF_DIR), 'fidelity_verify.json');
+    fs.mkdirSync(path.dirname(out), { recursive: true });
+    fs.writeFileSync(out, JSON.stringify(summary, null, 2));
+  } catch (e) { /* informativo: un fallo de escritura no debe cambiar el resultado */ }
 }
 
 // ---------------------------------------------------------------------------
@@ -1392,6 +1421,8 @@ function aggregateSeverity(checks) {
   for (const sp of report.secondary_pages) aggregateSeverity(sp.checks);
 
   const exitCode = report.summary.critical > 0 ? 1 : 0;
+
+  if (VISUAL && !ONLY_SECTION) writeVisualSummary(exitCode);
 
   // Pure JSON on stdout (machine-readable); human summary on stderr
   console.log(JSON.stringify(report, null, 2));

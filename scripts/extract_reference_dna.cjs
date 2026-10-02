@@ -101,12 +101,23 @@ async function captureCookieBannerDesign(page) {
       '[aria-label*="cookie" i]', '[data-testid*="cookie" i]',
     ].join(', ');
 
-    const candidates = [...document.querySelectorAll(selector)]
+    const bySelector = [...document.querySelectorAll(selector)]
       .filter(isVis)
       .filter(el => {
         const r = el.getBoundingClientRect();
         return r.width >= 200 && r.height >= 40; // descarta íconos/toggles sueltos, no el banner en sí
       });
+    // Avisos sin "cookie" en id/clase (p. ej. <aside id="think-notice">): elementos fijos o sticky cuyo texto
+    // habla de cookies/analítica/privacidad y que traen un botón o enlace de respuesta.
+    const noticeText = /cookie|analytics|analítica|privacy|privacidad|consent|tracking|gdpr/i;
+    const byContent = [...document.querySelectorAll('aside, [role="dialog"], [role="alertdialog"], div, section')]
+      .filter(el => {
+        if (!['fixed', 'sticky'].includes(cs(el, 'position')) || !isVis(el)) return false;
+        const r = el.getBoundingClientRect();
+        if (r.width < 200 || r.height < 40 || r.height > window.innerHeight * 0.8) return false;
+        return noticeText.test((el.textContent || '').slice(0, 800)) && !!el.querySelector('button, a');
+      });
+    const candidates = [...new Set([...bySelector, ...byContent])];
     if (candidates.length === 0) return { found: false };
 
     // Un selector amplio como este suele matchear también botones/textos internos del
@@ -1029,10 +1040,40 @@ async function extractDNA(targetUrl, screenshotPrefix = 'ref') {
       if (heroEl.querySelector('video, [class*="bg-video"], [class*="video-bg"]')) heroLayoutType = 'full_bleed_media';
     }
 
+    // Color por palabra del titular: devuelve los tramos de texto con su color solo si hay más de uno
+    // (un titular de un solo color no necesita desglose).
+    function headingColorRuns(el) {
+      if (!el) return null;
+      const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+      const runs = [];
+      for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        const text = node.textContent.replace(/\s+/g, ' ');
+        if (!text.trim() || !node.parentElement) continue;
+        const color = cssColorToHex(cs(node.parentElement, 'color')) || cs(node.parentElement, 'color');
+        const last = runs[runs.length - 1];
+        if (last && last.color_hex === color) last.text += text;
+        else runs.push({ text, color_hex: color });
+      }
+      runs.forEach(r => { r.text = r.text.trim().slice(0, 80); });
+      return new Set(runs.map(r => r.color_hex)).size > 1 ? runs.slice(0, 12) : null;
+    }
+
+    // Un canvas visible del tamaño de una sección (grano, WebGL, partículas) en cualquier parte de la página,
+    // no solo dentro del hero: suele ser una capa fija o absoluta que cubre todo el viewport.
+    const pageCanvases = [...document.querySelectorAll('canvas')].filter(c => {
+      const r = c.getBoundingClientRect();
+      const st = window.getComputedStyle(c);
+      return r.width >= window.innerWidth * 0.5 && r.height >= window.innerHeight * 0.4
+        && st.display !== 'none' && st.visibility !== 'hidden';
+    });
+
     const hero = {
       headline_text:           typography.h1_text_sample,
       headline_font_size_px:   typography.h1_font_size_px,
-      has_canvas:              heroEl ? !!heroEl.querySelector('canvas') : false,
+      heading_color_runs:      headingColorRuns(h1),
+      has_canvas:              (heroEl ? !!heroEl.querySelector('canvas') : false) || pageCanvases.length > 0,
+      page_canvas_count:       pageCanvases.length,
+      has_page_canvas:         pageCanvases.length > 0,
       has_video:               heroEl ? !!heroEl.querySelector('video') : false,
       has_svg_animation:       heroEl ? !!heroEl.querySelector('svg[class*="anim"]') : false,
       signature_asset_type:    signatureAssetType,
@@ -1113,6 +1154,51 @@ async function extractDNA(targetUrl, screenshotPrefix = 'ref') {
       !chosen.some((o, j) => i !== j && (o.contains(el))) // drop elements nested inside another chosen
     );
 
+    // ---------- Section coverage ----------
+    // Elegir las <section> de <main> con >= 2 coincidencias no garantiza haber capturado la página: si el
+    // resto del contenido vive en <div> hermanos, se perdía (p. ej. 2 secciones de 14 000 px = 18 %).
+    // Se mide la altura capturada contra la de <main> (o del documento) y, si queda corta, se añaden los
+    // bloques hermanos de las secciones elegidas (pickBlocks) subiendo por la cadena de ancestros.
+    const documentHeight = Math.max(document.documentElement.scrollHeight, document.body ? document.body.scrollHeight : 0);
+    const mainForCoverage = qsVisible('main, [role="main"]');
+    const coverageBase = (mainForCoverage ? mainForCoverage.getBoundingClientRect().height : 0) || documentHeight;
+    const capturedHeight = (els) => els.reduce((acc, el) => acc + el.getBoundingClientRect().height, 0);
+    const coveragePct = (els) => coverageBase > 0 ? Math.min(100, Math.round(capturedHeight(els) / coverageBase * 100)) : null;
+    const coverageBeforePct = coveragePct(chosen);
+    if (coverageBeforePct !== null && coverageBeforePct < 70) {
+      const merged = new Set(chosen);
+      const addSiblings = (parent, depth) => {
+        for (const child of pickBlocks(parent)) {
+          if (chosen.some(c => c === child || c.contains(child))) continue;      // ya cubierto
+          if (chosen.some(c => child.contains(c))) {                             // envuelve a una elegida: mirar dentro
+            if (depth < 4) addSiblings(child, depth + 1);
+            continue;
+          }
+          // Un contenedor mucho más alto que la pantalla suele envolver varias secciones: se expande
+          const innerBlocks = child.getBoundingClientRect().height > window.innerHeight * 1.8 ? pickBlocks(child) : [];
+          if (innerBlocks.length >= 2) innerBlocks.forEach(b => merged.add(b));
+          else merged.add(child);
+        }
+      };
+      const stopAt = mainForCoverage ? mainForCoverage.parentElement : document.body;
+      const roots = new Set();
+      chosen.forEach(c => {
+        let p = c.parentElement;
+        let hops = 0;
+        while (p && p !== stopAt && hops < 5) { roots.add(p); p = p.parentElement; hops++; }
+      });
+      roots.forEach(r => addSiblings(r, 0));
+      const mergedList = [...merged].filter(el => !el.hasAttribute('aria-hidden'));
+      mergedList.sort((a, b) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) ? -1 : 1);
+      chosen = mergedList.filter((el, i) => !mergedList.some((o, j) => i !== j && o.contains(el)));
+    }
+    globalLayout.coverage_pct = coveragePct(chosen);
+    globalLayout.coverage_before_pct = coverageBeforePct;
+    globalLayout.captured_height_px = Math.round(capturedHeight(chosen));
+    globalLayout.document_height_px = Math.round(documentHeight);
+    globalLayout.coverage_base_px = Math.round(coverageBase);
+    globalLayout.sections_captured = chosen.length;
+
     const sectionSequence = [];
     let idx = 1;
     let prevBottom = null;
@@ -1131,6 +1217,7 @@ async function extractDNA(targetUrl, screenshotPrefix = 'ref') {
     const collectMediaSlots = (scopeEl, sectionTitle, isHeroSection) => {
       const slots = [];
       const seenKeys = new Set();
+      const scopeRect = scopeEl.getBoundingClientRect();
       const addSlot = (mEl, forceRole, forceImageSrc) => {
         if (slots.length >= 5) return;
         const r = mEl.getBoundingClientRect();
@@ -1179,6 +1266,17 @@ async function extractDNA(targetUrl, screenshotPrefix = 'ref') {
           role,
           width_px: Math.round(r.width),
           height_px: Math.round(r.height),
+          // Posición respecto a la sección y tipo de posicionamiento: los medios flotantes del hero
+          // (collage, tarjetas desordenadas) solo se pueden reproducir si se conoce su sitio
+          left_px: Math.round(r.left - scopeRect.left),
+          top_px: Math.round(r.top - scopeRect.top),
+          position: (() => {
+            for (let p = mEl, d = 0; p && p !== scopeEl && d < 4; p = p.parentElement, d++) {
+              const pos = cs(p, 'position');
+              if (pos === 'absolute' || pos === 'fixed' || pos === 'sticky') return pos;
+            }
+            return 'static';
+          })(),
           aspect_ratio: +(r.width / r.height).toFixed(2),
           treatment,
           suggested_theme: sectionTitle,
@@ -1339,6 +1437,7 @@ async function extractDNA(targetUrl, screenshotPrefix = 'ref') {
         font_size_px: px(cs(secH, 'font-size')),
         font_weight: cs(secH, 'font-weight'),
         text_align: cs(secH, 'text-align'),
+        color_runs: headingColorRuns(secH),
       } : null;
 
       // Cards detail (up to 3 per section)
@@ -1747,6 +1846,65 @@ async function extractDNA(targetUrl, screenshotPrefix = 'ref') {
           text_sample:      t || null,
         });
       });
+    }
+    // ---------- Menu overlay ----------
+    // Muchos headers solo muestran un botón "Menu" y el nav real vive en un overlay/dialog cerrado, fuera del
+    // <nav> elegido: nav_links solo trae "Skip Navigation". Si no hay enlaces de navegación reales se busca el
+    // botón disparador y los enlaces del overlay (cerrado, así que sin filtrar por visibilidad).
+    const isSkipLinkItem = (l) => /skip|saltar|ir al contenido|go to content/i.test(l.text) || /#(skip|main|content)/i.test(l.href || '');
+    const realNavLinks = navbar.nav_links.filter(l => !isSkipLinkItem(l));
+    if (realNavLinks.length < 2) {
+      const triggerText = (el) => `${el.getAttribute('aria-label') || ''} ${el.textContent || ''} ${el.getAttribute('aria-controls') || ''} ${el.className && el.className.toString ? el.className.toString() : ''}`;
+      const triggerEl = [...document.querySelectorAll('button, [role="button"], a[aria-controls], [class*="hamburger" i], [class*="burger" i]')]
+        .find(el => isVisible(el) && /\b(menu|men[uú]|nav|hamburger|burger)/i.test(triggerText(el)));
+      const overlayRoots = new Set();
+      if (triggerEl && triggerEl.getAttribute('aria-controls')) {
+        const target = document.getElementById(triggerEl.getAttribute('aria-controls'));
+        if (target) overlayRoots.add(target);
+      }
+      document.querySelectorAll('[id*="menu" i], [role="dialog"], [class*="menu" i], [class*="overlay" i]').forEach(el => {
+        if (el.tagName === 'NAV' || el.querySelector('nav, a[href]')) overlayRoots.add(el);
+      });
+      const overlayLinks = [];
+      const seenOverlayHrefs = new Set();
+      overlayRoots.forEach(root => {
+        if (root.tagName === 'BODY' || root.tagName === 'HTML' || root.tagName === 'MAIN') return;
+        if (root.contains(h1)) return; // un contenedor "menu" que envuelve la página no es el overlay
+        root.querySelectorAll('a[href]').forEach(a => {
+          const text = a.textContent.trim().replace(/\s+/g, ' ');
+          const item = { text, href: a.href };
+          if (text.length < 2 || text.length > 40 || isSkipLinkItem(item) || seenOverlayHrefs.has(a.href)) return;
+          seenOverlayHrefs.add(a.href);
+          overlayLinks.push(item);
+        });
+      });
+      if (overlayLinks.length >= 2 || triggerEl) {
+        const tr = triggerEl ? triggerEl.getBoundingClientRect() : null;
+        navbar.menu_overlay = {
+          links: overlayLinks.slice(0, 20),
+          trigger: triggerEl ? {
+            sample_selector:  describeEl(triggerEl),
+            text_sample:      triggerEl.textContent.trim().replace(/\s+/g, ' ').slice(0, 30) || null,
+            aria_label:       triggerEl.getAttribute('aria-label') || null,
+            width_px:         Math.round(tr.width),
+            height_px:        Math.round(tr.height),
+            bg_hex:           cssColorToHex(cs(triggerEl, 'background-color')),
+            border_radius_px: px(cs(triggerEl, 'border-radius')),
+          } : null,
+        };
+        // El botón también es un control del header aunque el <nav> elegido no lo contenga
+        if (triggerEl && !utilityControls.some(c => c.sample_selector === describeEl(triggerEl))) {
+          utilityControls.push({
+            sample_selector:  describeEl(triggerEl),
+            has_icon_svg:     !!triggerEl.querySelector('svg, img[class*="icon"]'),
+            width_px:         Math.round(tr.width),
+            height_px:        Math.round(tr.height),
+            bg_hex:           cssColorToHex(cs(triggerEl, 'background-color')),
+            border_radius_px: px(cs(triggerEl, 'border-radius')),
+            text_sample:      triggerEl.textContent.trim().replace(/\s+/g, ' ').slice(0, 30) || null,
+          });
+        }
+      }
     }
     navbar.utility_controls = utilityControls.slice(0, 4);
 

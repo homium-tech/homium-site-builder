@@ -234,6 +234,31 @@ it('should render the audit results inside the gate and escape what the scripts 
   assert.strictEqual(app.run('renderGateAudit({ checks: [] })'), '');
 });
 
+console.log('\n[3b2] Informe de limitaciones de fidelidad en la compuerta:');
+it('should render what could not be replicated, grouped by kind, and escape everything the report carries', () => {
+  const app = loadApp();
+  app.context.__fidelity = {
+    mode: 'TOTAL_ARCHITECTURAL_FIDELITY',
+    items: [
+      { kind: 'sustituido', title: `No se usó la fuente ${EVIL}`, reason: `Propietaria ${EVIL}`, instead: `Syne ${EVIL}` },
+      { kind: 'no_replicado', title: 'Scroll suave', reason: 'Sin librería' },
+      { kind: 'nota_agente', title: EVIL, reason: EVIL, instead: EVIL },
+      { kind: 'desconocido', title: 'No debe pintarse', reason: 'x' }
+    ],
+    coverage: { available: false },
+    verify: { at: '2026-10-01T10:00:00Z', hero: 0.9, full_page: 0.55, stale: true }
+  };
+  const html = app.run('renderFidelityReport(__fidelity)');
+  assert(html.includes('Qué no se pudo replicar y por qué'));
+  assert(html.includes('Sustituido') && html.includes('No replicado') && html.includes('Nota del agente'));
+  assert(html.includes('En su lugar:') && html.includes('Motivo:'));
+  assert(!html.includes('No debe pintarse'), 'los tipos desconocidos no se pintan');
+  assert(html.includes('hero 90 %') && html.includes('página completa 55 %') && html.includes('desactualizada'));
+  assertNoActiveMarkup(html, 'informe de fidelidad');
+  assert.strictEqual(app.run('renderFidelityReport(null)'), '');
+  assert.strictEqual(app.run('renderFidelityReport({ items: [] })'), '');
+});
+
 console.log('\n[3c] Blueprint plegado en el chat:');
 it('should fold the cumulative Blueprint block into a collapsed details and keep the question visible', () => {
   const app = loadApp();

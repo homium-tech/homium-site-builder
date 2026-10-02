@@ -233,6 +233,12 @@ async function runSuite() {
     assert(/density_mode/.test(rules.SYSTEM_DIRECTIVES) && /hipótesis editable/.test(rules.SYSTEM_DIRECTIVES));
   });
 
+  await it('should make the agent register what it substitutes or omits in fidelity_notes, in the full and the compact prompt', () => {
+    assert(/fidelity_notes/.test(rules.STATE_CONTRACT) && /topic/.test(rules.STATE_CONTRACT) && /substitute/.test(rules.STATE_CONTRACT));
+    assert(rules.SYSTEM_DIRECTIVES.includes('fidelity_notes') || rules.buildActivationPrompt({ workspaceDir: tmp }).includes('fidelity_notes'), 'el prompt completo incluye el contrato');
+    assert(rules.buildTurnPrompt('hola', { workspaceDir: tmp }).includes('fidelity_notes'), 'la directiva compacta lo repite en cada turno');
+  });
+
   fs.rmSync(tmp, { recursive: true, force: true });
 
   console.log(`\n========================================`);

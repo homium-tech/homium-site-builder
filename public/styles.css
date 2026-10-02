@@ -829,6 +829,27 @@ details.gate-audit-row > summary.gate-audit-head::-webkit-details-marker {
 .gate-audit-list li.is-error { color: #ffb3b3; }
 .gate-audit-list li.is-warn { color: #ffd9a8; }
 
+/* Informe de limitaciones de fidelidad (qué no se pudo replicar y por qué) */
+.gate-fidelity-list {
+  list-style: none;
+  padding-left: 0.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+.gate-fidelity-item-title {
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+}
+.gate-fidelity-reason,
+.gate-fidelity-instead {
+  color: rgba(255, 255, 255, 0.78);
+}
+.gate-fidelity-verify {
+  margin-top: 0.2rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+
 .gate-actions {
   display: flex;
   gap: 0.5rem;
