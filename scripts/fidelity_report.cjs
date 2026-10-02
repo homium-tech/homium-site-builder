@@ -222,6 +222,21 @@ if (isTotal && protoExists) {
     'El extractor lee el DOM y los estilos medidos, no la secuencia de las animaciones (reveal, stagger, parallax, transiciones de página); esas animaciones no se transmiten.',
     used.length ? `Lo que usa el prototipo: ${used.join(', ')}` : 'El prototipo no incluye animaciones');
 
+  // Header y footer: lo que da personalidad a la página. Si la extracción no pudo leerlos, no hay nada contra
+  // lo que verificar y el prototipo se construyó sin referencia; se dice en lugar de dejarlo pasar.
+  const nbp = blueprint.navbar || {};
+  const navEmpty = nbp.capture_failed === true || (nbp.capture_failed === undefined && !nbp.height_px
+    && !(nbp.nav_links || []).length && !(nbp.link_items || []).length && !(nbp.icon_links || []).length && !nbp.menu_overlay);
+  if (navEmpty) {
+    push('no_capturado', 'Header de la referencia no capturado',
+      'La extracción no pudo leer el header (altura, enlaces, controles y forma vacíos), así que el prototipo no se pudo comparar con él ni se verificó su contenido; revisa ref_header.webp.', undefined);
+  }
+  const fbp = blueprint.footer || {};
+  if (fbp.found === false || fbp.capture_failed === true) {
+    push('no_capturado', 'Footer de la referencia no encontrado',
+      'La extracción no encontró el footer: no se sabe si la referencia no tiene o si no se pudo leer; revisa ref_footer.webp antes de dar por bueno el footer del prototipo.', undefined);
+  }
+
   // Cobertura de la extracción
   const g = blueprint.global || {};
   if (typeof g.coverage_pct === 'number') {
@@ -233,6 +248,9 @@ if (isTotal && protoExists) {
     if (g.coverage_pct < 70) {
       push('no_capturado', `Solo se capturó el ${g.coverage_pct} % de la página de referencia`,
         `La extracción obtuvo ${sections.length} ${sections.length === 1 ? 'sección' : 'secciones'}; el resto de los bloques no se detectó y no se replicó 1:1.`, undefined);
+    } else if (g.coverage_pct < 90) {
+      push('parcial', `Se capturó el ${g.coverage_pct} % de la página de referencia`,
+        'El resto (huecos entre secciones, bloques no reconocidos o el footer) no está en el blueprint y no se replicó 1:1.', undefined);
     }
   } else {
     push('no_capturado', 'Cobertura de la referencia no disponible',
@@ -266,22 +284,50 @@ if (isTotal && protoExists) {
 let verify = null;
 if (isTotal && protoExists) {
   const v = readJson(verifyPath);
-  if (v && v.at) {
-    const at = Date.parse(v.at);
-    const stale = Number.isFinite(at) && latestMtime(protoDir) > at + 1000;
-    verify = { at: v.at, hero: v.hero, full_page: v.full_page, stale };
-    const pct = (n) => (typeof n === 'number' ? `${Math.round(n * 100)} %` : 'sin dato');
+  const pct = (n) => (typeof n === 'number' ? `${Math.round(n * 100)} %` : 'sin dato');
+  // Formato anterior: solo existía con --visual y su fecha era "at"
+  const visualAt = v ? (v.visual_at !== undefined ? v.visual_at : (v.hero !== undefined || v.full_page !== undefined ? v.at : null)) : null;
+  const latest = latestMtime(protoDir);
+  const runAt = v && v.at ? Date.parse(v.at) : NaN;
+  const runStale = Number.isFinite(runAt) && latest > runAt + 1000;
+  if (v && visualAt) {
+    const at = Date.parse(visualAt);
+    const stale = Number.isFinite(at) && latest > at + 1000;
+    verify = { at: visualAt, hero: v.hero, full_page: v.full_page, stale };
     const low = (typeof v.hero === 'number' && v.hero < 0.85) || (typeof v.full_page === 'number' && v.full_page < 0.80);
     if (stale) {
       push('parcial', 'La comparación visual está desactualizada',
-        `La última comparación con la referencia (${v.at.slice(0, 10)}: hero ${pct(v.hero)}, página completa ${pct(v.full_page)}) es anterior a los últimos cambios del prototipo.`, undefined);
-    } else if (low) {
-      push('parcial', 'Similitud visual baja frente a la referencia',
-        `Última comparación (${v.at.slice(0, 10)}): hero ${pct(v.hero)}, página completa ${pct(v.full_page)}. Es una medida de distribución cromática, no de layout.`, undefined);
+        `La última comparación con la referencia (${visualAt.slice(0, 10)}: hero ${pct(v.hero)}, página completa ${pct(v.full_page)}) es anterior a los últimos cambios del prototipo.`, undefined);
+    } else {
+      if (low) {
+        push('parcial', 'Similitud visual baja frente a la referencia',
+          `Última comparación (${visualAt.slice(0, 10)}): hero ${pct(v.hero)}, página completa ${pct(v.full_page)}. Es una medida de distribución cromática, no de layout.`, undefined);
+      }
+      (Array.isArray(v.sections) ? v.sections : []).forEach(sec => {
+        if (sec && typeof sec.similarity === 'number' && sec.similarity < 0.80) {
+          push('parcial', `Sección ${sec.section}: similitud visual ${pct(sec.similarity)}`,
+            sec.similarity < 0.60
+              ? 'Por debajo del mínimo de la verificación (60 %): la sección no se parece a la referencia.'
+              : 'Por debajo del 80 % recomendado: la distribución de color de la sección difiere de la referencia.', undefined);
+        }
+      });
     }
   } else {
     push('no_capturado', 'Sin comparación visual contra la referencia',
-      'No se ejecutó verify_fidelity con --visual, así que no hay medida de similitud del hero ni de la página completa.', undefined);
+      'No se ejecutó verify_fidelity con --visual, así que no hay medida de similitud del hero, de la página completa ni de cada sección.', undefined);
+  }
+
+  // Header y footer según el último verify_fidelity (renuevan aunque no se haya corrido --visual)
+  const describeCheck = (label, check) => {
+    if (!check || !Array.isArray(check.issues) || check.issues.length === 0) return;
+    const messages = check.issues.map(i => i.message).filter(Boolean);
+    const critical = check.issues.filter(i => i.severity === 'critical').length;
+    push('parcial', `${label}: ${critical ? `${critical} diferencia(s) críticas con la referencia` : 'diferencias con la referencia'}`,
+      (runStale ? '(Verificación anterior a los últimos cambios del prototipo.) ' : '') + messages.slice(0, 6).join(' · '), undefined);
+  };
+  if (v) {
+    describeCheck('Header', v.navbar);
+    describeCheck('Footer', v.footer);
   }
 }
 

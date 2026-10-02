@@ -62,7 +62,7 @@ const report = {
   prototype_dir: PROTO_DIR,
   mode: null,
   only_section: ONLY_SECTION,
-  checks: { colors: null, structure: null, geometry: null, media: null, visual: null, components: null, hover_parity: null, mobile: null, navbar: null, blueprint_completeness: null, cookie_banner: null },
+  checks: { colors: null, structure: null, geometry: null, media: null, visual: null, components: null, hover_parity: null, mobile: null, navbar: null, footer: null, blueprint_completeness: null, cookie_banner: null },
   // Cada entrada: { role: 'content'|'conversion', file, checks: {...} } — mismo shape que `checks`,
   // una por página secundaria con blueprint propio en visual_dna.secondary_pages. Vacío si la
   // referencia no tenía páginas equivalentes o el crawl de Fase 1 no las encontró.
@@ -346,18 +346,19 @@ function requireChromium() {
   }
 }
 
-async function analyzeImage(pageContext, filePath, allowKeys) {
+async function analyzeImage(pageContext, filePath, allowKeys, crop = null) {
   const b64 = fs.readFileSync(filePath).toString('base64');
   const ext = path.extname(filePath).slice(1).toLowerCase();
-  return pageContext.evaluate(async ({ dataUrl, allowKeys }) => {
+  return pageContext.evaluate(async ({ dataUrl, allowKeys, crop }) => {
     const img = new Image();
     await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = dataUrl; });
     const W = 200;
-    const H = Math.max(1, Math.round((img.naturalHeight / img.naturalWidth) * W));
+    const srcH = crop && crop.height ? Math.min(crop.height, img.naturalHeight) : img.naturalHeight;
+    const H = Math.max(1, Math.round((srcH / img.naturalWidth) * W));
     const canvas = document.createElement('canvas');
     canvas.width = W; canvas.height = H;
     const ctx = canvas.getContext('2d');
-    ctx.drawImage(img, 0, 0, W, H);
+    ctx.drawImage(img, 0, 0, img.naturalWidth, srcH, 0, 0, W, H);
     const data = ctx.getImageData(0, 0, W, H).data;
 
     const dist = {};
@@ -399,7 +400,7 @@ async function analyzeImage(pageContext, filePath, allowKeys) {
       if (Math.abs(rowLum[y] - rowLum[y - 1]) > 18) bands++;
     }
     return { distribution: dist, silhouette_bands: bands, width_px: img.naturalWidth, height_px: img.naturalHeight };
-  }, { dataUrl: `data:image/${ext};base64,${b64}`, allowKeys });
+  }, { dataUrl: `data:image/${ext};base64,${b64}`, allowKeys, crop });
 }
 
 function distributionSimilarity(d1, d2) {
@@ -549,18 +550,7 @@ async function runVisualAndSectionCheck(htmlFile, blueprint, refPrefix, protoPre
       const motionBp = blueprint && blueprint.motion_dna;
       globalSignalIssues = await page.evaluate(({ footerBp, motionBp }) => {
         const out = [];
-        if (footerBp && footerBp.found !== false) {
-          const el = document.querySelector('footer');
-          if (!el) {
-            out.push({ severity: 'critical', section: 'footer', message: 'no existe <footer> en el prototipo pese a que el blueprint lo define' });
-          } else if (footerBp.copyright_text) {
-            const txt = el.textContent.replace(/\s+/g, ' ').trim();
-            const needle = footerBp.copyright_text.replace(/\s+/g, ' ').trim().slice(0, 20);
-            if (needle && !txt.includes(needle)) {
-              out.push({ severity: 'warning', section: 'footer', message: 'footer.copyright_text del blueprint no aparece verbatim en el <footer> del prototipo' });
-            }
-          }
-        }
+        // El footer (existencia, enlaces, redes, © y tamaño) lo verifica checkFooter
         if (motionBp && motionBp.has_smooth_scroll) {
           const hasLenis = [...document.scripts].some(s => /lenis/i.test(s.src)) || typeof window.Lenis !== 'undefined';
           if (!hasLenis) out.push({ severity: 'warning', section: 'motion', message: 'motion_dna.has_smooth_scroll:true pero no se detecta Lenis cargado' });
@@ -955,6 +945,39 @@ function findSecondaryPrototypeFiles(secondaryCount) {
 // ---------------------------------------------------------------------------
 // [F] Navbar fidelity — sticky, backdrop, pill vs full-width, height, radius
 // ---------------------------------------------------------------------------
+// Comparación visual de una franja (header o footer) contra su captura de referencia. Sirve cuando el blueprint
+// no trae datos (captura vacía) y no hay nada numérico que comparar. Es una medida cromática gruesa: no sustituye
+// al blueprint, pero impide el PASS silencioso.
+async function compareBand(browser, page, refPath, refCrop, protoShot) {
+  if (!fs.existsSync(refPath)) return null;
+  const allowKeys = [...allowed.keys()];
+  if (allowKeys.length === 0) return null;
+  const analysisPage = await browser.newPage();
+  try {
+    await page.screenshot(protoShot);
+    const proto = await analyzeImage(analysisPage, protoShot.path, allowKeys);
+    const ref = await analyzeImage(analysisPage, refPath, allowKeys, refCrop);
+    return distributionSimilarity(proto.distribution, ref.distribution);
+  } finally {
+    await analysisPage.close().catch(() => {});
+  }
+}
+
+function bandIssue(label, similarity, refName) {
+  if (similarity === null || similarity === undefined) return null;
+  const pct = Math.round(similarity * 100);
+  if (visualRequiredStrictly && similarity < 0.70) return { severity: 'critical', message: `${label}: similitud visual ${pct} % contra ${refName} (mínimo 70 %)` };
+  if (similarity < 0.85) return { severity: 'warning', message: `${label}: similitud visual ${pct} % contra ${refName} (recomendado 85 %)` };
+  return null;
+}
+
+// Un navbar sin ningún dato útil: la extracción no lo pudo leer (no es lo mismo que "no tiene nada")
+function navbarBlueprintIsEmpty(nb) {
+  if (nb.capture_failed === true) return true;
+  if (nb.capture_failed === false) return false;
+  return !nb.height_px && !(nb.nav_links || []).length && !(nb.link_items || []).length && !(nb.icon_links || []).length && !nb.menu_overlay;
+}
+
 async function checkNavbar(htmlFile, blueprint) {
   const nb = blueprint && blueprint.navbar;
   if (!nb) return { check: 'navbar_fidelity', status: 'SKIPPED', reason: 'sin blueprint de navbar' };
@@ -990,6 +1013,9 @@ async function checkNavbar(htmlFile, blueprint) {
         }
         if (navEl) break;
       }
+      // Una referencia con header estático también es válida: se mide el primer header/nav y la diferencia de
+      // posicionamiento la reporta la comparación con nb.is_sticky, no esta búsqueda.
+      if (!navEl) navEl = candidates.find(el => el.tagName === 'HEADER') || candidates[0] || null;
       if (!navEl) return { found: false };
       const rect = navEl.getBoundingClientRect();
       const bd = cs2(navEl, 'backdrop-filter') || cs2(navEl, '-webkit-backdrop-filter') || '';
@@ -1010,6 +1036,33 @@ async function checkNavbar(htmlFile, blueprint) {
         const isIconSized = r.width > 0 && r.width <= 60 && r.height <= 60 && r.width / r.height >= 0.4 && r.width / r.height <= 2.5;
         return isIconSized && (hasSvg || t.length <= 2);
       }).length;
+
+      // Inventario del header: enlaces con texto, controles de solo icono y marca. El drawer móvil y los
+      // elementos ocultos no cuentan: son otra pantalla, no el header que se ve.
+      const norm = (t) => t.trim().replace(/\s+/g, ' ');
+      const inDrawer = (el) => !!el.closest('[inert], [aria-hidden="true"], [hidden], .mobile-drawer, [class*="drawer"], aside, dialog');
+      const isBrandLink = (el, index) => {
+        const label = `${el.className || ''} ${el.id || ''} ${el.getAttribute('aria-label') || ''}`;
+        if (/brand|logo|home|inicio/i.test(label)) return true;
+        const href = el.getAttribute('href') || '';
+        return index === 0 && (href === '/' || href === '#' || /^index\.html?$/i.test(href)) && !!el.querySelector('img, svg');
+      };
+      const clickables = [...navEl.querySelectorAll('a, button, [role="link"], [role="button"]')].filter(el => isVis(el) && !inDrawer(el));
+      const textLinks = [];
+      const iconControls = [];
+      clickables.forEach((el, index) => {
+        if (isBrandLink(el, index)) return;
+        const t = norm(el.textContent);
+        if (t) textLinks.push(t);
+        else if (el.querySelector('svg, img')) iconControls.push(el.getAttribute('aria-label') || el.tagName.toLowerCase());
+      });
+      const graphics = [...navEl.querySelectorAll('img, svg')].filter(el => isVis(el) && !inDrawer(el) && !el.closest('button'));
+      const toHex = (rgb) => {
+        const m = String(rgb).match(/rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)(?:,\s*([\d.]+))?/);
+        if (!m || (m[4] !== undefined && parseFloat(m[4]) < 0.1)) return null;
+        return '#' + [m[1], m[2], m[3]].map(n => Math.round(parseFloat(n)).toString(16).padStart(2, '0')).join('').toUpperCase();
+      };
+      const shadow = cs2(navEl, 'box-shadow');
       return {
         found: true,
         height_px:        Math.round(rect.height),
@@ -1018,18 +1071,35 @@ async function checkNavbar(htmlFile, blueprint) {
         has_backdrop:     bd !== '' && bd !== 'none',
         border_radius_px: px2(cs2(navEl, 'border-radius')),
         width_px:         Math.round(rect.width),
+        left_px:          Math.round(rect.left),
+        top_px:           Math.round(rect.top),
+        shadow:           shadow && shadow !== 'none' ? shadow : null,
+        bg_hex:           toHex(bgc),
         is_full_width:    rect.width >= window.innerWidth * 0.95,
         bg_transparent:   bgc === 'rgba(0, 0, 0, 0)' || bgc === 'transparent' || (() => {
           const m = bgc.match(/rgba?\([^)]+,\s*([\d.]+)\)/);
           return m ? parseFloat(m[1]) < 0.1 : false;
         })(),
         utility_controls_count: utilityControlsCount,
+        text_links: textLinks,
+        icon_controls: iconControls,
+        has_graphic: graphics.length > 0,
       };
     });
 
     const issues = [];
+    const empty = navbarBlueprintIsEmpty(nb);
     if (!measured.found) {
-      issues.push({ severity: 'critical', message: 'No se encontró ningún elemento header fixed/sticky en el prototipo' });
+      issues.push({ severity: 'critical', message: 'No se encontró ningún header/nav en el prototipo' });
+    } else if (empty) {
+      // El blueprint no trae nada comparable: no se aprueba en silencio. Se avisa y se compara la franja superior.
+      issues.push({ severity: 'warning', message: 'blueprint de navbar vacío: la extracción no pudo leer el header de la referencia, no se pudo verificar su contenido ni su forma' });
+      const refHeader = path.join(REF_DIR, 'ref_header.webp');
+      const refHero = path.join(REF_DIR, 'ref_hero.webp');
+      const refPath = fs.existsSync(refHeader) ? refHeader : refHero;
+      const sim = await compareBand(browser, page, refPath, { height: 160 }, { path: path.join(REF_DIR, 'proto_header.webp'), type: 'webp', quality: 90, clip: { x: 0, y: 0, width: 1440, height: 160 } }).catch(() => null);
+      const issue = bandIssue('franja del header', sim, path.basename(refPath));
+      if (issue) issues.push(issue);
     } else {
       if (nb.is_sticky && !measured.is_sticky) {
         issues.push({ severity: 'critical', message: `navbar debe ser fixed/sticky (is_sticky:true) pero position:${measured.position}` });
@@ -1056,6 +1126,57 @@ async function checkNavbar(htmlFile, blueprint) {
       if (nb.height_px != null && Math.abs(measured.height_px - nb.height_px) > 10) {
         issues.push({ severity: 'warning', message: `altura navbar: ${measured.height_px}px ≠ blueprint ${nb.height_px}px±10` });
       }
+      // Un header flotante se reconoce por su ancho, su separación del borde y su posición horizontal
+      if (nb.is_full_width === false && nb.width_px) {
+        const delta = Math.abs(measured.width_px - nb.width_px) / nb.width_px;
+        if (delta > 0.25) issues.push({ severity: 'critical', message: `ancho del navbar flotante: ${measured.width_px}px ≠ blueprint ${nb.width_px}px (±25 %)` });
+        else if (delta > 0.10) issues.push({ severity: 'warning', message: `ancho del navbar flotante: ${measured.width_px}px ≠ blueprint ${nb.width_px}px (±10 %)` });
+        if (nb.left_px != null && Math.abs(measured.left_px - nb.left_px) > 40) {
+          issues.push({ severity: 'warning', message: `posición horizontal del navbar: ${measured.left_px}px ≠ blueprint ${nb.left_px}px (±40)` });
+        }
+      }
+      if (nb.top_px != null && nb.top_px > 8 && measured.top_px < nb.top_px - 10) {
+        issues.push({ severity: 'warning', message: `separación superior del navbar: ${measured.top_px}px, blueprint ${nb.top_px}px (header flotante pegado al borde)` });
+      }
+      if (nb.shadow && !measured.shadow) issues.push({ severity: 'warning', message: 'el navbar de la referencia tiene sombra (box-shadow) y el prototipo no' });
+      if (!nb.shadow && measured.shadow && nb.shadow !== undefined) issues.push({ severity: 'warning', message: 'el prototipo da sombra al navbar y la referencia no la tiene' });
+      if (nb.bg_color && measured.bg_hex && !measured.bg_transparent) {
+        const m = String(nb.bg_color).match(/rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)(?:,\s*([\d.]+))?/);
+        if (m && (m[4] === undefined || parseFloat(m[4]) >= 0.1)) {
+          const refHex = '#' + [m[1], m[2], m[3]].map(n => Math.round(parseFloat(n)).toString(16).padStart(2, '0')).join('').toUpperCase();
+          if (refHex !== measured.bg_hex) issues.push({ severity: 'warning', message: `fondo del navbar: ${measured.bg_hex} ≠ referencia ${refHex}` });
+        }
+      }
+
+      // Contenido: el header de una página con personalidad no se rellena con enlaces propios. Se compara la
+      // cantidad de enlaces con texto y de controles de icono; las etiquetas, si difieren, son una advertencia
+      // (el idioma y la marca del cliente pueden cambiar el texto, pero no cuántos elementos hay).
+      const refItems = Array.isArray(nb.link_items) ? nb.link_items.map(i => String(i.text || '').trim()).filter(Boolean)
+        : (Array.isArray(nb.nav_links) ? nb.nav_links.map(l => String(l.text || '').trim()).filter(Boolean) : []);
+      const refTextCount = refItems.length;
+      const protoTextCount = measured.text_links.length;
+      if (Array.isArray(nb.link_items) || Array.isArray(nb.nav_links)) {
+        if (protoTextCount > refTextCount) {
+          issues.push({ severity: 'critical', message: `enlaces de más en el header: el prototipo muestra ${protoTextCount} (${measured.text_links.join(', ')}) y la referencia ${refTextCount}${refTextCount ? ` (${refItems.join(', ')})` : ''}: no inventes enlaces` });
+        } else if (protoTextCount < refTextCount) {
+          issues.push({ severity: 'critical', message: `faltan enlaces en el header: el prototipo muestra ${protoTextCount} y la referencia ${refTextCount} (${refItems.join(', ')})` });
+        } else if (refTextCount > 0) {
+          const protoSet = new Set(measured.text_links.map(t => t.toLowerCase()));
+          const missing = refItems.filter(t => !protoSet.has(t.toLowerCase()));
+          if (missing.length) issues.push({ severity: 'warning', message: `etiquetas del header distintas a la referencia: faltan ${missing.join(', ')} (prototipo: ${measured.text_links.join(', ')})` });
+        }
+      }
+      const refIcons = (Array.isArray(nb.icon_links) ? nb.icon_links.length : 0) + (Array.isArray(nb.utility_controls) ? nb.utility_controls.length : 0);
+      if (Array.isArray(nb.icon_links) || Array.isArray(nb.utility_controls)) {
+        if (measured.icon_controls.length < refIcons) {
+          issues.push({ severity: 'critical', message: `faltan controles de icono en el header: ${measured.icon_controls.length} en el prototipo, ${refIcons} en la referencia (redes sociales, buscador, etc.)` });
+        } else if (measured.icon_controls.length > refIcons) {
+          issues.push({ severity: 'warning', message: `el prototipo añade ${measured.icon_controls.length - refIcons} control(es) de icono que la referencia no tiene (${measured.icon_controls.join(', ')})` });
+        }
+      }
+      if (nb.brand && nb.brand.has_logo_svg_or_img && !measured.has_graphic) {
+        issues.push({ severity: 'warning', message: 'la referencia tiene logo gráfico (img/svg) en el header y el prototipo solo muestra texto' });
+      }
       // Controles de icono (theme toggle, buscador, etc.) — la causa más común de que un
       // header de 3 zonas termine maquetado con solo 2 (brand + links, sin la 3ª zona).
       const expectedControls = Array.isArray(nb.utility_controls) ? nb.utility_controls.length : 0;
@@ -1072,7 +1193,7 @@ async function checkNavbar(htmlFile, blueprint) {
       check: 'navbar_fidelity',
       status: criticals ? 'FAIL' : (issues.length ? 'WARN' : 'PASS'),
       measured: measured.found ? measured : null,
-      blueprint: { is_sticky: nb.is_sticky, has_backdrop: nb.has_backdrop, border_radius_px: nb.border_radius_px, is_full_width: nb.is_full_width, height_px: nb.height_px },
+      blueprint: { is_sticky: nb.is_sticky, has_backdrop: nb.has_backdrop, border_radius_px: nb.border_radius_px, is_full_width: nb.is_full_width, height_px: nb.height_px, capture_failed: empty },
       issues,
       issue_count: issues.length,
     };
@@ -1083,13 +1204,117 @@ async function checkNavbar(htmlFile, blueprint) {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Cookie banner fidelity — el extractor captura el diseño real del gestor de
-// cookies antes de cerrarlo (ver captureCookieBannerDesign en el extractor).
-// Sin este check, la Compuerta Mecánica no detecta que Fase 8 lo omitió pese
-// a la regla NON-BYPASSABLE de phase-8-prototype.md — dependía 100% de que el
-// LLM la recordara entre docenas de reglas.
-// ---------------------------------------------------------------------------
+// Footer: existencia, contenido (enlaces, redes, newsletter, © ), tamaño y fondo contra el blueprint. Un footer da
+// personalidad a la página, así que sus diferencias de estructura son críticas, no avisos.
+async function checkFooter(htmlFile, blueprint) {
+  const fb = blueprint && blueprint.footer;
+  if (!fb) return { check: 'footer_fidelity', status: 'SKIPPED', reason: 'sin blueprint de footer' };
+
+  const chromium = requireChromium();
+  if (!chromium) return { check: 'footer_fidelity', status: 'SKIPPED', reason: 'Playwright no disponible' };
+
+  const htmlPath = path.join(PROTO_DIR, htmlFile);
+  if (!fs.existsSync(htmlPath)) return { check: 'footer_fidelity', status: 'SKIPPED', reason: `${htmlFile} no encontrado` };
+
+  let browser;
+  try {
+    browser = await chromium.launch();
+    const page = await browser.newPage();
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(`file:///${htmlPath.replace(/\\/g, '/')}`);
+    await page.waitForTimeout(400);
+
+    const measured = await page.evaluate(() => {
+      const els = [...document.querySelectorAll('footer, [role="contentinfo"]')];
+      const el = els[els.length - 1];
+      if (!el) return { found: false };
+      const r = el.getBoundingClientRect();
+      const norm = (t) => t.trim().replace(/\s+/g, ' ');
+      const links = [...el.querySelectorAll('a')].map(a => norm(a.textContent)).filter(t => t && t.length > 1 && t.length < 40);
+      const text = norm(el.textContent);
+      const toHex = (rgb) => {
+        const m = String(rgb).match(/rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)(?:,\s*([\d.]+))?/);
+        if (!m || (m[4] !== undefined && parseFloat(m[4]) < 0.1)) return null;
+        return '#' + [m[1], m[2], m[3]].map(n => Math.round(parseFloat(n)).toString(16).padStart(2, '0')).join('').toUpperCase();
+      };
+      return {
+        found: true,
+        height_px: Math.round(r.height),
+        bg_hex: toHex(window.getComputedStyle(el).backgroundColor),
+        links: [...new Set(links)],
+        text,
+        has_copyright: /©|copyright|all rights|derechos reservados/i.test(text),
+        has_social: !!el.querySelector('a[href*="twitter"],a[href*="linkedin"],a[href*="instagram"],a[href*="github"],a[href*="facebook"],a[href*="x.com"],a[href*="youtube"],a[aria-label*="social" i]'),
+        has_newsletter: !!el.querySelector('input[type="email"],input[type="text"][placeholder*="mail" i],[class*="newsletter"],[class*="subscribe"]'),
+      };
+    });
+
+    const issues = [];
+    const refMissing = fb.found === false || fb.capture_failed === true;
+    if (refMissing) {
+      if (measured.found && (measured.links.length > 0 || measured.text.length > 0)) {
+        issues.push({ severity: 'warning', message: 'la extracción no encontró footer en la referencia y el prototipo tiene uno con contenido: verifica contra ref_footer.webp que la referencia realmente lo tiene' });
+      }
+      const refFooter = path.join(REF_DIR, 'ref_footer.webp');
+      if (measured.found && fs.existsSync(refFooter)) {
+        const docHeight = await page.evaluate(() => Math.max(document.documentElement.scrollHeight, document.body.scrollHeight));
+        const height = Math.min(400, docHeight);
+        const sim = await compareBand(browser, page, refFooter, null, { path: path.join(REF_DIR, 'proto_footer.webp'), type: 'webp', quality: 85, fullPage: true, clip: { x: 0, y: docHeight - height, width: 1440, height } }).catch(() => null);
+        const issue = bandIssue('franja del footer', sim, 'ref_footer.webp');
+        if (issue) issues.push(issue);
+      }
+    } else if (!measured.found) {
+      issues.push({ severity: 'critical', message: 'no existe <footer> en el prototipo pese a que el blueprint lo define' });
+    } else {
+      const refLinks = Array.isArray(fb.top_links) ? fb.top_links.length : null;
+      if (refLinks !== null) {
+        const diff = measured.links.length - refLinks;
+        if (Math.abs(diff) >= 2) {
+          issues.push({ severity: 'critical', message: `enlaces del footer: el prototipo tiene ${measured.links.length} (${measured.links.join(', ')}) y la referencia ${refLinks}${refLinks ? ` (${fb.top_links.join(', ')})` : ''}: copia los enlaces de la referencia, no inventes otros` });
+        } else if (diff !== 0) {
+          issues.push({ severity: 'warning', message: `enlaces del footer: ${measured.links.length} en el prototipo, ${refLinks} en la referencia` });
+        }
+      }
+      if (fb.has_social && !measured.has_social) issues.push({ severity: 'critical', message: 'el footer de la referencia tiene enlaces a redes sociales y el prototipo no' });
+      if (!fb.has_social && measured.has_social) issues.push({ severity: 'warning', message: 'el prototipo añade redes sociales al footer y la referencia no las tiene' });
+      if (fb.has_newsletter && !measured.has_newsletter) issues.push({ severity: 'critical', message: 'el footer de la referencia tiene formulario de newsletter y el prototipo no' });
+      if (!fb.has_newsletter && measured.has_newsletter) issues.push({ severity: 'warning', message: 'el prototipo añade un formulario de newsletter al footer y la referencia no lo tiene' });
+      if (fb.copyright_text) {
+        if (!measured.has_copyright) {
+          issues.push({ severity: 'critical', message: 'la referencia tiene línea de copyright en el footer y el prototipo no' });
+        } else {
+          const needle = String(fb.copyright_text).replace(/\s+/g, ' ').trim().slice(0, 20).toLowerCase();
+          if (needle && !measured.text.toLowerCase().includes(needle)) {
+            issues.push({ severity: 'warning', message: 'footer.copyright_text del blueprint no aparece verbatim en el <footer> del prototipo (puede ser correcto si cambia la marca)' });
+          }
+        }
+      }
+      if (fb.height_px) {
+        const delta = Math.abs(measured.height_px - fb.height_px) / fb.height_px;
+        if (delta > 0.40) issues.push({ severity: 'critical', message: `altura del footer: ${measured.height_px}px ≠ blueprint ${fb.height_px}px (±40 %)` });
+        else if (delta > 0.15) issues.push({ severity: 'warning', message: `altura del footer: ${measured.height_px}px ≠ blueprint ${fb.height_px}px (±15 %)` });
+      }
+      if (fb.bg_hex && measured.bg_hex && fb.bg_hex.toUpperCase() !== measured.bg_hex) {
+        issues.push({ severity: 'warning', message: `fondo del footer: ${measured.bg_hex} ≠ referencia ${fb.bg_hex.toUpperCase()}` });
+      }
+    }
+
+    const criticals = issues.filter(i => i.severity === 'critical').length;
+    return {
+      check: 'footer_fidelity',
+      status: criticals ? 'FAIL' : (issues.length ? 'WARN' : 'PASS'),
+      measured: measured.found ? { height_px: measured.height_px, links: measured.links, has_social: measured.has_social, has_newsletter: measured.has_newsletter, has_copyright: measured.has_copyright } : null,
+      blueprint: { found: fb.found, capture_failed: !!fb.capture_failed, height_px: fb.height_px, link_count: Array.isArray(fb.top_links) ? fb.top_links.length : null },
+      issues,
+      issue_count: issues.length,
+    };
+  } catch (e) {
+    return { check: 'footer_fidelity', status: 'ERROR', error: e.message };
+  } finally {
+    if (browser) await browser.close().catch(() => {});
+  }
+}
+
 async function checkCookieBanner(htmlFile, blueprint) {
   const cb = blueprint && blueprint.cookie_banner;
   if (!cb) return { check: 'cookie_banner_fidelity', status: 'SKIPPED', reason: 'sin blueprint de cookie_banner' };
@@ -1237,7 +1462,7 @@ function resolvePages() {
 async function runPageChecks(pageInfo) {
   const { file, blueprint } = pageInfo;
   const seqAvailable = !!(blueprint && Array.isArray(blueprint.section_sequence) && blueprint.section_sequence.length > 0);
-  const checks = { structure: null, geometry: null, media: null, visual: null, components: null, hover_parity: null, mobile: null, navbar: null, blueprint_completeness: null, cookie_banner: null };
+  const checks = { structure: null, geometry: null, media: null, visual: null, components: null, hover_parity: null, mobile: null, navbar: null, footer: null, blueprint_completeness: null, cookie_banner: null };
 
   checks.blueprint_completeness = checkBlueprintCompleteness(pageInfo);
   checks.structure = runStructureCheck(file, blueprint);
@@ -1290,9 +1515,11 @@ async function runPageChecks(pageInfo) {
   // for index.html (the home page) where the nav chrome is meaningful.
   if (pageInfo.role === 'home') {
     checks.navbar = await checkNavbar(file, blueprint).catch(e => ({ check: 'navbar_fidelity', status: 'ERROR', error: e.message }));
+    checks.footer = await checkFooter(file, blueprint).catch(e => ({ check: 'footer_fidelity', status: 'ERROR', error: e.message }));
     checks.cookie_banner = await checkCookieBanner(file, blueprint).catch(e => ({ check: 'cookie_banner_fidelity', status: 'ERROR', error: e.message }));
   } else {
     checks.navbar = { check: 'navbar_fidelity', status: 'SKIPPED', reason: 'solo se verifica en home' };
+    checks.footer = { check: 'footer_fidelity', status: 'SKIPPED', reason: 'solo se verifica en home' };
     checks.cookie_banner = { check: 'cookie_banner_fidelity', status: 'SKIPPED', reason: 'solo se verifica en home' };
   }
 
@@ -1300,7 +1527,7 @@ async function runPageChecks(pageInfo) {
 }
 
 function aggregateSeverity(checks) {
-  for (const key of ['structure', 'geometry', 'media', 'components', 'mobile', 'navbar', 'blueprint_completeness', 'cookie_banner']) {
+  for (const key of ['structure', 'geometry', 'media', 'components', 'mobile', 'navbar', 'footer', 'blueprint_completeness', 'cookie_banner']) {
     const chk = checks[key];
     if (!chk) continue;
     if (chk.status === 'FAIL') report.summary.critical += 1;
@@ -1336,22 +1563,39 @@ function aggregateSeverity(checks) {
 
 // Resumen de la última verificación visual para fidelity_report.cjs (tarjeta del gate 2): el informe lo lee de
 // scratch/fidelity_verify.json y lo marca desactualizado si el prototipo cambió después.
+function headerFooterSummary(check) {
+  if (!check) return null;
+  return { status: check.status, issues: (check.issues || []).map(i => ({ severity: i.severity, message: i.message })) };
+}
+
 function writeVisualSummary(exitCode) {
+  if (ONLY_SECTION || report.mode === 'INSPIRATION') return;
+  const out = path.join(path.dirname(REF_DIR), 'fidelity_verify.json');
+  // Una corrida sin --visual no mide similitud: conserva la última medición visual y solo renueva header y footer
+  let prev = null;
+  try { prev = JSON.parse(fs.readFileSync(out, 'utf8')); } catch (e) { /* primera vez o archivo ilegible */ }
   const v = report.checks.visual;
-  if (!v || v.status !== 'MEASURED') return;
-  const sim = v.similarity_vs_reference || {};
+  const measured = !!(v && v.status === 'MEASURED');
+  const sim = measured ? (v.similarity_vs_reference || {}) : null;
+  const keep = (key) => (prev && prev[key] !== undefined ? prev[key] : null);
   const summary = {
     at: report.executed_at,
     mode: report.mode,
-    hero: sim.hero === undefined ? null : sim.hero,
-    full_page: sim.full_page === undefined ? null : sim.full_page,
-    sections: (v.section_scores || []).map(sc => ({ section: sc.section, similarity: sc.similarity === undefined ? null : sc.similarity, status: sc.status || null })),
+    // Formato anterior: sin visual_at, la fecha de la medición visual era "at" (solo se escribía con --visual)
+    visual_at: measured ? report.executed_at
+      : (prev ? (prev.visual_at !== undefined ? prev.visual_at : (prev.hero != null ? prev.at : null)) : null),
+    hero: measured ? (sim.hero === undefined ? null : sim.hero) : keep('hero'),
+    full_page: measured ? (sim.full_page === undefined ? null : sim.full_page) : keep('full_page'),
+    sections: measured
+      ? (v.section_scores || []).map(sc => ({ section: sc.section, similarity: sc.similarity === undefined ? null : sc.similarity, status: sc.status || null }))
+      : (prev && Array.isArray(prev.sections) ? prev.sections : []),
+    navbar: headerFooterSummary(report.checks.navbar),
+    footer: headerFooterSummary(report.checks.footer),
     critical: report.summary.critical,
     warnings: report.summary.warnings,
     approved: exitCode === 0
   };
   try {
-    const out = path.join(path.dirname(REF_DIR), 'fidelity_verify.json');
     fs.mkdirSync(path.dirname(out), { recursive: true });
     fs.writeFileSync(out, JSON.stringify(summary, null, 2));
   } catch (e) { /* informativo: un fallo de escritura no debe cambiar el resultado */ }
@@ -1383,6 +1627,7 @@ function writeVisualSummary(exitCode) {
     report.checks.components   = { check: 'component_signals', status: 'SKIPPED', reason: 'modo INSPIRATION no exige señales de componentes' };
     report.checks.hover_parity = { check: 'hover_parity', status: 'SKIPPED', reason: 'modo INSPIRATION no exige paridad de hover' };
     report.checks.mobile       = { check: 'mobile_fidelity', status: 'SKIPPED', reason: 'modo INSPIRATION no exige fidelidad mobile' };
+    report.checks.footer       = { check: 'footer_fidelity', status: 'SKIPPED', reason: 'modo INSPIRATION no replica el footer de la referencia' };
     report.checks.visual    = VISUAL
       ? { check: 'visual_verification', status: 'SKIPPED', reason: 'modo INSPIRATION no compara contra la referencia' }
       : { check: 'visual_verification', status: 'NOT_REQUESTED' };
@@ -1399,6 +1644,7 @@ function writeVisualSummary(exitCode) {
     report.checks.mobile       = homeChecks.mobile;
     report.checks.visual       = homeChecks.visual;
     report.checks.navbar       = homeChecks.navbar;
+    report.checks.footer       = homeChecks.footer;
     report.checks.blueprint_completeness = homeChecks.blueprint_completeness;
     report.checks.cookie_banner = homeChecks.cookie_banner;
 
@@ -1422,12 +1668,12 @@ function writeVisualSummary(exitCode) {
 
   const exitCode = report.summary.critical > 0 ? 1 : 0;
 
-  if (VISUAL && !ONLY_SECTION) writeVisualSummary(exitCode);
+  writeVisualSummary(exitCode);
 
   // Pure JSON on stdout (machine-readable); human summary on stderr
   console.log(JSON.stringify(report, null, 2));
   const st = (k) => (report.checks[k] || {}).status || 'N/A';
-  console.error(`[Verify] Colores: ${st('colors')} | Estructura: ${st('structure')} | Geometría: ${st('geometry')} | Media: ${st('media')} | Componentes: ${st('components')} | Hover: ${st('hover_parity')} | Mobile: ${st('mobile')} | Navbar: ${st('navbar')} | Cookies: ${st('cookie_banner')} | Visual: ${st('visual')}`);
+  console.error(`[Verify] Colores: ${st('colors')} | Estructura: ${st('structure')} | Geometría: ${st('geometry')} | Media: ${st('media')} | Componentes: ${st('components')} | Hover: ${st('hover_parity')} | Mobile: ${st('mobile')} | Navbar: ${st('navbar')} | Footer: ${st('footer')} | Cookies: ${st('cookie_banner')} | Visual: ${st('visual')}`);
   for (const sp of report.secondary_pages) {
     const stp = (k) => (sp.checks[k] || {}).status || 'N/A';
     console.error(`[Verify] [${sp.role}:${sp.file}] Estructura: ${stp('structure')} | Geometría: ${stp('geometry')} | Media: ${stp('media')} | Componentes: ${stp('components')} | Hover: ${stp('hover_parity')} | Mobile: ${stp('mobile')} | Visual: ${stp('visual')}`);

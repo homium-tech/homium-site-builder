@@ -239,7 +239,18 @@ async function runSuite() {
     assert(rules.buildTurnPrompt('hola', { workspaceDir: tmp }).includes('fidelity_notes'), 'la directiva compacta lo repite en cada turno');
   });
 
-  fs.rmSync(tmp, { recursive: true, force: true });
+  await it('should make the header and footer copy the reference and forbid claiming verification results in the gate message', () => {
+    assert(/header y el footer/.test(rules.FIDELITY_RULE) && /prohibido añadir enlaces o controles/.test(rules.FIDELITY_RULE));
+    assert(/NO afirmes/.test(rules.FIDELITY_RULE) && /tarjeta de la compuerta/.test(rules.FIDELITY_RULE));
+    assert(rules.SYSTEM_DIRECTIVES.includes('FIDELIDAD DE HEADER Y FOOTER'), 'el prompt completo lo incluye');
+    const turn = rules.buildTurnPrompt('hola', { workspaceDir: tmp });
+    assert(/FIDELIDAD: header y footer copian/.test(turn) && /no afirmes/.test(turn), 'la directiva compacta lo repite en cada turno');
+    const phase5 = fs.readFileSync(path.join(__dirname, '..', 'references', 'phases', 'phase-5-prototype.md'), 'utf-8');
+    assert(phase5.includes('**Header y footer 1:1') && phase5.includes('No afirmes resultados de verificación en el chat'));
+  });
+
+  
+fs.rmSync(tmp, { recursive: true, force: true });
 
   console.log(`\n========================================`);
   console.log(`Summary: ${passedTests}/${totalTests} tests passed.`);

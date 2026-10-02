@@ -837,7 +837,61 @@ async function extractDNA(targetUrl, screenshotPrefix = 'ref') {
       .map(([color, freq]) => ({ color, frequency: freq, hex: rgbToHex(color) }));
 
     // ---------- Navbar ----------
-    const nav = qsVisible('nav, header[class], [role="navigation"], [class*="navbar"], [class*="header"]');
+    const semanticNav = qsVisible('nav, header[class], [role="navigation"], [class*="navbar"], [class*="header"]');
+    // Sitios hechos con Framer, Webflow o similares no usan <nav>/<header>: el header es un conjunto de <div>
+    // fijos. Si el selector semántico no encuentra enlaces reales de navegación (o no encuentra nada), se busca
+    // por geometría: el contenedor fijo/sticky/absoluto pegado al borde superior con más elementos interactivos.
+    const isSkipNavText = (t) => /skip|saltar|ir al contenido|go to content/i.test(t);
+    const hasRealNavLinks = (el) => !!el && [...el.querySelectorAll('a[href]')].some(a => {
+      const t = a.textContent.trim();
+      return t.length > 1 && !isSkipNavText(t) && !/#(skip|main|content)/i.test(a.getAttribute('href') || '');
+    });
+    const detectHeaderByGeometry = () => {
+      const interactiveSel = 'a, button, img, svg, [role="link"], [role="button"]';
+      let best = null, bestScore = -Infinity;
+      for (const el of document.querySelectorAll('body *')) {
+        const pos = window.getComputedStyle(el).position;
+        if (pos !== 'fixed' && pos !== 'sticky' && pos !== 'absolute') continue;
+        const r = el.getBoundingClientRect();
+        if (r.top > 140 || r.bottom < 20 || r.width < 200 || r.height < 30 || r.height > 300) continue;
+        if (r.width > window.innerWidth * 1.01 || !isVisible(el)) continue;
+        if (el.tagName === 'CANVAS' || el.contains(h1Candidate)) continue;
+        const n = el.querySelectorAll(interactiveSel).length;
+        if (n < 2) continue;
+        // Más elementos interactivos gana; a igualdad, el contenedor más pequeño (el más interno)
+        const score = n * 1000 - r.width * r.height / 1000 - Math.max(0, r.top);
+        if (score > bestScore) { bestScore = score; best = el; }
+      }
+      return best;
+    };
+    // El contenedor fijo suele ser un envoltorio transparente de ancho completo y la píldora/barra con fondo,
+    // sombra o desenfoque vive dentro, en flujo normal: se desciende hasta el elemento con estilo propio más
+    // pequeño que aún contiene (casi) todos los elementos interactivos del header.
+    const refineToVisualChrome = (root) => {
+      const interactiveSel = 'a, button, img, svg, [role="link"], [role="button"]';
+      const total = root.querySelectorAll(interactiveSel).length;
+      let best = null, bestArea = Infinity;
+      for (const el of root.querySelectorAll('*')) {
+        if (el.closest('svg')) continue;
+        const r = el.getBoundingClientRect();
+        if (r.width < 200 || r.height < 30 || r.height > 300) continue;
+        const st = window.getComputedStyle(el);
+        const hasBg = st.backgroundColor && st.backgroundColor !== 'rgba(0, 0, 0, 0)' && st.backgroundColor !== 'transparent';
+        const styled = hasBg || (st.boxShadow && st.boxShadow !== 'none') || (st.backdropFilter && st.backdropFilter !== 'none');
+        if (!styled || !isVisible(el)) continue;
+        if (el.querySelectorAll(interactiveSel).length < Math.max(2, total - 1)) continue;
+        const area = r.width * r.height;
+        if (area < bestArea) { bestArea = area; best = el; }
+      }
+      return best || root;
+    };
+    const h1Candidate = qsVisible('h1');
+    let navDetectedBy = semanticNav ? 'semantic' : 'none';
+    let nav = semanticNav;
+    if (!hasRealNavLinks(semanticNav)) {
+      const geo = detectHeaderByGeometry();
+      if (geo) { nav = refineToVisualChrome(geo); navDetectedBy = 'geometry'; }
+    }
     // El <nav> semántico suele ser solo la fila de links, sin el look visual real
     // (fondo, sticky/fixed, backdrop) — eso suele vivir en 1-2 ancestros distintos
     // (ej. un div con el "pill" de fondo/blur, y OTRO ancestro con position:fixed
@@ -922,7 +976,63 @@ async function extractDNA(targetUrl, screenshotPrefix = 'ref') {
       initial_transparent: navInitialTransparent,
       nav_links:           navLinks.slice(0, 10),
       nav_links_pill:      navLinksPill,
+      detected_by:         navDetectedBy,
     };
+
+    // Marca, medidas y textos de TODOS los elementos clicables del header (incluidos <div>/<span> con
+    // texto, como "Email" en un header sin <a> con texto): son lo que el prototipo debe reproducir tal cual
+    // y lo que no debe inventar.
+    {
+      const scope = navChrome.visual || nav;
+      if (scope) {
+        const chromeEl = navChrome.visual || scope;
+        const cr = chromeEl.getBoundingClientRect();
+        const shadow = cs(chromeEl, 'box-shadow');
+        navbar.shadow = shadow && shadow !== 'none' ? shadow : null;
+        navbar.width_px = Math.round(cr.width);
+        navbar.left_px = Math.round(cr.left);
+        navbar.top_px = Math.round(cr.top);
+        navbar.max_width_px = px(cs(chromeEl, 'max-width'));
+        const clickable = 'a, button, [role="link"], [role="button"]';
+        const isLeafText = (el) => ![...el.children].some(c => c.textContent.trim());
+        let brand = null;
+        const brandCandidate = [...scope.querySelectorAll('a, div, span, h1, p')].find(el => {
+          if (!el.querySelector('img, svg') && !isLeafText(el)) return false;
+          const r = el.getBoundingClientRect();
+          return r.width > 0 && r.left < cr.left + cr.width * 0.5;
+        });
+        const brandText = (() => {
+          if (!brandCandidate) return null;
+          const t = brandCandidate.textContent.trim().replace(/\s+/g, ' ');
+          if (t && t.length <= 40) return t;
+          const leaf = [...brandCandidate.querySelectorAll('*')].find(e => isLeafText(e) && e.textContent.trim());
+          return leaf ? leaf.textContent.trim().replace(/\s+/g, ' ').slice(0, 40) : null;
+        })();
+        const brandHasGraphic = !!scope.querySelector('img, svg');
+        if (brandCandidate) {
+          const br = brandCandidate.getBoundingClientRect();
+          brand = { text: brandText, has_logo_svg_or_img: brandHasGraphic, width_px: Math.round(br.width), height_px: Math.round(br.height) };
+        }
+        navbar.brand = brand;
+        const seenItems = new Set();
+        const items = [];
+        scope.querySelectorAll('a, button, [role="link"], [role="button"], div, span, p').forEach(el => {
+          const t = el.textContent.trim().replace(/\s+/g, ' ');
+          if (!t || t.length > 40 || isSkipNavText(t)) return;
+          if (!el.matches(clickable) && !(isLeafText(el) && (cs(el, 'cursor') === 'pointer' || el.closest(clickable)))) return;
+          const key = t.toLowerCase();
+          if (seenItems.has(key) || (brandText && key === brandText.toLowerCase())) return;
+          seenItems.add(key);
+          items.push({ text: t, tag: el.tagName.toLowerCase(), href: el.href || (el.closest('a') && el.closest('a').href) || null });
+        });
+        navbar.link_items = items.slice(0, 20);
+        // Enlaces o botones de solo icono (redes sociales, buscador): sin texto no entran en link_items
+        navbar.icon_links = [...scope.querySelectorAll('a, button')]
+          .filter(el => !el.textContent.trim() && el.querySelector('svg, img') && !(brandCandidate && (brandCandidate.contains(el) || el.contains(brandCandidate))))
+          .slice(0, 6)
+          .map(el => ({ tag: el.tagName.toLowerCase(), href: el.href || null, aria_label: el.getAttribute('aria-label') || null }));
+      }
+    }
 
     // ---------- Hero ----------
     // El hero real no siempre tiene naming "hero" ni es hijo directo de <main>
@@ -1629,7 +1739,39 @@ async function extractDNA(targetUrl, screenshotPrefix = 'ref') {
     };
 
     // ---------- Footer ----------
-    const footerEl = qsVisible('footer, [role="contentinfo"]');
+    // qsVisible/isVisible exigen que el elemento esté dentro del viewport inicial: un footer al final de la página
+    // nunca lo cumple, así que se busca con un criterio de "renderizado" (tamaño, display, visibilidad) y sin
+    // mirar el scroll. Sin <footer> semántico (Framer, Webflow...) se usa el bloque que termina al final del documento.
+    const isRendered = (el) => {
+      const r = el.getBoundingClientRect();
+      if (r.width === 0 || r.height === 0) return false;
+      const st = window.getComputedStyle(el);
+      return st.display !== 'none' && st.visibility !== 'hidden' && parseFloat(st.opacity) !== 0;
+    };
+    const documentBottom = Math.max(document.documentElement.scrollHeight, document.body ? document.body.scrollHeight : 0);
+    const semanticFooters = [...document.querySelectorAll('footer, [role="contentinfo"]')].filter(isRendered);
+    let footerDetectedBy = semanticFooters.length ? 'semantic' : 'none';
+    let footerEl = semanticFooters.length
+      ? semanticFooters.sort((a, b) => b.getBoundingClientRect().bottom - a.getBoundingClientRect().bottom)[0]
+      : null;
+    if (!footerEl) {
+      const cands = [...document.querySelectorAll('body *')].filter(el => {
+        if (['SCRIPT', 'STYLE', 'LINK', 'CANVAS', 'NOSCRIPT'].includes(el.tagName.toUpperCase())) return false;
+        const r = el.getBoundingClientRect();
+        const bottom = r.bottom + window.scrollY;
+        if (bottom < documentBottom - 60 || r.height < 60 || r.height > 700 || r.width < window.innerWidth * 0.5) return false;
+        const st = window.getComputedStyle(el);
+        if (['fixed', 'sticky'].includes(st.position) || !isRendered(el)) return false;
+        if (chosen.some(c => c === el || c.contains(el) || el.contains(c))) return false;
+        const txt = el.textContent.trim();
+        return txt.length > 0 && (!!el.querySelector('a, button') || /©|copyright|all rights/i.test(txt));
+      });
+      // El más externo de la cadena de candidatos que terminan al final de la página
+      const outermost = cands.filter(el => !cands.some(o => o !== el && o.contains(el)));
+      footerEl = outermost.sort((a, b) => b.getBoundingClientRect().height - a.getBoundingClientRect().height)[0] || null;
+      if (footerEl) footerDetectedBy = 'geometry';
+    }
+    if (footerEl) footerEl.setAttribute('data-dna-footer', '1');
     const footerLinks = [];
     let footerLinkSampleSelector = null;
     let footerLinkHoverTestSelector = null;
@@ -1712,6 +1854,10 @@ async function extractDNA(targetUrl, screenshotPrefix = 'ref') {
       top_links:       [...new Set(footerLinks)].slice(0, 12),
       link_sample_selector: footerLinkSampleSelector,
       link_hover_test_selector: footerLinkHoverTestSelector,
+      detected_by:     footerDetectedBy,
+      // Sin footer no hay forma de saber si la referencia no lo tiene o si no se pudo leer: se declara, no se asume
+      reason:          footerEl ? null : 'no_footer_found',
+      capture_failed:  !footerEl,
     };
 
     // ---------- Component DNA: global button & input morphology census ----------
@@ -1907,6 +2053,12 @@ async function extractDNA(targetUrl, screenshotPrefix = 'ref') {
       }
     }
     navbar.utility_controls = utilityControls.slice(0, 4);
+    // Captura vacía: sin altura ni ningún texto/enlace/botón el header no se pudo leer. El verificador, el informe
+    // y las guías lo tratan como "no verificado" en vez de aprobar contra un blueprint vacío.
+    navbar.capture_failed = !navbar.height_px || (
+      (navbar.nav_links || []).length === 0 && (navbar.link_items || []).length === 0 && (navbar.icon_links || []).length === 0 &&
+      !(navbar.menu_overlay && ((navbar.menu_overlay.links || []).length > 0 || navbar.menu_overlay.trigger))
+    );
 
     const componentDna = {
       buttons: buttonsDna,
@@ -2017,8 +2169,34 @@ async function extractDNA(targetUrl, screenshotPrefix = 'ref') {
     await page.screenshot({ path: heroPath, type: 'webp', quality: 85 });
     screenshotPaths.hero_viewport = heroPath;
     console.error(`[DNA v4] Hero screenshot       → ${heroPath}`);
+
+    // Franja del header (cabecera completa, con su forma y sombra) como ancla visual cuando el DOM no basta
+    const headerPath = path.join(SCREENSHOT_DIR, `${screenshotPrefix}_header.webp`);
+    await page.screenshot({ path: headerPath, type: 'webp', quality: 90, clip: { x: 0, y: 0, width: 1440, height: 160 } });
+    screenshotPaths.header = headerPath;
+    console.error(`[DNA v4] Header screenshot     → ${headerPath}`);
   } catch (e) {
     console.error(`[DNA v4] Screenshot error: ${e.message}`);
+  }
+
+  // ---------- Footer crop (elemento detectado o, en su defecto, el final de la página) ----------
+  try {
+    const footerPath = path.join(SCREENSHOT_DIR, `${screenshotPrefix}_footer.webp`);
+    const footerLoc = page.locator('[data-dna-footer="1"]').first();
+    if (await footerLoc.count()) {
+      await footerLoc.scrollIntoViewIfNeeded({ timeout: 5000 });
+      await page.waitForTimeout(300);
+      await footerLoc.screenshot({ path: footerPath, type: 'webp', quality: 85 });
+    } else {
+      const docHeight = await page.evaluate(() => Math.max(document.documentElement.scrollHeight, document.body.scrollHeight));
+      const height = Math.min(400, docHeight);
+      await page.screenshot({ path: footerPath, type: 'webp', quality: 85, fullPage: true, clip: { x: 0, y: docHeight - height, width: 1440, height } });
+    }
+    screenshotPaths.footer = footerPath;
+    console.error(`[DNA v4] Footer screenshot     → ${footerPath}`);
+    await page.evaluate(() => window.scrollTo(0, 0));
+  } catch (e) {
+    console.error(`[DNA v4] Footer screenshot error: ${e.message}`);
   }
 
   // ---------- Per-section crops ----------

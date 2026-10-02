@@ -613,6 +613,133 @@ it('the phase 5 guide should ask the agent to register fidelity_notes', () => {
   assert(doc.includes('**Limitaciones de fidelidad:**') && doc.includes('fidelity_notes'));
 });
 
+it('fidelity_report should say that the header and footer of the reference could not be captured', () => {
+  const state = JSON.parse(JSON.stringify(FIDELITY_STATE));
+  state.visual_dna.structural_blueprint.navbar = { height_px: null, nav_links: [], utility_controls: [], capture_failed: true };
+  state.visual_dna.structural_blueprint.footer = { found: false, capture_failed: true, reason: 'no_footer_found' };
+  const { report } = fidelityReport(state);
+  assert(titles(report, 'no_capturado').some(t => /Header de la referencia no capturado/.test(t)));
+  assert(titles(report, 'no_capturado').some(t => /Footer de la referencia no encontrado/.test(t)));
+  // Un estado anterior sin capture_failed pero con el navbar vacío cuenta igual
+  const old = JSON.parse(JSON.stringify(FIDELITY_STATE));
+  old.visual_dna.structural_blueprint.navbar = { height_px: null, nav_links: [], utility_controls: [] };
+  assert(titles(fidelityReport(old).report, 'no_capturado').some(t => /Header de la referencia no capturado/.test(t)));
+  // Con datos reales no se dice nada
+  const ok = JSON.parse(JSON.stringify(FIDELITY_STATE));
+  ok.visual_dna.structural_blueprint.navbar = { height_px: 54, nav_links: [{ text: 'Email' }], link_items: [{ text: 'Email' }], capture_failed: false };
+  ok.visual_dna.structural_blueprint.footer = { found: true, top_links: ['Privacy'] };
+  assert(!titles(fidelityReport(ok).report, 'no_capturado').some(t => /Header|Footer/.test(t)));
+});
+
+it('fidelity_report should list the sections below 80 %, a coverage between 70 and 90 %, and the header and footer differences', () => {
+  const state = JSON.parse(JSON.stringify(FIDELITY_STATE));
+  state.visual_dna.structural_blueprint.global = { coverage_pct: 81 };
+  const now = new Date(Date.now() + 60000).toISOString();
+  const verifyFile = JSON.stringify({
+    at: now, visual_at: now, hero: 0.97, full_page: 0.9,
+    sections: [{ section: 1, similarity: 0.96 }, { section: 2, similarity: 0.6665 }, { section: 3, similarity: 0.74 }],
+    navbar: { status: 'FAIL', issues: [{ severity: 'critical', message: 'enlaces de más en el header: el prototipo muestra 3' }, { severity: 'warning', message: 'sombra' }] },
+    footer: { status: 'WARN', issues: [{ severity: 'warning', message: 'altura del footer' }] }
+  });
+  const { report } = fidelityReport(state, {}, { 'scratch/fidelity_verify.json': verifyFile });
+  const partial = titles(report, 'parcial');
+  assert(partial.some(t => /Se capturó el 81 %/.test(t)), 'cobertura intermedia');
+  assert(partial.some(t => /Sección 2: similitud visual 67 %/.test(t)) && partial.some(t => /Sección 3: similitud visual 74 %/.test(t)));
+  assert(!partial.some(t => /Sección 1:/.test(t)), 'una sección sobre 80 % no se lista');
+  const header = report.items.find(i => /^Header: /.test(i.title));
+  assert(header && /1 diferencia\(s\) críticas/.test(header.title) && /enlaces de más/.test(header.reason));
+  assert(report.items.some(i => /^Footer: /.test(i.title)));
+});
+
+it('verify_fidelity should compare header and footer, and never pass silently against an empty blueprint', () => {
+  const src = fs.readFileSync(script('verify_fidelity.cjs'), 'utf-8');
+  assert(/async function checkFooter\(/.test(src) && /async function checkNavbar\(/.test(src));
+  assert(/navbarBlueprintIsEmpty/.test(src) && /blueprint de navbar vacío/.test(src), 'un blueprint vacío no aprueba en silencio');
+  assert(/enlaces de más en el header/.test(src) && /enlaces del footer/.test(src), 'enlaces inventados son críticos');
+  assert(/headerFooterSummary/.test(src), 'el resumen para el informe lleva header y footer');
+});
+
+it('the extractor should find a footer below the fold and detect header and footer without semantic tags', () => {
+  const src = fs.readFileSync(script('extract_reference_dna.cjs'), 'utf-8');
+  assert(/detectHeaderByGeometry/.test(src) && /navDetectedBy/.test(src), 'header por geometría');
+  assert(/isRendered/.test(src) && /footerDetectedBy/.test(src), 'footer sin exigir viewport y por posición');
+  assert(/capture_failed/.test(src) && /_header\.webp/.test(src) && /_footer\.webp/.test(src), 'aviso de captura vacía y capturas dedicadas');
+});
+
+(function headerFooterWithChromium() {
+  let chromium = null;
+  try { chromium = require('playwright').chromium; } catch (e) { try { chromium = require('@playwright/test').chromium; } catch (e2) { /* sin Playwright */ } }
+  let available = false;
+  try { available = !!chromium && fs.existsSync(chromium.executablePath()); } catch (e) { available = false; }
+  const runVerify = (proto) => {
+    const workspace = fs.mkdtempSync(path.join(tmp, 'ws-'));
+    const blueprint = {
+      navbar: { height_px: 54, is_sticky: true, has_backdrop: false, border_radius_px: 32, is_full_width: false, width_px: 750, left_px: 345, top_px: 30, shadow: '0 4px 12px rgba(0,0,0,.12)', bg_color: 'rgb(252, 250, 247)', nav_links: [{ text: 'Email' }], link_items: [{ text: 'Email' }], icon_links: [{ tag: 'a', aria_label: 'Instagram' }], utility_controls: [], brand: { text: 'Ref', has_logo_svg_or_img: true }, capture_failed: false },
+      footer: { found: true, height_px: 220, top_links: ['Privacy', 'Twitter'], has_social: true, has_newsletter: false, copyright_text: '© 2026 Ref' },
+      section_sequence: []
+    };
+    fs.writeFileSync(path.join(workspace, 'design-system-state.json'), JSON.stringify({
+      brand: { name: 'Acme' },
+      palette: { allowed_hexes: ['#FFFFFF', '#FCFAF7', '#1F2A44', '#0000EE', '#666666', '#000000', '#DDDDDD'] },
+      visual_dna: { fidelity_mode: 'TOTAL_ARCHITECTURAL_FIDELITY', structural_blueprint: blueprint }
+    }));
+    fs.mkdirSync(path.join(workspace, 'prototype'));
+    fs.writeFileSync(path.join(workspace, 'prototype', 'index.html'), proto);
+    const res = run('verify_fidelity.cjs', ['--state', 'design-system-state.json'], workspace);
+    return JSON.parse(res.stdout.slice(res.stdout.indexOf('{')));
+  };
+  const HEAD_BAR = '<header style="position:sticky;top:0;height:72px;background:#fff;display:flex;gap:20px;align-items:center;padding:0 40px"><a class="brand" href="index.html">Acme</a><nav><a href="a.html">Inicio</a><a href="b.html">Servicios</a><a href="c.html">Contacto</a></nav></header>';
+  const HEAD_PILL = '<header style="position:fixed;top:30px;left:345px;width:750px;height:54px;border-radius:32px;background:#FCFAF7;box-shadow:0 4px 12px rgba(0,0,0,.12);display:flex;justify-content:space-between;align-items:center;padding:0 24px;box-sizing:border-box"><a class="brand" href="index.html"><svg width="20" height="20"><circle cx="10" cy="10" r="9"/></svg>Acme</a><div><a href="mailto:a@b.c">Email</a><a href="https://instagram.com/x" aria-label="Instagram"><svg width="20" height="20"><rect width="18" height="18"/></svg></a></div></header>';
+  const FOOT_BAD = '<footer style="height:120px"><p>© 2026 Acme</p><a href="a">Inicio</a><a href="b">Servicios</a><a href="c">Contacto</a><a href="d">Blog</a></footer>';
+  const FOOT_OK = '<footer style="height:220px"><p>© 2026 Ref</p><a href="/privacy">Privacy</a><a href="https://twitter.com/x">Twitter</a></footer>';
+  const page = (head, foot) => `<!doctype html><html lang="es"><head><title>x</title><style>body{margin:0;color:#1F2A44}</style></head><body>${head}<main><h1>Hola</h1></main>${foot}</body></html>`;
+
+  it('verify_fidelity should fail a full-width header with invented links and a footer with invented links', () => {
+    if (!available) return console.log('    (omitido: no hay Chromium de Playwright)');
+    const report = runVerify(page(HEAD_BAR, FOOT_BAD));
+    assert.strictEqual(report.checks.navbar.status, 'FAIL');
+    const messages = report.checks.navbar.issues.map(i => i.message).join('\n');
+    assert(/morfología navbar/.test(messages) && /enlaces de más en el header/.test(messages) && /faltan controles de icono/.test(messages), messages);
+    assert.strictEqual(report.checks.footer.status, 'FAIL');
+    assert(report.checks.footer.issues.some(i => i.severity === 'critical' && /enlaces del footer/.test(i.message)));
+    assert(report.summary.critical >= 2);
+  });
+
+  it('verify_fidelity should pass a header and a footer that reproduce the reference', () => {
+    if (!available) return console.log('    (omitido: no hay Chromium de Playwright)');
+    const report = runVerify(page(HEAD_PILL, FOOT_OK));
+    assert.strictEqual(report.checks.navbar.status, 'PASS', JSON.stringify(report.checks.navbar.issues));
+    assert.strictEqual(report.checks.footer.status, 'PASS', JSON.stringify(report.checks.footer.issues));
+  });
+
+  it('verify_fidelity should warn, not pass, when the blueprint of the header and footer is empty', () => {
+    if (!available) return console.log('    (omitido: no hay Chromium de Playwright)');
+    const workspace = fs.mkdtempSync(path.join(tmp, 'ws-'));
+    fs.writeFileSync(path.join(workspace, 'design-system-state.json'), JSON.stringify({
+      brand: { name: 'Acme' },
+      palette: { allowed_hexes: ['#FFFFFF', '#1F2A44'] },
+      visual_dna: { fidelity_mode: 'TOTAL_ARCHITECTURAL_FIDELITY', structural_blueprint: {
+        navbar: { height_px: null, nav_links: [], utility_controls: [] },
+        footer: { found: false },
+        section_sequence: []
+      } }
+    }));
+    fs.mkdirSync(path.join(workspace, 'prototype'));
+    fs.writeFileSync(path.join(workspace, 'prototype', 'index.html'), page(HEAD_BAR, FOOT_BAD));
+    const res = run('verify_fidelity.cjs', ['--state', 'design-system-state.json'], workspace);
+    const report = JSON.parse(res.stdout.slice(res.stdout.indexOf('{')));
+    assert.strictEqual(report.checks.navbar.status, 'WARN');
+    assert(report.checks.navbar.issues.some(i => /blueprint de navbar vacío/.test(i.message)));
+    assert.strictEqual(report.checks.footer.status, 'WARN');
+    assert(fs.existsSync(path.join(workspace, 'scratch', 'fidelity_verify.json')), 'el resumen para el informe se escribe también sin --visual');
+    // Una corrida sin --visual no inventa una medición visual, ni siquiera en la segunda pasada
+    run('verify_fidelity.cjs', ['--state', 'design-system-state.json'], workspace);
+    const summary = JSON.parse(fs.readFileSync(path.join(workspace, 'scratch', 'fidelity_verify.json'), 'utf-8'));
+    assert.strictEqual(summary.visual_at, null);
+    assert(summary.navbar && summary.footer, 'lleva el resultado de header y footer');
+  });
+})();
+
 console.log('\n[2] verify_fidelity --check A (allowlist cromática de un archivo):');
 function checkA(colorsInHtml, allowed = STATE.palette.allowed_hexes) {
   const workspace = fs.mkdtempSync(path.join(tmp, 'ws-'));
