@@ -238,6 +238,7 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     // Controles viewport: Visibles en TODAS las vistas (Blueprint, Prototipo, Showcase) MENOS en Consola
     const viewportControls = document.getElementById('viewportControls');
     if (tabId === 'tab-logs') {
+      loadTelemetrySummary();
       if (viewportControls) viewportControls.style.display = 'none';
     } else {
       if (viewportControls) viewportControls.style.display = 'flex';
@@ -455,6 +456,9 @@ function resetClientView(systemText) {
     if (el) el.textContent = '—';
   });
   if (telemetryModelBadge) telemetryModelBadge.textContent = 'Modelo: —';
+  lastTurnMetrics = null;
+  renderContextGauge({});
+  renderTelemetrySummary(null, []);
   const trackerBar = document.getElementById('deliverablesTrackerBar');
   if (trackerBar) trackerBar.style.display = 'none';
 
@@ -984,6 +988,8 @@ function handleChatEvent(event, ctx) {
     const seconds = Number.isFinite(data.durationMs) ? ` en ${Math.round(data.durationMs / 1000)} s` : '';
     const retried = data.resets > 0 ? ` · el motor reintentó ${data.resets} vez(es) por una interrupción del stream` : '';
     appendLog(`[AgentBridge] Turno completado${seconds} (código: ${data.code ?? 0})${retried}.`, data.resets > 0 ? 'warn' : 'info');
+    logTurnTelemetry();
+    loadTelemetrySummary();
     finishTurnRender(ctx, data);
     return 'done';
   }
@@ -991,6 +997,8 @@ function handleChatEvent(event, ctx) {
   if (name === 'error') {
     const reason = data.error || 'Error desconocido';
     appendLog('[Error] ' + reason, 'error');
+    lastTurnMetrics = null;
+    loadTelemetrySummary();
     showTurnError(ctx, `<p style="color:#ff5555;display:flex;align-items:flex-start;gap:6px;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:3px;"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg><span>Error en ${escapeHtml(ctx.engineLabel)}: ${escapeHtml(reason)}. Verifica que el servicio esté disponible o selecciona otro motor.</span></p>`);
     return 'error';
   }
@@ -2758,6 +2766,59 @@ if (chatMessages) {
 });
 }
 
+// Última lectura de métricas del turno en curso: se vuelca a la consola una sola vez, al terminar
+let lastTurnMetrics = null;
+
+function formatTokenCount(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return '—';
+  if (n >= 1e6) return `${+(n / 1e6).toFixed(2)}M`;
+  if (n >= 1e3) return `${+(n / 1e3).toFixed(n < 1e4 ? 1 : 0)}k`;
+  return String(Math.round(n));
+}
+
+/**
+ * Barra de contexto: lo enviado al modelo en la última llamada frente a la ventana del modelo (p. ej. 100k / 1M).
+ * Sin ventana conocida muestra solo los tokens y explica cómo definirla.
+ */
+function renderContextGauge({ tokens, window: windowSize, estimated = false, engine = '', model = '' } = {}) {
+  const figures = document.getElementById('contextFigures');
+  const bar = document.getElementById('contextBar');
+  const fill = document.getElementById('contextBarFill');
+  const note = document.getElementById('contextNote');
+  if (!figures || !bar || !fill || !note) return;
+
+  const used = Number(tokens);
+  if (tokens == null || !Number.isFinite(used)) {
+    figures.textContent = '—';
+    fill.style.width = '0%';
+    bar.className = 'context-bar';
+    bar.setAttribute('aria-valuenow', '0');
+    bar.removeAttribute('aria-valuetext');
+    note.textContent = 'Aún no hay turnos con datos de uso en este proyecto.';
+    return;
+  }
+
+  const who = [engine, model].filter(Boolean).join(' · ');
+  if (windowSize > 0) {
+    const pct = Math.min(100, (used / windowSize) * 100);
+    const pctText = pct < 10 ? pct.toFixed(1) : String(Math.round(pct));
+    figures.textContent = `${formatTokenCount(used)} / ${estimated ? '~' : ''}${formatTokenCount(windowSize)} (${pctText}%)`;
+    fill.style.width = `${pct}%`;
+    bar.className = 'context-bar' + (pct >= 90 ? ' is-high' : pct >= 70 ? ' is-warn' : '');
+    bar.setAttribute('aria-valuenow', String(Math.round(pct)));
+    bar.setAttribute('aria-valuetext', figures.textContent);
+    note.textContent = (who ? `${who}. ` : '') + (estimated ? 'Ventana estimada para este modelo.' : 'Contexto enviado al modelo en su última llamada.');
+  } else {
+    figures.textContent = formatTokenCount(used);
+    fill.style.width = '0%';
+    bar.className = 'context-bar';
+    bar.setAttribute('aria-valuenow', '0');
+    bar.setAttribute('aria-valuetext', `${figures.textContent} tokens, ventana desconocida`);
+    note.textContent = (who ? `${who}. ` : '') + `Este motor no informa la ventana del modelo: define CONTEXT_WINDOW_${String(engine || 'MOTOR').toUpperCase()} en .env para ver el máximo.`;
+  }
+}
+
 function updateTelemetry(metrics) {
   if (!metrics) return;
 
@@ -2768,7 +2829,9 @@ function updateTelemetry(metrics) {
     telemetryModelBadge.textContent = `Modelo: ${metrics.model}`;
   }
 
+  // metrics.usage es el acumulado del turno (la suma de todas las llamadas del agente)
   if (metrics.usage) {
+    lastTurnMetrics = metrics;
     const u = metrics.usage;
     if (statInputTokens && u.input_tokens != null) {
       statInputTokens.textContent = Number(u.input_tokens).toLocaleString();
@@ -2782,20 +2845,110 @@ function updateTelemetry(metrics) {
     if (statCacheTokens && u.cache_read_tokens != null) {
       statCacheTokens.textContent = Number(u.cache_read_tokens).toLocaleString();
     }
+    if (metrics.context_tokens != null) {
+      renderContextGauge({
+        tokens: metrics.context_tokens,
+        window: metrics.context_window,
+        estimated: metrics.context_window_estimated,
+        engine: metrics.engine,
+        model: metrics.model
+      });
+    }
   }
 
   if (statDuration && metrics.duration_seconds != null) {
     statDuration.textContent = Number(metrics.duration_seconds).toFixed(2);
   }
+}
 
-  // Resumen visual estructurado en la consola de logs
-  if (metrics.usage) {
-    const u = metrics.usage;
-    const dur = metrics.duration_seconds ? ` (${Number(metrics.duration_seconds).toFixed(2)}s)` : '';
-    appendLog(
-      `[Telemetría ${metrics.engine || 'Inferencia'}] Tokens: In=${u.input_tokens ?? 0} | Out=${u.output_tokens ?? 0} | Thinking=${u.thinking_tokens ?? 0} | Cache=${u.cache_read_tokens ?? 0}${dur}`,
-      'info'
-    );
+/** Resumen de uso del turno que acaba de terminar, en la consola */
+function logTurnTelemetry() {
+  const metrics = lastTurnMetrics;
+  lastTurnMetrics = null;
+  if (!metrics || !metrics.usage) return;
+  const u = metrics.usage;
+  const dur = metrics.duration_seconds ? ` (${Number(metrics.duration_seconds).toFixed(2)}s)` : '';
+  const ctxPart = metrics.context_tokens != null
+    ? ` | Contexto=${formatTokenCount(metrics.context_tokens)}${metrics.context_window ? '/' + formatTokenCount(metrics.context_window) : ''}`
+    : '';
+  const cost = metrics.cost_usd != null ? ` | Costo=US$${Number(metrics.cost_usd).toFixed(4)}` : '';
+  appendLog(
+    `[Telemetría ${metrics.engine || 'Inferencia'}] Tokens: In=${u.input_tokens ?? 0} | Out=${u.output_tokens ?? 0} | Thinking=${u.thinking_tokens ?? 0} | Cache=${u.cache_read_tokens ?? 0}${ctxPart}${cost}${dur}`,
+    'info'
+  );
+}
+
+function setTextById(id, text) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = text;
+}
+
+/** Acumulado del proyecto y turnos recientes, leídos del registro de turnos del servidor (sobreviven a recargas y a los reinicios de contexto) */
+function renderTelemetrySummary(summary, recent) {
+  const u = summary?.usage || {};
+  const has = Boolean(summary && summary.turns_with_usage > 0);
+  const fmt = (v) => (has ? Number(v || 0).toLocaleString() : '—');
+  setTextById('totalInputTokens', fmt(u.input_tokens));
+  setTextById('totalOutputTokens', fmt(u.output_tokens));
+  setTextById('totalCacheReadTokens', fmt(u.cache_read_tokens));
+  setTextById('totalCacheWriteTokens', fmt(u.cache_write_tokens));
+  setTextById('totalAllTokens', fmt(u.total_tokens));
+  setTextById('totalCost', summary && summary.cost_usd != null ? `US$${Number(summary.cost_usd).toFixed(4)}` : '—');
+  setTextById('totalTurnsNote', summary && summary.turns
+    ? `· ${summary.turns_with_usage} de ${summary.turns} turnos con datos de uso`
+    : '');
+
+  // Sin lectura en vivo todavía (p. ej. tras recargar): el medidor toma el último turno registrado
+  if (!lastTurnMetrics && summary?.last_context) {
+    const c = summary.last_context;
+    renderContextGauge({ tokens: c.tokens, window: c.window, engine: c.engine, model: c.model });
+  }
+
+  const body = document.getElementById('telemetryTurnsBody');
+  if (!body) return;
+  body.textContent = '';
+  const rows = Array.isArray(recent) ? recent : [];
+  if (!rows.length) {
+    const tr = document.createElement('tr');
+    const td = document.createElement('td');
+    td.colSpan = 6;
+    td.textContent = 'Sin turnos registrados.';
+    tr.appendChild(td);
+    body.appendChild(tr);
+    return;
+  }
+  for (const t of rows) {
+    const when = t.at ? new Date(t.at) : null;
+    const time = when && !isNaN(when.getTime()) ? when.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
+    const ctx = t.contextTokens != null
+      ? formatTokenCount(t.contextTokens) + (t.contextWindow ? ' / ' + formatTokenCount(t.contextWindow) : '')
+      : '—';
+    const cells = [
+      time,
+      [t.engine, t.model].filter(Boolean).join(' · ') || '—',
+      ctx,
+      t.usage ? formatTokenCount(t.usage.total_tokens) : '—',
+      Number.isFinite(t.durationMs) ? `${(t.durationMs / 1000).toFixed(1)} s` : '—',
+      t.outcome || '—'
+    ];
+    const tr = document.createElement('tr');
+    for (const text of cells) {
+      const td = document.createElement('td');
+      td.textContent = text;
+      tr.appendChild(td);
+    }
+    body.appendChild(tr);
+  }
+}
+
+async function loadTelemetrySummary() {
+  try {
+    const res = await fetch('/api/telemetry');
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data && data.ok) renderTelemetrySummary(data.summary, data.recent);
+  } catch (e) {
+    // Sin servidor o sin proyecto activo: el panel conserva lo que ya mostraba
   }
 }
 
@@ -3093,6 +3246,7 @@ async function restoreSessionState() {
     if (data.ok && data.hasProject) {
       saveResumeCache(data);
       renderResumedChatState(data, false);
+      loadTelemetrySummary();
     } else {
       store.remove(RESUME_CACHE_KEY);
       // La copia guardada mostraba un proyecto que el servidor ya no tiene (reinicio desde otro equipo o pestaña)

@@ -167,6 +167,21 @@ async function runSuite() {
       assert(fs.existsSync(file), 'turns.jsonl vive en la carpeta del proyecto');
     });
 
+    await it('should log token usage per turn and add it up at /api/telemetry without storing the conversation', async () => {
+      const turns = (await (await srv.api('/api/turns')).json()).turns;
+      const done = turns.find(t => t.engine === 'mock' && t.outcome === 'done');
+      assert(done.usage && done.usage.total_tokens === 505, JSON.stringify(done));
+      assert.strictEqual(done.contextTokens, 420, 'el contexto es lo enviado al modelo en su última llamada');
+
+      const body = await (await srv.api('/api/telemetry')).json();
+      assert.strictEqual(body.ok, true);
+      assert(body.summary.turns_with_usage >= 1);
+      assert(body.summary.usage.total_tokens >= 505);
+      assert.strictEqual(body.summary.last_context.tokens, 420);
+      assert(Array.isArray(body.recent) && body.recent.length >= 1);
+      assert(!JSON.stringify(body).includes('Registro'), 'el contenido del mensaje no viaja en la telemetría');
+    });
+
     await it('should log a failed engine start as an error turn and honor the limit', async () => {
       const failed = await srv.api('/api/chat', { method: 'POST', body: { message: 'otro', engine: 'claude', sessionId: 'session-turnlog-2' } });
       await failed.text();

@@ -493,9 +493,21 @@
                 <span class="telemetry-subbadge" id="telemetryModelBadge">Modelo: —</span>
               </div>
             </div>
+            <div class="telemetry-context">
+              <div class="context-head">
+                <span class="metric-label" id="contextLabel">Contexto del último turno</span>
+                <span class="context-figures" id="contextFigures">—</span>
+              </div>
+              <div class="context-bar" id="contextBar" role="progressbar" aria-labelledby="contextLabel"
+                aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                <div class="context-bar-fill" id="contextBarFill"></div>
+              </div>
+              <p class="context-note" id="contextNote">Aún no hay turnos con datos de uso en este proyecto.</p>
+            </div>
+            <div class="telemetry-section-title">Último turno</div>
             <div class="telemetry-grid">
               <div class="telemetry-metric">
-                <span class="metric-label">Contexto Usado (Input)</span>
+                <span class="metric-label">Entrada (sin caché)</span>
                 <span class="metric-value" id="statInputTokens">—</span>
                 <span class="metric-unit">tokens</span>
               </div>
@@ -520,6 +532,59 @@
                 <span class="metric-unit">segundos</span>
               </div>
             </div>
+            <div class="telemetry-section-title">Acumulado del proyecto <span id="totalTurnsNote" class="telemetry-section-note"></span></div>
+            <div class="telemetry-grid telemetry-grid-total">
+              <div class="telemetry-metric">
+                <span class="metric-label">Entrada (sin caché)</span>
+                <span class="metric-value" id="totalInputTokens">—</span>
+                <span class="metric-unit">tokens</span>
+              </div>
+              <div class="telemetry-metric">
+                <span class="metric-label">Salida</span>
+                <span class="metric-value" id="totalOutputTokens">—</span>
+                <span class="metric-unit">tokens</span>
+              </div>
+              <div class="telemetry-metric">
+                <span class="metric-label">Caché leído</span>
+                <span class="metric-value" id="totalCacheReadTokens">—</span>
+                <span class="metric-unit">tokens</span>
+              </div>
+              <div class="telemetry-metric">
+                <span class="metric-label">Caché escrito</span>
+                <span class="metric-value" id="totalCacheWriteTokens">—</span>
+                <span class="metric-unit">tokens</span>
+              </div>
+              <div class="telemetry-metric">
+                <span class="metric-label">Total procesado</span>
+                <span class="metric-value" id="totalAllTokens">—</span>
+                <span class="metric-unit">tokens</span>
+              </div>
+              <div class="telemetry-metric">
+                <span class="metric-label">Costo</span>
+                <span class="metric-value" id="totalCost">—</span>
+                <span class="metric-unit">USD (si el motor lo informa)</span>
+              </div>
+            </div>
+            <details class="telemetry-turns" id="telemetryTurns">
+              <summary>Turnos recientes</summary>
+              <div class="telemetry-turns-scroll">
+                <table class="telemetry-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">Hora</th>
+                      <th scope="col">Motor / modelo</th>
+                      <th scope="col">Contexto</th>
+                      <th scope="col">Total procesado</th>
+                      <th scope="col">Duración</th>
+                      <th scope="col">Resultado</th>
+                    </tr>
+                  </thead>
+                  <tbody id="telemetryTurnsBody">
+                    <tr><td colspan="6">Sin turnos registrados.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </details>
           </div>
           <div class="console-box" id="consoleOutput" role="log" aria-live="off"
             aria-label="Logs y consola del sistema">

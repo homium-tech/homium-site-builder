@@ -2102,6 +2102,123 @@ details.gate-audit-row > summary.gate-audit-head::-webkit-details-marker {
   margin-top: 0.1rem;
 }
 
+.telemetry-dashboard {
+  max-height: 60%;
+  overflow-y: auto;
+}
+
+.telemetry-context {
+  margin-bottom: 0.75rem;
+}
+
+.context-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.context-figures {
+  font-size: 15px;
+  font-weight: 700;
+  color: #ffffff;
+  font-family: 'Fira Code', monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.context-bar {
+  height: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+  margin: 0.3rem 0;
+}
+
+.context-bar-fill {
+  height: 100%;
+  width: 0;
+  background: var(--homium-cyan);
+  border-radius: var(--radius-pill);
+  transition: width 0.3s ease;
+}
+
+.context-bar.is-warn .context-bar-fill {
+  background: #ffcc66;
+}
+
+.context-bar.is-high .context-bar-fill {
+  background: #ff6b6b;
+}
+
+.context-note {
+  margin: 0;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.telemetry-section-title {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.6);
+  margin: 0.7rem 0 0.35rem;
+}
+
+.telemetry-section-note {
+  text-transform: none;
+  letter-spacing: 0;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.telemetry-grid-total {
+  grid-template-columns: repeat(6, 1fr);
+}
+
+@media (max-width: 900px) {
+  .telemetry-grid-total {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.telemetry-turns {
+  margin-top: 0.7rem;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.telemetry-turns summary {
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.telemetry-turns-scroll {
+  overflow-x: auto;
+  margin-top: 0.4rem;
+}
+
+.telemetry-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: 'Fira Code', monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.telemetry-table th,
+.telemetry-table td {
+  text-align: left;
+  padding: 0.25rem 0.5rem;
+  white-space: nowrap;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.telemetry-table th {
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.55);
+}
+
 .console-box {
   padding: 1.25rem;
   font-family: 'Fira Code', ui-monospace, monospace;

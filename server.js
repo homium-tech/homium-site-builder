@@ -11,6 +11,7 @@ const DeliverableStore = require('./lib/deliverable-store');
 const Workspace = require('./lib/workspace');
 const { runGateAudits } = require('./lib/audits');
 const { appendTurnLog, readTurnLog } = require('./lib/turn-log');
+const { summarizeTurns } = require('./lib/telemetry');
 const { escapeHtml, renderBlueprintPage } = require('./lib/preview-pages');
 
 // Load .env if present (no dotenv dependency needed)
@@ -847,6 +848,13 @@ app.post('/api/chat', (req, res) => {
 app.get('/api/turns', requireActiveProject, (req, res) => {
   const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 500);
   res.json({ ok: true, turns: readTurnLog(workspace.getDir(), limit) });
+});
+
+// 8a-bis. Gasto acumulado del proyecto: tokens, costo y último contexto, sumados desde el registro de turnos
+app.get('/api/telemetry', requireActiveProject, (req, res) => {
+  const dir = workspace.getDir();
+  const turns = readTurnLog(dir, Number.MAX_SAFE_INTEGER);
+  res.json({ ok: true, summary: summarizeTurns(turns), recent: turns.slice(-15).reverse() });
 });
 
 // 8b. Cancelación explícita del turno en curso (botón Detener): no se guarda respuesta parcial

@@ -237,6 +237,16 @@ async function runSuite() {
       assert.strictEqual(await page.getAttribute('#tab-logs', 'role'), 'tabpanel');
     });
 
+    await it('should show the context gauge and the project totals in the console tab, from the turn log', async () => {
+      await page.click('#tab-logs-button');
+      await page.waitForFunction(() => document.getElementById('totalAllTokens').textContent !== '—');
+      assert(/420/.test(await page.textContent('#contextFigures')), 'el medidor muestra el contexto del último turno');
+      assert.strictEqual(await page.getAttribute('#contextBar', 'role'), 'progressbar');
+      assert(await page.locator('#telemetryTurnsBody tr').count() >= 1);
+      assert(!/Sin turnos/.test(await page.textContent('#telemetryTurnsBody')));
+      assert(/d/.test(await page.textContent('#totalTurnsNote')));
+    });
+
     await it('should start a new project keeping the old one on disk', async () => {
       await page.click('#btnReset');
       await page.click('#btnNewProject');
