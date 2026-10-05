@@ -162,6 +162,36 @@ function runClaude(lines) {
     assert(args.includes('--dangerously-skip-permissions'));
   });
 
+  console.log('\n[3b] AGY (el usage del result es el acumulado de la conversación):');
+  const AgyAdapter = require('../lib/agent-engine/adapters/agy-adapter');
+  const runAgy = (session, isFirstTurn, lines) => {
+    const usage = new TurnUsage('agy');
+    const tracker = new AgyAdapter.AgyEventTracker({ session, isFirstTurn, onStdout() {}, onStderr() {}, onMetrics: (m) => usage.add(m) });
+    for (const l of lines) tracker.handleLine(JSON.stringify(l));
+    return usage.snapshot();
+  };
+  const agyTurn = (stepIndex, stepUsage, cumulative) => [
+    { event: 'step_update', step_update: { step_index: stepIndex, step_type: 'agent_response', state: 'DONE', text_delta: 'ok', usage: stepUsage } },
+    { event: 'result', result: { status: 'SUCCESS', duration_seconds: 2, usage: cumulative } }
+  ];
+  const u = (input, output) => ({ input_tokens: input, output_tokens: output, thinking_tokens: 0, cache_read_tokens: 0, total_tokens: input + output });
+
+  await it('should charge each turn only its own tokens, not the running total of the conversation', async () => {
+    const session = {};
+    const t1 = runAgy(session, true, agyTurn(1, u(13290, 110), u(13290, 110)));
+    assert.strictEqual(t1.usage.total_tokens, 13400);
+    const t2 = runAgy(session, false, agyTurn(4, u(13606, 134), u(26896, 244)));
+    assert.strictEqual(t2.usage.total_tokens, 13740, 'turno 2 = acumulado 27140 - 13400');
+    assert.strictEqual(t2.context_tokens, 13606);
+    const t3 = runAgy(session, false, agyTurn(7, u(14000, 100), u(40896, 344)));
+    assert.strictEqual(t3.usage.total_tokens, 14100);
+  });
+
+  await it('should fall back to the usage of its own steps when the cumulative baseline is unknown (server restarted mid-conversation)', async () => {
+    const t = runAgy({}, false, agyTurn(9, u(500, 50), u(900000, 90000)));
+    assert.strictEqual(t.usage.total_tokens, 550, 'no se carga el acumulado completo de la conversación a un solo turno');
+  });
+
   console.log('\n[4] Registro del turno en AgentEngine:');
   await it('should send the running turn total to the client and log usage, model, context and cost without content', async () => {
     const records = [];
