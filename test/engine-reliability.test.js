@@ -299,14 +299,17 @@ async function runSuite() {
   function runAgy(lines) {
     let text = '';
     const resets = [];
+    const discards = [];
     const tracker = new AgyEventTracker({
       onStdout: (chunk, type) => {
         if (type === 'text_delta') text += chunk;
         if (type === 'reset') { resets.push(Number(chunk)); text = text.slice(0, Number(chunk)); }
+        if (type === 'discard') { discards.push(Number(chunk)); text = text.slice(0, Number(chunk)); }
       }
     });
     for (const line of lines) tracker.handleLine(line);
-    return { text, resets, outcome: tracker.finish() };
+    const outcome = tracker.finish();
+    return { text, resets, discards, outcome };
   }
 
   await it('should keep a clean turn untouched', () => {
@@ -330,17 +333,64 @@ async function runSuite() {
     assert.strictEqual(r.outcome.incomplete, false);
   });
 
-  await it('should only drop the aborted attempt, not the text that came before it', () => {
+  const agyTool = (index, name = 'view_file') => agyStep({ step_index: index, step_type: 'tool_call', state: 'DONE', tool_name: name, tool_input: { AbsolutePath: 'C:\\x\\a.md' } });
+
+  await it('should still discard an aborted attempt that restarts after the narration before a tool was dropped', () => {
     const r = runAgy([
       agyText(1, 'Texto previo. ', 'DONE'),
-      agyStep({ step_index: 2, step_type: 'tool_call', state: 'DONE', tool_name: 'view_file', tool_input: { AbsolutePath: 'C:\\x\\a.md' } }),
+      agyTool(2),
       agyText(3, 'Intento que se corta aqui y es largo', 'DONE'),
       agyError(4),
       agyText(5, 'Intento que se corta aqui y es largo, ahora completo.', 'DONE'),
       agyResult({ status: 'SUCCESS' })
     ]);
-    assert.strictEqual(r.text, 'Texto previo. Intento que se corta aqui y es largo, ahora completo.');
-    assert.deepStrictEqual(r.resets, [14]);
+    assert.strictEqual(r.text, 'Intento que se corta aqui y es largo, ahora completo.');
+    assert.deepStrictEqual(r.discards, [0], 'la narración previa a la herramienta se descarta');
+    assert.deepStrictEqual(r.resets, [0], 'el intento abortado cuenta como reintento del motor');
+  });
+
+  await it('should drop the narration before a tool call and keep only the text that follows the last one', () => {
+    const r = runAgy([
+      agyText(1, 'Ejecutando la extracción. Un momento…', 'DONE'),
+      agyTool(2),
+      agyText(3, 'Esperando la finalización.', 'DONE'),
+      agyTool(4, 'run_command'),
+      agyText(5, '> **Blueprint**\nPregunta final', 'DONE'),
+      agyResult({ status: 'SUCCESS' })
+    ]);
+    assert.strictEqual(r.text, '> **Blueprint**\nPregunta final');
+    assert.deepStrictEqual(r.discards, [0, 0], 'un descarte por cada tramo de narración');
+    assert.deepStrictEqual(r.resets, [], 'no es un reintento del motor');
+    assert.strictEqual(r.outcome.incomplete, false);
+  });
+
+  await it('should fall back to the last discarded segment when the turn ends right after a tool call', () => {
+    const r = runAgy([
+      agyText(1, 'Primer aviso.', 'DONE'),
+      agyTool(2),
+      agyText(3, 'Respuesta completa con la pregunta final', 'DONE'),
+      agyTool(4, 'write_to_file'),
+      agyTool(5, 'write_to_file'),
+      agyResult({ status: 'SUCCESS' })
+    ]);
+    assert.strictEqual(r.text, 'Respuesta completa con la pregunta final', 'consecutive tool calls do not erase the segment kept as fallback');
+    assert.strictEqual(r.outcome.incomplete, false);
+  });
+
+  await it('should keep a turn that only ran tools and said nothing as empty, not invent text', () => {
+    const r = runAgy([agyTool(1), agyTool(2), agyResult({ status: 'SUCCESS' })]);
+    assert.strictEqual(r.text, '');
+    assert.deepStrictEqual(r.discards, []);
+  });
+
+  await it('should still count a turn as complete when it ERRORs after the narration was dropped but a segment exists', () => {
+    const r = runAgy([
+      agyText(1, 'Respuesta que se escribió antes de guardar el estado', 'DONE'),
+      agyTool(2, 'write_to_file'),
+      agyResult({ status: 'ERROR', error: 'The stream was interrupted.' })
+    ]);
+    assert.strictEqual(r.text, 'Respuesta que se escribió antes de guardar el estado');
+    assert.strictEqual(r.outcome.incomplete, false);
   });
 
   await it('should treat text after an error as a continuation when it does not repeat the aborted one', () => {
@@ -387,6 +437,26 @@ async function runSuite() {
     assert.strictEqual(r.text, 'Un token de diseño es la unidad mínima de decisión visual.\n');
     assert.strictEqual(r.outcome.incomplete, false);
     assert(/reintent/.test(r.outcome.warning));
+  });
+
+  await it('engine: a discard chunk trims the reply like a reset but is not reported as an engine retry', async () => {
+    const engine = new AgentEngine();
+    engine.registerAdapter('discard', new ScriptedAdapter(({ onStdout, onExit }) => {
+      setImmediate(() => {
+        onStdout('Voy a leer el archivo…', 'text_delta');
+        onStdout('0', 'discard');
+        onStdout('Respuesta final', 'text_delta');
+        onExit(0);
+      });
+    }));
+    const stream = engine.executeTurn({ sessionId: 'discard', message: 'hola', engine: 'discard' });
+    const ev = collect(stream);
+    await tick();
+    assert.strictEqual(ev.done.length, 1);
+    assert.strictEqual(ev.done[0].resets, 0, 'descartar narración no es un reintento del motor');
+    const stored = engine.sessionStore.get('discard').messages.filter(m => m.role === 'assistant');
+    assert.strictEqual(stored[0].content, 'Respuesta final');
+    assert.deepStrictEqual(ev.chunks.filter(c => c.type === 'reset').map(c => c.keep), [0], 'el cliente recibe el recorte como un reset');
   });
 
   await it('engine: a reset chunk trims the stored reply and the SSE text, and an incomplete agy turn is an error', async () => {
