@@ -316,6 +316,7 @@ async function extractDNA(targetUrl, screenshotPrefix = 'ref') {
   {
     const stepPx = 900;
     let lastHeight = 0;
+    let lastY = 0;
     for (let step = 0; step < 30; step++) {
       const height = await page.evaluate(() => document.body.scrollHeight);
       const y = step * stepPx;
@@ -323,10 +324,18 @@ async function extractDNA(targetUrl, screenshotPrefix = 'ref') {
       await page.evaluate((scrollY) => window.scrollTo(0, scrollY), y);
       await page.waitForTimeout(250);
       lastHeight = height;
+      lastY = y;
     }
     void lastHeight;
+    // Se vuelve arriba por pasos y no con un solo scrollTo(0): muchos headers (Framer, Webflow) se ocultan al
+    // bajar y solo reaparecen con scroll hacia arriba; un salto directo los deja fuera de pantalla y la
+    // detección del header (que exige verlo en el viewport) no los encuentra.
+    for (let y = lastY - stepPx; y > 0; y -= stepPx) {
+      await page.evaluate((scrollY) => window.scrollTo(0, scrollY), y);
+      await page.waitForTimeout(120);
+    }
     await page.evaluate(() => window.scrollTo(0, 0));
-    await page.waitForTimeout(300);
+    await page.waitForTimeout(500);
     await dismissOverlays(page); // popups de exit-intent o de profundidad de scroll pueden aparecer recién aquí
   }
   console.error('[DNA v4] Pre-scroll settle pass complete (lazy-load + scroll-reveal disparados)');
@@ -1216,8 +1225,19 @@ async function extractDNA(targetUrl, screenshotPrefix = 'ref') {
 
     let outers;
     const skipTags = ['SCRIPT', 'NAV', 'HEADER', 'FOOTER', 'STYLE', 'LINK'];
-    const pickBlocks = (parent) =>
-      [...parent.children].filter(el => {
+    // Los wrappers `display: contents` (Framer, Webflow) no generan caja (rect de 0 px): se atraviesan para
+    // llegar a los bloques reales; si no, las secciones que cuelgan de ellos desaparecen de la captura.
+    const flowChildren = (parent, depth = 0) => {
+      const out = [];
+      for (const el of parent.children) {
+        if (depth < 6 && cs(el, 'display') === 'contents') out.push(...flowChildren(el, depth + 1));
+        else out.push(el);
+      }
+      return out;
+    };
+    const pickBlocks = (parent) => {
+      const parentH = parent.getBoundingClientRect().height;
+      const picked = flowChildren(parent).filter(el => {
         if (skipTags.includes(el.tagName.toUpperCase())) return false;
         const r = el.getBoundingClientRect();
         if (r.height < 180) return false;
@@ -1226,6 +1246,14 @@ async function extractDNA(targetUrl, screenshotPrefix = 'ref') {
         if (el.hasAttribute('aria-hidden')) return false;      // decorative layers
         return true;
       });
+      // Una capa absoluta que cubre casi todo el alto del padre es un fondo, no una sección
+      // (solo se descarta si quedan bloques en flujo normal: una página toda en absolute se conserva)
+      const inFlow = picked.filter(el => cs(el, 'position') !== 'absolute');
+      if (inFlow.length && inFlow.length < picked.length) {
+        return picked.filter(el => cs(el, 'position') !== 'absolute' || el.getBoundingClientRect().height < parentH * 0.9);
+      }
+      return picked;
+    };
 
     let blocks = [];
     {
@@ -1301,6 +1329,19 @@ async function extractDNA(targetUrl, screenshotPrefix = 'ref') {
       const mergedList = [...merged].filter(el => !el.hasAttribute('aria-hidden'));
       mergedList.sort((a, b) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) ? -1 : 1);
       chosen = mergedList.filter((el, i) => !mergedList.some((o, j) => i !== j && o.contains(el)));
+    }
+    // Sin <footer> semántico el pie suele ser el último bloque (Framer): contarlo como sección lo excluía de la
+    // búsqueda del footer (que ignora lo ya elegido) y el blueprint decía "sin footer" teniéndolo.
+    {
+      const last = chosen[chosen.length - 1];
+      if (last && chosen.length > 1) {
+        const lr = last.getBoundingClientRect();
+        const txt = last.textContent.trim();
+        const endsPage = lr.bottom + window.scrollY >= documentHeight - 60;
+        if (endsPage && lr.height <= 700 && txt.length > 0 && (!!last.querySelector('a, button') || /©|copyright|all rights/i.test(txt))) {
+          chosen = chosen.slice(0, -1);
+        }
+      }
     }
     globalLayout.coverage_pct = coveragePct(chosen);
     globalLayout.coverage_before_pct = coverageBeforePct;
