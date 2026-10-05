@@ -61,9 +61,9 @@ const FIXTURE = `<!doctype html><html lang="de"><head><meta charset="utf-8"><tit
     </div>
     ${block(2, '#111111', '#EBE9E4')}${block(3, '#EBE9E4', '#111111')}${block(4, '#111111', '#EBE9E4')}${block(5, '#EBE9E4', '#111111')}
   </div></div>
-  <div style="display:contents"><div class="sec" style="background:#111111;color:#EBE9E4;height:700px;box-sizing:border-box;padding:80px 60px">
+  <div style="display:contents"><div style="height:700px"><div class="sec" style="background:#111111;color:#EBE9E4;height:700px;box-sizing:border-box;padding:80px 60px">
     <h2 style="font:700 48px sans-serif;margin:0">Bereit für deine neue Website?</h2><a href="#c" style="color:inherit">Kontakt</a>
-  </div></div>
+  </div></div></div>
   <div class="foot" style="background:#EBE9E4;color:#111;height:255px;box-sizing:border-box;padding:40px 60px">
     <a href="/a">Home</a> <a href="/b">Services</a> <a href="/c">Projekte</a> <a href="/d">Kontakt</a>
     <p style="font:14px sans-serif">© 2026 | Fixture</p>
@@ -137,6 +137,12 @@ async function runExtractor(url) {
     assert(sb.global.sections_captured >= 6, `secciones capturadas: ${sb.global.sections_captured}`);
     assert(sb.global.coverage_pct >= 90, `cobertura: ${sb.global.coverage_pct} %`);
     assert(!sb.section_sequence.some(s => s.min_height_px >= 4000), 'la capa de fondo absoluta no cuenta como sección');
+  });
+
+  it('should read the background painted by a child when the section wrapper is transparent', () => {
+    const cta = sb.section_sequence[sb.section_sequence.length - 1];
+    assert.strictEqual(cta.effective_bg.hex, '#111111', JSON.stringify(cta.effective_bg));
+    assert.strictEqual(sb.section_sequence[0].effective_bg.hex, '#EBE9E4');
   });
 
   it('should find the header when it hides on scroll down (the scroll pass returns to the top stepwise)', () => {

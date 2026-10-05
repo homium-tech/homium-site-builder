@@ -588,6 +588,22 @@ async function extractDNA(targetUrl, screenshotPrefix = 'ref') {
 
     const resolveEffectiveBg = (el) => {
       let node = el;
+      // Un wrapper transparente puede ser solo la caja: en Framer/Webflow el color lo pinta un hijo que cubre
+      // la sección entera (la sección oscura "Bereit für…" medía el beige de la página). Se busca el primer
+      // descendiente que la cubre y tiene color propio antes de subir por los ancestros.
+      if (el && el !== document.body && el !== document.documentElement
+          && isTransparent(cs(el, 'background-color')) && !getGradientStops(el)) {
+        const er = el.getBoundingClientRect();
+        if (er.width > 0 && er.height > 0) {
+          const painter = [...el.querySelectorAll('*')].slice(0, 400).find(d => {
+            if (d.closest('svg')) return false;
+            const r = d.getBoundingClientRect();
+            if (r.width < er.width * 0.95 || r.height < er.height * 0.9) return false;
+            return !isTransparent(cs(d, 'background-color')) || !!getGradientStops(d);
+          });
+          if (painter) node = painter;
+        }
+      }
       while (node) {
         const bg   = cs(node, 'background-color');
         const grad = getGradientStops(node);

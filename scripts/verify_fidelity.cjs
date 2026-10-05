@@ -163,6 +163,13 @@ function withinTolerance(hexA, hexB) {
   return a.every((v, i) => Math.abs(v - b[i]) <= TOLERANCE);
 }
 
+// Fondos de sección: tolerancia de ±3 por canal (el redondeo del navegador y el grano de la referencia no deben fallar)
+const BG_TOLERANCE = 3;
+function hexesClose(hexA, hexB, tol) {
+  const a = hexChannels(hexA), b = hexChannels(hexB);
+  return a.every((v, i) => Math.abs(v - b[i]) <= tol);
+}
+
 // ---------------------------------------------------------------------------
 // [A] Build allowlist from state
 // ---------------------------------------------------------------------------
@@ -463,6 +470,22 @@ async function runVisualAndSectionCheck(htmlFile, blueprint, refPrefix, protoPre
         return nums.map(n => +(n / t * 100).toFixed(1));
       };
       const normalizeAlign = (v) => (!v || v === 'start') ? 'left' : v === 'end' ? 'right' : v;
+      // Fondo efectivo de una sección: el primer color opaco subiendo por los ancestros. Con degradado o imagen
+      // de fondo por el camino devuelve null (no hay un color único que comparar).
+      const toHex2 = (n) => Math.round(n).toString(16).padStart(2, '0').toUpperCase();
+      const effectiveBgHex = (el) => {
+        for (let cur = el; cur && cur.nodeType === 1; cur = cur.parentElement) {
+          const st = getComputedStyle(cur);
+          if (st.backgroundImage && st.backgroundImage !== 'none') return null;
+          const m = st.backgroundColor.match(/rgba?\(([^)]+)\)/);
+          if (!m) continue;
+          const parts = m[1].split(/[ ,/]+/).filter(Boolean).map(parseFloat);
+          const alpha = parts.length > 3 ? parts[3] : 1;
+          if (alpha >= 0.95) return '#' + toHex2(parts[0]) + toHex2(parts[1]) + toHex2(parts[2]);
+          if (alpha > 0) return null; // semitransparente: depende de lo que haya debajo
+        }
+        return null;
+      };
       const out = [];
       document.querySelectorAll('[data-section]').forEach(sec => {
         const i = parseInt(sec.getAttribute('data-section'), 10);
@@ -491,6 +514,7 @@ async function runVisualAndSectionCheck(htmlFile, blueprint, refPrefix, protoPre
           button_radii: btns,
           images: imgs,
           section_height_px:  Math.round(secRect.height),
+          bg_hex:             effectiveBgHex(sec),
           padding_top_px:     px(cs(sec, 'padding-top')),
           padding_bottom_px:  px(cs(sec, 'padding-bottom')),
         });
@@ -837,6 +861,23 @@ function compareGeometry(measured, blueprint) {
       const normM  = (!m.heading_align || m.heading_align === 'start') ? 'left' : m.heading_align === 'end' ? 'right' : m.heading_align;
       if (normBp !== normM) {
         issues.push({ severity: 'warning', section: m.index, message: `alineación heading "${m.heading_align}" ≠ blueprint "${bp.heading.text_align}"` });
+      }
+    }
+
+    // --- Fondo de la sección ---
+    // El color de fondo de cada sección es lo primero que se ve y no basta con que el hex esté en la allowlist:
+    // un prototipo puede usar otro color permitido (p. ej. #DBDBDB, un borde de la referencia) como fondo en lugar
+    // del medido (#EBE9E4). Se compara el fondo efectivo contra el del blueprint; sin color único (degradado,
+    // imagen, transparencia) en cualquiera de los dos lados no hay nada que comparar.
+    {
+      const refBg = bp.effective_bg && !bp.effective_bg.gradient_stops ? normalizeHexToken(bp.effective_bg.hex) : null;
+      const protoBg = m.bg_hex ? normalizeHexToken(m.bg_hex) : null;
+      if (refBg && protoBg && !hexesClose(refBg, protoBg, BG_TOLERANCE)) {
+        issues.push({
+          severity: 'critical',
+          section: m.index,
+          message: `fondo de la sección: ${protoBg} ≠ referencia ${refBg} — usa el fondo medido (effective_bg) aunque otro hex de la allowlist se vea parecido`,
+        });
       }
     }
 

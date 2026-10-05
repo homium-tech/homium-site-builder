@@ -738,6 +738,40 @@ it('the extractor should find a footer below the fold and detect header and foot
     assert.strictEqual(summary.visual_at, null);
     assert(summary.navbar && summary.footer, 'lleva el resultado de header y footer');
   });
+
+  // Fondo de sección: un hex permitido (#DBDBDB) no sirve como fondo si la referencia mide otro (#EBE9E4)
+  const verifySectionBg = (refBg, protoBg) => {
+    const workspace = fs.mkdtempSync(path.join(tmp, 'ws-'));
+    fs.writeFileSync(path.join(workspace, 'design-system-state.json'), JSON.stringify({
+      brand: { name: 'Acme' },
+      palette: { allowed_hexes: ['#EBE9E4', '#DBDBDB', '#111111', '#FFFFFF'] },
+      visual_dna: { fidelity_mode: 'TOTAL_ARCHITECTURAL_FIDELITY', structural_blueprint: {
+        navbar: { height_px: null, nav_links: [], utility_controls: [] },
+        footer: { found: false },
+        section_sequence: [{ index: 1, effective_bg: refBg }]
+      } }
+    }));
+    fs.mkdirSync(path.join(workspace, 'prototype'));
+    fs.writeFileSync(path.join(workspace, 'prototype', 'index.html'),
+      `<!doctype html><html lang="es"><head><title>x</title><style>body{margin:0;background:#FFFFFF}</style></head><body><main><section data-section="1" style="${protoBg};height:300px"><h1>Hola</h1></section></main></body></html>`);
+    const res = run('verify_fidelity.cjs', ['--state', 'design-system-state.json'], workspace);
+    return JSON.parse(res.stdout.slice(res.stdout.indexOf('{'))).checks.geometry;
+  };
+
+  it('verify_fidelity should fail a section whose background differs from the measured one even if the hex is allowed', () => {
+    if (!available) return console.log('    (omitido: no hay Chromium de Playwright)');
+    const geometry = verifySectionBg({ hex: '#EBE9E4', gradient_stops: null }, 'background:#DBDBDB');
+    assert.strictEqual(geometry.status, 'FAIL');
+    assert(geometry.issues.some(i => i.severity === 'critical' && /fondo de la sección: #DBDBDB ≠ referencia #EBE9E4/.test(i.message)), JSON.stringify(geometry.issues));
+  });
+
+  it('verify_fidelity should accept the measured background (±3 per channel) and skip sections with no single color to compare', () => {
+    if (!available) return console.log('    (omitido: no hay Chromium de Playwright)');
+    assert(!verifySectionBg({ hex: '#EBE9E4', gradient_stops: null }, 'background:#EBE9E5').issues.some(i => /fondo de la sección/.test(i.message)));
+    assert(!verifySectionBg({ hex: '#EBE9E4', gradient_stops: ['rgb(0,0,0)'] }, 'background:#111111').issues.some(i => /fondo de la sección/.test(i.message)), 'referencia con degradado: no se compara');
+    assert(!verifySectionBg({ hex: null, gradient_stops: null }, 'background:#111111').issues.some(i => /fondo de la sección/.test(i.message)), 'referencia sin color medido: no se compara');
+    assert(!verifySectionBg({ hex: '#EBE9E4', gradient_stops: null }, 'background:linear-gradient(#111111,#222222)').issues.some(i => /fondo de la sección/.test(i.message)), 'prototipo con degradado: no se compara');
+  });
 })();
 
 console.log('\n[2] verify_fidelity --check A (allowlist cromática de un archivo):');
