@@ -836,6 +836,8 @@ app.post('/api/chat', (req, res) => {
           timestamp: Date.now()
         }, target);
       }
+      // El estado del proyecto sigue a la compuerta 2 (finalizado solo con ella aprobada), diga lo que diga el agente
+      if (target) workspace.reconcileProjectStatus(target);
       return {
         ...doneData,
         action

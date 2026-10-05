@@ -26,6 +26,7 @@ const { Pipeline } = require('../core/pipeline');
 const GATE1 = new Pipeline().getGate('gate-1');
 const APPROVE = GATE1.options[0].value;
 const ADJUST = GATE1.options[1].value;
+const GATE2_APPROVE = new Pipeline().getGate('gate-2').options[0].value;
 
 async function chat(srv, message, sessionId = 'session-gates-1') {
   const res = await srv.api('/api/chat', { method: 'POST', body: { message, engine: 'mock', sessionId } });
@@ -175,6 +176,38 @@ async function runSuite() {
       const reloaded = (await history(srv)).pendingAction;
       assert.strictEqual(reloaded.stepId, 'gate-2');
       assert(reloaded.audit.fidelity && reloaded.audit.fidelity.items.length === fidelity.items.length, 'tras recargar vuelve el informe');
+    });
+
+    await it('should keep status EN_CURSO until gate 2 is approved, finalize on approval and reopen if the gate comes back', async () => {
+      const statePath = path.join(projectDir, 'design-system-state.json');
+      const readState = () => JSON.parse(fs.readFileSync(statePath, 'utf-8'));
+      // El agente declaró el proyecto terminado antes de que el usuario respondiera la compuerta 2
+      fs.writeFileSync(statePath, JSON.stringify({ ...readState(), status: 'COMPLETADO', phase_5_complete: true }));
+
+      await chat(srv, 'muestra el prototipo en la compuerta 2');
+      assert.strictEqual(readState().status, 'EN_CURSO', 'con la compuerta abierta el proyecto sigue en curso');
+      assert.strictEqual(readState().phase_5_complete, false, 'la fase 5 se confirma con la compuerta 2');
+
+      await chat(srv, GATE2_APPROVE);
+      assert.strictEqual((await history(srv)).gates['gate-2'].status, 'approved');
+      assert.strictEqual(readState().status, 'PROYECTO_FINALIZADO');
+      assert.strictEqual(readState().phase_5_complete, true);
+      assert(readState().brand && readState().visual_dna, 'el resto del estado queda intacto');
+
+      await chat(srv, 'muestra el prototipo en la compuerta 2');
+      assert.strictEqual(readState().status, 'EN_CURSO', 'si el agente reabre la compuerta, el proyecto deja de estar finalizado');
+    });
+
+    await it('should leave an unreadable or missing state file alone', async () => {
+      const statePath = path.join(projectDir, 'design-system-state.json');
+      const original = fs.readFileSync(statePath, 'utf-8');
+      fs.writeFileSync(statePath, '{ "status": "COMPLETADO", ');
+      try {
+        await chat(srv, 'cualquier mensaje');
+        assert.strictEqual(fs.readFileSync(statePath, 'utf-8'), '{ "status": "COMPLETADO", ', 'un JSON ilegible no se reescribe');
+      } finally {
+        fs.writeFileSync(statePath, original);
+      }
     });
 
     await it('should start a new project without archiving the current one, and resume it by brand name', async () => {
