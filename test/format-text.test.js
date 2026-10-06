@@ -92,8 +92,8 @@ it('should keep legitimate links, file chips, hex swatches and basic markdown wo
   assert(link.includes('<a href="https://linear.app/features"'));
   assert(link.includes('rel="noopener noreferrer"'));
 
-  const local = formatText('[Showcase](/preview/showcase)');
-  assert(local.includes('<a href="/preview/showcase"'));
+  const local = formatText('[Design System](/preview/design-system)');
+  assert(local.includes('<a href="/preview/design-system"'));
 
   const chip = formatText('[Estado](file:///C:/proyectos/acme/design-system-state.json)');
   assert(chip.includes('class="inline-file-chip"'));
@@ -110,7 +110,7 @@ it('should reject backslash host links that browsers read as protocol-relative U
     const html = formatText(p);
     assert(!html.includes('<a '), `no debe generar enlace para: ${p}`);
   }
-  assert(formatText('[ok](/preview/showcase)').includes('<a href="/preview/showcase"'));
+  assert(formatText('[ok](/preview/design-system)').includes('<a href="/preview/design-system"'));
 });
 
 it('should not turn plain words or numbers into hex swatches, but still color real hex codes', () => {
@@ -123,9 +123,9 @@ it('should not turn plain words or numbers into hex swatches, but still color re
 });
 
 it('should not inject swatch markup into the URL of a markdown link', () => {
-  const html = formatText('[spec](https://example.com/page#123456) y [otra](/preview/showcase#abcdef)');
+  const html = formatText('[spec](https://example.com/page#123456) y [otra](/preview/design-system#abcdef)');
   assert(html.includes('<a href="https://example.com/page#123456"'), html);
-  assert(html.includes('<a href="/preview/showcase#abcdef"'), html);
+  assert(html.includes('<a href="/preview/design-system#abcdef"'), html);
   assert(!html.includes('hex-swatch-pill'));
   assertNoActiveContent(html, 'link con fragmento hex');
 });

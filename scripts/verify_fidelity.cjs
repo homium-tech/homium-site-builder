@@ -239,7 +239,7 @@ function scanFileForColors(filePath) {
 /**
  * Verifica que ningún color literal quede fuera de la allowlist cromática.
  * @param {Object} [options]
- * @param {string} [options.file] Un único archivo a revisar (p. ej. el showcase HTML). Sin él se recorre PROTO_DIR.
+ * @param {string} [options.file] Un único archivo a revisar (p. ej. el Design System HTML). Sin él se recorre PROTO_DIR.
  */
 function runColorCheck({ file = null } = {}) {
   const exts = ['.html', '.css', '.js'];
@@ -1646,7 +1646,7 @@ function writeVisualSummary(exitCode) {
 // Main
 // ---------------------------------------------------------------------------
 (async function main() {
-  // Modo rápido "--check A": solo la allowlist cromática, sobre un archivo concreto (--file, p. ej. el showcase de
+  // Modo rápido "--check A": solo la allowlist cromática, sobre un archivo concreto (--file, p. ej. el Design System de
   // la Fase 4, donde aún no existe prototype/) o, sin --file, sobre la carpeta del prototipo.
   if (argValue('--check') === 'A') {
     const colors = runColorCheck({ file: argValue('--file') });

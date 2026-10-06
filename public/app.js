@@ -50,7 +50,7 @@ const engineSelect = document.getElementById('engineSelect');
 const btnReset = document.getElementById('btnReset');
 const btnClearChat = document.getElementById('btnClearChat');
 const prototypeFrame = document.getElementById('prototypeFrame');
-const showcaseFrame = document.getElementById('showcaseFrame');
+const designSystemFrame = document.getElementById('designSystemFrame');
 const blueprintView = document.getElementById('blueprintView');
 const consoleOutput = document.getElementById('consoleOutput');
 const btnRefreshPreview = document.getElementById('btnRefreshPreview');
@@ -129,15 +129,15 @@ function applyViewportWidth(width) {
     }
   }
 
-  // 2. Showcase iframe
-  if (showcaseFrame) {
-    showcaseFrame.style.maxWidth = width;
+  // 2. Design System iframe
+  if (designSystemFrame) {
+    designSystemFrame.style.maxWidth = width;
     if (isDesktop) {
-      showcaseFrame.style.boxShadow = 'none';
-      showcaseFrame.style.borderRadius = '0';
+      designSystemFrame.style.boxShadow = 'none';
+      designSystemFrame.style.borderRadius = '0';
     } else {
-      showcaseFrame.style.boxShadow = '0 0 40px rgba(0, 255, 255, 0.2)';
-      showcaseFrame.style.borderRadius = '24px';
+      designSystemFrame.style.boxShadow = '0 0 40px rgba(0, 255, 255, 0.2)';
+      designSystemFrame.style.borderRadius = '24px';
     }
   }
 
@@ -162,9 +162,9 @@ function updateExternalPreviewLink(tabId) {
   if (tabId === 'tab-prototype') {
     btnExternalPreview.href = '/preview/prototype/index.html';
     btnExternalPreview.title = 'Abrir Prototipo en pestaña nueva';
-  } else if (tabId === 'tab-showcase') {
-    btnExternalPreview.href = '/preview/showcase';
-    btnExternalPreview.title = 'Abrir Showcase en pestaña nueva';
+  } else if (tabId === 'tab-design-system') {
+    btnExternalPreview.href = '/preview/design-system';
+    btnExternalPreview.title = 'Abrir Design System en pestaña nueva';
   } else if (tabId === 'tab-blueprint') {
     btnExternalPreview.href = '/preview/blueprint';
     btnExternalPreview.title = 'Abrir Blueprint en pestaña nueva';
@@ -172,10 +172,10 @@ function updateExternalPreviewLink(tabId) {
 }
 
 // 3. Tab switching y seguimiento en vivo
-// Modo "En vivo": la vista sigue la fase del flujo (1-3 Blueprint, 4 Showcase, 5 Prototipo).
+// Modo "En vivo": la vista sigue la fase del flujo (1-3 Blueprint, 4 Design System, 5 Prototipo).
 // Un clic manual en una pestaña lo pausa hasta que cambie la fase. El indicador es solo de lectura.
-const FOLLOW_TABS = ['tab-blueprint', 'tab-showcase', 'tab-prototype'];
-const FOLLOW_LABELS = { 'tab-blueprint': 'Blueprint', 'tab-showcase': 'Showcase', 'tab-prototype': 'Prototipo' };
+const FOLLOW_TABS = ['tab-blueprint', 'tab-design-system', 'tab-prototype'];
+const FOLLOW_LABELS = { 'tab-blueprint': 'Blueprint', 'tab-design-system': 'Design System', 'tab-prototype': 'Prototipo' };
 let followPaused = false;
 let lastFollowTarget = null;
 // Clave de la versión anterior (interruptor manual): ya no se usa
@@ -197,9 +197,9 @@ function renderFollowIndicator() {
     : 'Siguiendo el avance: la vista cambia sola según la fase.';
 }
 
-function resolveFollowTarget({ phase, showcaseExists, prototypeExists }) {
+function resolveFollowTarget({ phase, designSystemExists, prototypeExists }) {
   const phaseRank = phase >= 5 ? 2 : (phase >= 4 ? 1 : 0);
-  const fileRank = prototypeExists ? 2 : (showcaseExists ? 1 : 0);
+  const fileRank = prototypeExists ? 2 : (designSystemExists ? 1 : 0);
   return FOLLOW_TABS[Math.max(phaseRank, fileRank)];
 }
 
@@ -235,7 +235,7 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     const targetPane = document.getElementById(tabId);
     if (targetPane) targetPane.classList.add('active');
 
-    // Controles viewport: Visibles en TODAS las vistas (Blueprint, Prototipo, Showcase) MENOS en Consola
+    // Controles viewport: Visibles en TODAS las vistas (Blueprint, Prototipo, Design System) MENOS en Consola
     const viewportControls = document.getElementById('viewportControls');
     if (tabId === 'tab-logs') {
       loadTelemetrySummary();
@@ -266,9 +266,9 @@ if (btnRefreshPreview) {
       checkStatus();
       loadWorkspaceInfo();
       appendLog('[System] Blueprint refrescado manualmente.');
-    } else if (activeTab === 'tab-showcase') {
-      if (showcaseFrame) showcaseFrame.src = showcaseFrame.src;
-      appendLog('[System] Showcase refrescado manualmente.');
+    } else if (activeTab === 'tab-design-system') {
+      if (designSystemFrame) designSystemFrame.src = designSystemFrame.src;
+      appendLog('[System] Design System refrescado manualmente.');
     } else {
       if (prototypeFrame) prototypeFrame.src = prototypeFrame.src;
       appendLog('[System] Prototipo refrescado manualmente.');
@@ -438,9 +438,9 @@ function resetClientView(systemText) {
   lastPendingAction = null;
   renderFollowIndicator();
   prevPrototypeVersion = null;
-  prevShowcaseVersion = null;
+  prevDesignSystemVersion = null;
   prototypeFrame.src = '/preview/prototype/index.html';
-  showcaseFrame.src = '/preview/showcase';
+  designSystemFrame.src = '/preview/design-system';
   blueprintView.innerHTML = BLUEPRINT_EMPTY_HTML;
 
   // Resetear pills del pipeline de fases
@@ -1295,7 +1295,7 @@ function toggleMobilePanel() {
 // 8. Gestión Reactiva de Entregables vía DeliverableStore (SSE)
 // Última versión (mtime+tamaño) cargada en cada iframe; al cambiar, la vista previa se recarga sola
 let prevPrototypeVersion = null;
-let prevShowcaseVersion = null;
+let prevDesignSystemVersion = null;
 
 // Carga dinámica de fuentes de Google Fonts bajo demanda para renderizado fiel
 const loadedFonts = new Set();
@@ -1868,7 +1868,7 @@ function renderBlueprintRaw(s) {
               </span>
               <span class="sitemap-route-pill">/proyectos</span>
             </div>
-            <p class="sitemap-page-desc">${sitemap.p2_description || 'Catálogo filtrable o showcase detallado.'}</p>
+            <p class="sitemap-page-desc">${sitemap.p2_description || 'Catálogo filtrable o detalle destacado.'}</p>
           </div>
         ` : ''}
 
@@ -2067,7 +2067,7 @@ function renderBlueprintRaw(s) {
 
   // Actualizar pipeline de fases según completitud de datos reales
   const badgeProto = document.getElementById('badgePrototype');
-  const badgeShowcase = document.getElementById('badgeShowcase');
+  const badgeDesignSystem = document.getElementById('badgeDesignSystem');
 
   const isPhase1Done = Boolean(
     (brand.name && (brand.purpose || brand.business_model || (brand.fidelity_mode && !brand.fidelity_mode.includes('Pendiente')))) ||
@@ -2087,8 +2087,8 @@ function renderBlueprintRaw(s) {
     s.current_phase > 3
   );
   const isPhase4Done = Boolean(
-    (badgeShowcase && badgeShowcase.textContent.includes('Listo')) ||
-    s.artifacts?.showcase_html ||
+    (badgeDesignSystem && badgeDesignSystem.textContent.includes('Listo')) ||
+    s.artifacts?.design_system_html || s.artifacts?.showcase_html ||
     s.current_phase > 4
   );
   const isPhase5Done = Boolean(
@@ -2143,10 +2143,10 @@ function updateDeliverablesTracker(snapshot) {
       hint: data.specFile || '*_Design_System.md'
     },
     {
-      id: 'showcase',
-      label: data.showcaseFile || 'Showcase HTML',
-      ready: !!data.showcaseExists,
-      hint: data.showcaseFile || '*_Design_System.html'
+      id: 'design-system',
+      label: data.designSystemFile || 'Design System HTML',
+      ready: !!data.designSystemExists,
+      hint: data.designSystemFile || '*_Design_System.html'
     },
     {
       id: 'proto',
@@ -2161,7 +2161,7 @@ function updateDeliverablesTracker(snapshot) {
   const readyCount = items.filter(i => i.ready).length;
   trackerCount.textContent = `${readyCount}/4`;
 
-  if (data.stateExists || data.specExists || data.showcaseExists || data.prototypeExists) {
+  if (data.stateExists || data.specExists || data.designSystemExists || data.prototypeExists) {
     trackerBar.style.display = 'flex';
   }
 
@@ -2194,7 +2194,7 @@ function notifyTrackerBuilding(activityText) {
   let targetId = null;
   if (lower.includes('state.json') || lower.includes('token')) targetId = 'token';
   else if (lower.includes('_design_system.md') || lower.includes('espec')) targetId = 'spec';
-  else if (lower.includes('_design_system.html') || lower.includes('showcase')) targetId = 'showcase';
+  else if (lower.includes('_design_system')) targetId = 'design-system';
   else if (lower.includes('prototype') || lower.includes('index.html') || lower.includes('prototipo')) targetId = 'proto';
 
   if (targetId) {
@@ -2246,7 +2246,7 @@ function applyDeliverableSnapshot(snapshot) {
 
   const data = snapshot.status;
   const badgeProto = document.getElementById('badgePrototype');
-  const badgeShowcase = document.getElementById('badgeShowcase');
+  const badgeDesignSystem = document.getElementById('badgeDesignSystem');
   const badgeState = document.getElementById('badgeState');
 
   // 1. Prototipo
@@ -2269,24 +2269,24 @@ function applyDeliverableSnapshot(snapshot) {
     prevPrototypeVersion = null;
   }
 
-  // 2. Showcase
-  if (data.showcaseExists) {
-    badgeShowcase.style.background = 'rgba(90, 234, 162, 0.15)';
-    badgeShowcase.style.borderColor = 'rgba(90, 234, 162, 0.35)';
-    badgeShowcase.style.color = 'var(--homium-green)';
-    badgeShowcase.textContent = 'Listo';
-    const showcaseVersion = data.showcaseVersion || '1';
-    if (showcaseVersion !== prevShowcaseVersion) {
-      showcaseFrame.src = '/preview/showcase?v=' + encodeURIComponent(showcaseVersion);
-      if (prevShowcaseVersion !== null) appendLog('[En vivo] Showcase actualizado en disco, recargando vista.');
-      prevShowcaseVersion = showcaseVersion;
+  // 2. Design System
+  if (data.designSystemExists) {
+    badgeDesignSystem.style.background = 'rgba(90, 234, 162, 0.15)';
+    badgeDesignSystem.style.borderColor = 'rgba(90, 234, 162, 0.35)';
+    badgeDesignSystem.style.color = 'var(--homium-green)';
+    badgeDesignSystem.textContent = 'Listo';
+    const designSystemVersion = data.designSystemVersion || '1';
+    if (designSystemVersion !== prevDesignSystemVersion) {
+      designSystemFrame.src = '/preview/design-system?v=' + encodeURIComponent(designSystemVersion);
+      if (prevDesignSystemVersion !== null) appendLog('[En vivo] Design System actualizado en disco, recargando vista.');
+      prevDesignSystemVersion = designSystemVersion;
     }
   } else {
-    badgeShowcase.style.background = 'rgba(255, 255, 255, 0.08)';
-    badgeShowcase.style.borderColor = 'rgba(255, 255, 255, 0.15)';
-    badgeShowcase.style.color = 'rgba(255, 255, 255, 0.7)';
-    badgeShowcase.textContent = 'HTML';
-    prevShowcaseVersion = null;
+    badgeDesignSystem.style.background = 'rgba(255, 255, 255, 0.08)';
+    badgeDesignSystem.style.borderColor = 'rgba(255, 255, 255, 0.15)';
+    badgeDesignSystem.style.color = 'rgba(255, 255, 255, 0.7)';
+    badgeDesignSystem.textContent = 'HTML';
+    prevDesignSystemVersion = null;
   }
 
   // 3. Blueprint State reactivo y unificado
@@ -2322,7 +2322,7 @@ function applyDeliverableSnapshot(snapshot) {
   // Seguir el avance del flujo (fase + entregables) salvo que el usuario lo haya pausado
   followLiveTab({
     phase: Number(snapshot.state?.current_phase || snapshot.state?.phase) || 1,
-    showcaseExists: data.showcaseExists,
+    designSystemExists: data.designSystemExists,
     prototypeExists: data.prototypeExists
   });
 
@@ -2633,10 +2633,12 @@ async function loadWorkspaceInfo() {
       const versionEl = document.getElementById('metaVersionValue');
       if (versionEl && data.version) versionEl.textContent = `v${data.version}`;
       if (btnAttach) {
-        btnAttach.disabled = !data.hasProject;
+        // También sin proyecto: un manual de marca puede ir en el primer mensaje, junto al nombre; el servidor lo
+        // guarda en espera y lo mueve a uploads/ cuando el proyecto existe
+        btnAttach.disabled = false;
         btnAttach.title = data.hasProject
           ? 'Adjuntar archivo'
-          : 'Definí primero el nombre de tu marca o proyecto para poder adjuntar archivos';
+          : 'Adjuntar archivo (por ejemplo el manual de marca) junto con el nombre de tu marca';
       }
     }
   } catch (err) {}
@@ -3147,7 +3149,7 @@ function renderResumedChatState(data, fromCache = false) {
   // 5. Conmutar a la pestaña visual relevante
   followLiveTab({
     phase: Number(data.currentPhase) || 1,
-    showcaseExists: data.deliverables?.showcaseExists,
+    designSystemExists: data.deliverables?.designSystemExists,
     prototypeExists: data.deliverables?.prototypeExists
   });
 }

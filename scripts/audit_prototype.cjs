@@ -369,6 +369,24 @@ if (state && state.typography) {
     warnings.push(`Fuente(s) que no están en el estado del proyecto (state.typography): ${unapproved.join(', ')}. Solo se usan las fuentes que el usuario eligió.`);
   }
 
+  // Las fuentes elegidas deben cargarse de verdad: un @font-face con solo local() o con un archivo inexistente deja
+  // el prototipo en la fuente de respaldo sin que se note
+  {
+    const { firstFamily, fontLoader } = require('./font-loading.cjs');
+    const loader = fontLoader(css, pages.map(p => p.html).join('\n'), protoDir);
+    const declared = Array.isArray(state.typography.font_substitutions) ? state.typography.font_substitutions : [];
+    const substituted = new Set(declared.filter(s => s && s.family).map(s => String(s.family).trim().toLowerCase()));
+    const seenFonts = new Set();
+    for (const key of ['font_display', 'font_ui', 'font_accent_italic']) {
+      const family = firstFamily(state.typography[key]);
+      if (!family || seenFonts.has(family.toLowerCase()) || loader.has(family)) continue;
+      seenFonts.add(family.toLowerCase());
+      warnings.push(substituted.has(family.toLowerCase())
+        ? `La fuente ${family} no se carga y está declarada como sustituida (typography.font_substitutions): el prototipo usa la fuente de respaldo.`
+        : `La fuente ${family} está en el estado pero no se carga: ${loader.why(family)}. Copia su archivo (TTF, OTF, WOFF o WOFF2) a prototype/ y declara @font-face con url(), o declara la sustitución en typography.font_substitutions y avisa al cliente.`);
+    }
+  }
+
   const icons = String(state.typography.icons || '');
   if (icons && !/(ning|none|emoji|sin )/i.test(icons)) {
     const svgs = pages.reduce((n, p) => n + (p.html.match(/<svg[\s>]/gi) || []).length, 0);

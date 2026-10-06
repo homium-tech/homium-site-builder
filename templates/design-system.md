@@ -298,7 +298,7 @@ Calibración estratégica de los 14 ejes de marca para derivar parámetros geom�
 {{#EACH ATOMS}}
 #### Átomo: {{name}} (`.{{class}}`)
 * **Anatomía:** {{anatomy}}
-* **Variantes (para el Component Block del Showcase):** {{variants}}
+* **Variantes (para el Component Block del Design System):** {{variants}}
 * **Props de demostración:** {{sample_props}}
 * **Estados Interactivos ({{state_count}} Estados):**
   1. `default`: {{default_state}}
@@ -322,7 +322,7 @@ Calibración estratégica de los 14 ejes de marca para derivar parámetros geom�
 {{#EACH MOLECULES}}
 #### Molécula: {{name}} (`.{{class}}`)
 * **Anatomía:** {{anatomy}}
-* **Variantes (para el Component Block del Showcase):** {{variants}}
+* **Variantes (para el Component Block del Design System):** {{variants}}
 * **Props de demostración:** {{sample_props}}
 * **Estados Interactivos:**
 {{#EACH states}}
@@ -344,7 +344,7 @@ Calibración estratégica de los 14 ejes de marca para derivar parámetros geom�
 {{#EACH ORGANISMS}}
 #### Organismo: {{name}} (`.{{class}}`)
 * **Anatomía:** {{anatomy}}
-* **Variantes (para el Component Block del Showcase):** {{variants}}
+* **Variantes (para el Component Block del Design System):** {{variants}}
 * **Props de demostración:** {{sample_props}}
 * **Accesibilidad ARIA:** {{aria_requirements}}
 * **Estados Interactivos:**

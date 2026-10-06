@@ -57,14 +57,14 @@ async function runTests() {
     const gate1 = pipeline.getGate('gate-1');
     workspace.addChatMessage({
       role: 'assistant',
-      content: 'Showcase generado con éxito. ¿Aprobamos para pasar a la Fase 5?',
+      content: 'Design System generado con éxito. ¿Aprobamos para pasar a la Fase 5?',
       action: gate1,
       timestamp: 2000
     });
 
     history = workspace.getChatHistory();
     assert.strictEqual(history.messages.length, 2);
-    assert.strictEqual(history.lastAssistantMessage.content, 'Showcase generado con éxito. ¿Aprobamos para pasar a la Fase 5?');
+    assert.strictEqual(history.lastAssistantMessage.content, 'Design System generado con éxito. ¿Aprobamos para pasar a la Fase 5?');
     assert.deepStrictEqual(history.lastAction.stepId, 'gate-1');
     console.log('  ✓ User and assistant messages with actions persist to chat_history.json');
 
@@ -105,7 +105,7 @@ async function runTests() {
     assert.strictEqual(synthHistory.currentPhase, 4);
     assert.strictEqual(synthHistory.messages.length, 1);
     assert.strictEqual(synthHistory.messages[0].role, 'assistant');
-    assert.match(synthHistory.messages[0].content, /Showcase del Design System/);
+    assert.match(synthHistory.messages[0].content, /\*\*Design System\*\*/);
     console.log('  ✓ Automatically synthesized Phase 4 history and Gate 1 context');
 
     // 5. Reset project clears active project and state

@@ -4,7 +4,7 @@ const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
 
-// Scripts que los agentes ejecutan desde el workspace: compile_showcase, audit_showcase y verify_fidelity.
+// Scripts que los agentes ejecutan desde el workspace: compile_design_system, audit_design_system y verify_fidelity.
 // Se invocan con rutas absolutas y desde otra carpeta, como hace el prompt.
 
 let passedTests = 0;
@@ -40,17 +40,17 @@ const STATE = {
 
 console.log('\n--- Test Suite: Scripts de la app (rutas absolutas desde el workspace) ---\n');
 
-console.log('[1] compile_showcase + audit_showcase (14 secciones):');
+console.log('[1] compile_design_system + audit_design_system (14 secciones):');
 it('should refuse to guess a project when no state path is given', () => {
-  const res = run('compile_showcase.cjs', [], tmp);
+  const res = run('compile_design_system.cjs', [], tmp);
   assert.notStrictEqual(res.status, 0);
-  assert(/Uso: node compile_showcase\.cjs/.test(res.stderr), res.stderr);
+  assert(/Uso: node compile_design_system\.cjs/.test(res.stderr), res.stderr);
 });
 
-it('should compile the showcase for the documented palette schema without leaking the sample brand', () => {
+it('should compile the Design System for the documented palette schema without leaking the sample brand', () => {
   const workspace = fs.mkdtempSync(path.join(tmp, 'ws-'));
   fs.writeFileSync(path.join(workspace, 'design-system-state.json'), JSON.stringify(STATE));
-  const res = run('compile_showcase.cjs', ['design-system-state.json'], workspace);
+  const res = run('compile_design_system.cjs', ['design-system-state.json'], workspace);
   assert.strictEqual(res.status, 0, res.stderr);
 
   const out = path.join(workspace, 'AcmeLabs_Design_System.html');
@@ -64,18 +64,18 @@ it('should compile the showcase for the documented palette schema without leakin
   assert.strictEqual((html.match(/id="sec-[a-z-]+"/g) || []).length, 14);
 });
 
-it('the audit should accept a 14-section showcase and flag a missing canonical section', () => {
+it('the audit should accept a 14-section Design System and flag a missing canonical section', () => {
   const workspace = fs.mkdtempSync(path.join(tmp, 'ws-'));
   fs.writeFileSync(path.join(workspace, 'design-system-state.json'), JSON.stringify(STATE));
-  run('compile_showcase.cjs', ['design-system-state.json'], workspace);
+  run('compile_design_system.cjs', ['design-system-state.json'], workspace);
   const file = path.join(workspace, 'AcmeLabs_Design_System.html');
 
-  const ok = run('audit_showcase.cjs', [file], workspace);
+  const ok = run('audit_design_system.cjs', [file], workspace);
   assert.strictEqual(ok.status, 0, ok.stdout);
   assert(!/sec-sitemap/.test(ok.stdout), 'no debe exigir una sección de sitemap');
 
   fs.writeFileSync(file, fs.readFileSync(file, 'utf-8').replace('id="sec-motion"', 'id="sec-otra"'));
-  const broken = run('audit_showcase.cjs', [file], workspace);
+  const broken = run('audit_design_system.cjs', [file], workspace);
   assert.strictEqual(broken.status, 1);
   assert(broken.stdout.includes('#sec-motion'));
 });
@@ -91,33 +91,33 @@ it('the audit should fail a table nested inside <tbody>, which makes the browser
 
   const workspace = fs.mkdtempSync(path.join(tmp, 'ws-'));
   fs.writeFileSync(path.join(workspace, 'design-system-state.json'), JSON.stringify(STATE));
-  run('compile_showcase.cjs', ['design-system-state.json'], workspace);
+  run('compile_design_system.cjs', ['design-system-state.json'], workspace);
   const file = path.join(workspace, 'AcmeLabs_Design_System.html');
   const html = fs.readFileSync(file, 'utf-8');
-  assert.strictEqual(run('audit_showcase.cjs', [file], workspace).status, 0, 'el showcase compilado está bien anidado');
+  assert.strictEqual(run('audit_design_system.cjs', [file], workspace).status, 0, 'el Design System compilado está bien anidado');
 
   fs.writeFileSync(file, html.replace('<tbody>', '<tbody><div class="table-wrap"><table><tbody><tr><td>x</td></tr></tbody></table></div>'));
-  const broken = run('audit_showcase.cjs', [file], workspace);
+  const broken = run('audit_design_system.cjs', [file], workspace);
   assert.strictEqual(broken.status, 1);
   assert(broken.stdout.includes('HTML mal anidado'), broken.stdout);
 });
 
-it('compiled showcases should keep the left rail readable even when the palette is light and the rail is dark', () => {
+it('compiled Design Systems should keep the left rail readable even when the palette is light and the rail is dark', () => {
   const workspace = fs.mkdtempSync(path.join(tmp, 'ws-'));
   const light = {
     ...STATE,
     palette: { primary: '#946EDB', primary_dark: '#000000', secondary: '#000000', accent: '#C7A9FE', bg_base: '#EBE1FF', surface_card: '#FFFFFF', text_primary: '#000000' }
   };
   fs.writeFileSync(path.join(workspace, 'design-system-state.json'), JSON.stringify(light));
-  assert.strictEqual(run('compile_showcase.cjs', ['design-system-state.json'], workspace).status, 0);
-  const audit = run('audit_showcase.cjs', [path.join(workspace, 'AcmeLabs_Design_System.html')], workspace);
+  assert.strictEqual(run('compile_design_system.cjs', ['design-system-state.json'], workspace).status, 0);
+  const audit = run('audit_design_system.cjs', [path.join(workspace, 'AcmeLabs_Design_System.html')], workspace);
   assert(!/Contraste insuficiente/.test(audit.stdout), audit.stdout);
 });
 
-it('the audit should fail a showcase whose rail text or tertiary text has no contrast', () => {
+it('the audit should fail a Design System whose rail text or tertiary text has no contrast', () => {
   const workspace = fs.mkdtempSync(path.join(tmp, 'ws-'));
   fs.writeFileSync(path.join(workspace, 'design-system-state.json'), JSON.stringify(STATE));
-  run('compile_showcase.cjs', ['design-system-state.json'], workspace);
+  run('compile_design_system.cjs', ['design-system-state.json'], workspace);
   const file = path.join(workspace, 'AcmeLabs_Design_System.html');
   const html = fs.readFileSync(file, 'utf-8');
 
@@ -129,16 +129,16 @@ it('the audit should fail a showcase whose rail text or tertiary text has no con
     .replace(/(--rail-fg-muted:\s*)rgba\([^)]*\)/, '$1rgba(0, 0, 0, 0.72)')
     .replace(/(--rail-fg-subtle:\s*)rgba\([^)]*\)/, '$1rgba(0, 0, 0, 0.45)');
   fs.writeFileSync(file, bad);
-  const res = run('audit_showcase.cjs', [file], workspace);
+  const res = run('audit_design_system.cjs', [file], workspace);
   assert.strictEqual(res.status, 1, res.stdout);
   assert(/Contraste insuficiente[^\n]*rail izquierdo/.test(res.stdout), res.stdout);
 });
 
-it('compile_showcase should read modular_scale and density_mode from the state and compute real WCAG ratios', () => {
+it('compile_design_system should read modular_scale and density_mode from the state and compute real WCAG ratios', () => {
   const workspace = fs.mkdtempSync(path.join(tmp, 'ws-'));
   const state = { ...STATE, modular_scale: { name: 'Perfect Fourth', ratio: 1.333 }, density_mode: { mode: 'compact', base_px: 4 } };
   fs.writeFileSync(path.join(workspace, 'design-system-state.json'), JSON.stringify(state));
-  assert.strictEqual(run('compile_showcase.cjs', ['design-system-state.json'], workspace).status, 0);
+  assert.strictEqual(run('compile_design_system.cjs', ['design-system-state.json'], workspace).status, 0);
   const html = fs.readFileSync(path.join(workspace, 'AcmeLabs_Design_System.html'), 'utf-8');
   assert(html.includes('Perfect Fourth (1.333)'), 'usa la escala del estado');
   assert(!html.includes('Major Third (1.250)'), 'ya no queda fija en Major Third');
@@ -151,12 +151,12 @@ it('compile_showcase should read modular_scale and density_mode from the state a
 it('the audit should flag a client semantic color with no contrast against the background', () => {
   const workspace = fs.mkdtempSync(path.join(tmp, 'ws-'));
   fs.writeFileSync(path.join(workspace, 'design-system-state.json'), JSON.stringify(STATE));
-  run('compile_showcase.cjs', ['design-system-state.json'], workspace);
+  run('compile_design_system.cjs', ['design-system-state.json'], workspace);
   const file = path.join(workspace, 'AcmeLabs_Design_System.html');
   const html = fs.readFileSync(file, 'utf-8');
   // --bg es oscuro (#101313): un "error" casi igual de oscuro no se distingue
   fs.writeFileSync(file, html.replace('--sev-critico:', '--client-error: #14171a;\n      --sev-critico:'));
-  const res = run('audit_showcase.cjs', [file], workspace);
+  const res = run('audit_design_system.cjs', [file], workspace);
   assert.strictEqual(res.status, 1, res.stdout);
   assert(/color semántico --client-error/.test(res.stdout), res.stdout);
 });
@@ -176,7 +176,7 @@ it('the template, the audit and the phase doc should agree on the same 14 sectio
   const template = fs.readFileSync(path.join(ROOT, 'templates', 'design-system.html'), 'utf-8');
   const templateIds = [...template.matchAll(/id="(sec-[a-z-]+)"/g)].map(m => m[1]);
 
-  const audit = fs.readFileSync(script('audit_showcase.cjs'), 'utf-8');
+  const audit = fs.readFileSync(script('audit_design_system.cjs'), 'utf-8');
   const block = audit.slice(audit.indexOf('const requiredSectionIds = ['), audit.indexOf('];', audit.indexOf('const requiredSectionIds = [')));
   const auditIds = [...block.matchAll(/'(sec-[a-z-]+)'/g)].map(m => m[1]);
 
@@ -283,7 +283,7 @@ const { runGateAudits, parseTextAudit } = require('../lib/audits');
 it('parseTextAudit should read warnings and critical errors from the audit scripts output', () => {
   const stdout = [
     '========================================',
-    'AUDITORÍA TÉCNICA DEL SHOWCASE: X.html',
+    'AUDITORÍA TÉCNICA DEL DESIGN SYSTEM: X.html',
     '========================================',
     '⚠️  ADVERTENCIAS (2):',
     '   - primera advertencia',
@@ -300,14 +300,14 @@ it('parseTextAudit should read warnings and critical errors from the audit scrip
   assert.deepStrictEqual(parseTextAudit('✅ ESTADO: 100% PASS'), { errors: [], warnings: [] });
 });
 
-it('runGateAudits(gate-1) should combine showcase, spec and palette audits and flag a missing spec', () => {
+it('runGateAudits(gate-1) should combine Design System, spec and palette audits and flag a missing spec', () => {
   const workspace = fs.mkdtempSync(path.join(tmp, 'ws-'));
   fs.writeFileSync(path.join(workspace, 'design-system-state.json'), JSON.stringify(STATE));
-  assert.strictEqual(run('compile_showcase.cjs', ['design-system-state.json'], workspace).status, 0);
+  assert.strictEqual(run('compile_design_system.cjs', ['design-system-state.json'], workspace).status, 0);
 
   let audit = runGateAudits('gate-1', workspace);
   const byId = Object.fromEntries(audit.checks.map(c => [c.id, c]));
-  assert.deepStrictEqual(Object.keys(byId).sort(), ['palette', 'showcase', 'spec']);
+  assert.deepStrictEqual(Object.keys(byId).sort(), ['design-system', 'palette', 'spec']);
   assert.strictEqual(byId.spec.status, 'fail');
   assert(/No se encontró/.test(byId.spec.errors[0]));
   assert(audit.summary.fail >= 1);
@@ -354,7 +354,11 @@ const GOOD_PROTO = {
     '<aside id="drawer" class="mobile-drawer" aria-label="Menú móvil" inert><a href="index.html">Inicio</a></aside>',
     '<main id="main"><h1>Acme</h1><label for="n">Nombre</label><input id="n"></main></body></html>'
   ].join('\n'),
+  // Las fuentes del estado deben cargarse: archivos locales (sin CDN, para no sumar una dependencia externa)
+  'rubik.woff2': 'x',
+  'inter.woff2': 'x',
   'styles.css': [
+    "@font-face{font-family:'Rubik';src:url('rubik.woff2') format('woff2')}@font-face{font-family:'Inter';src:url('inter.woff2') format('woff2')}",
     ':root{--bg:#101313;--fg:#F1F3F3;--accent:#00B2D6;--ring:#00B2D6}',
     'html[data-theme="light"]{--bg:#F1F3F3;--fg:#101313;--accent:#0B2E5E;--ring:#0B2E5E}',
     'body{background-color:var(--bg);color:var(--fg)}',
@@ -460,7 +464,9 @@ it('the prototype base (templates/prototype) should pass audit_prototype once it
   fs.writeFileSync(path.join(workspace, 'design-system-state.json'), JSON.stringify(STATE));
   fs.mkdirSync(path.join(workspace, 'prototype'));
   fs.writeFileSync(path.join(workspace, 'prototype', 'index.html'), fs.readFileSync(path.join(dir, 'base.html'), 'utf-8').replace(/\{\{[A-Z0-9_]+\}\}/g, 'x'));
-  fs.writeFileSync(path.join(workspace, 'prototype', 'styles.css'), fs.readFileSync(path.join(dir, 'base.css'), 'utf-8'));
+  fs.writeFileSync(path.join(workspace, 'prototype', 'rubik.woff2'), 'x');
+  fs.writeFileSync(path.join(workspace, 'prototype', 'inter.woff2'), 'x');
+  fs.writeFileSync(path.join(workspace, 'prototype', 'styles.css'), "@font-face{font-family:'Rubik';src:url('rubik.woff2')}@font-face{font-family:'Inter';src:url('inter.woff2')}\n" + fs.readFileSync(path.join(dir, 'base.css'), 'utf-8'));
   fs.writeFileSync(path.join(workspace, 'prototype', 'main.js'), fs.readFileSync(path.join(dir, 'base.js'), 'utf-8'));
   const res = run('audit_prototype.cjs', ['--dir', 'prototype', '--state', 'design-system-state.json'], workspace);
   assert.strictEqual(res.status, 0, res.stdout);
@@ -836,6 +842,134 @@ it('should not require emoji swatches, which directive 10 forbids, and every opt
   assert(phase2.includes('Escribir mi propia opción personalizada'));
   const phase4 = fs.readFileSync(path.join(ROOT, 'references', 'phases', 'phase-4-validation.md'), 'utf-8');
   assert((phase4.match(/Escribir mi propia opción personalizada/g) || []).length >= 2, 'formato y plataforma de exportación con opción personalizada');
+});
+
+console.log('\n[fuentes] una fuente del estado solo cuenta si se carga de verdad:');
+
+function fontWorkspace(state, extraCss, files = {}) {
+  const workspace = fs.mkdtempSync(path.join(tmp, 'ws-font-'));
+  fs.writeFileSync(path.join(workspace, 'design-system-state.json'), JSON.stringify({ ...STATE, typography: { font_display: 'Rubik', font_ui: 'Inter', ...state } }));
+  run('compile_design_system.cjs', ['design-system-state.json'], workspace);
+  const file = path.join(workspace, 'AcmeLabs_Design_System.html');
+  fs.writeFileSync(file, fs.readFileSync(file, 'utf-8').replace('</style>', `${extraCss}\n</style>`));
+  for (const [rel, content] of Object.entries(files)) {
+    fs.mkdirSync(path.dirname(path.join(workspace, rel)), { recursive: true });
+    fs.writeFileSync(path.join(workspace, rel), content);
+  }
+  return { workspace, file };
+}
+const ES_FACE_LOCAL = "@font-face{font-family:'ES Face';src:local('ES Face'),local('ESFace-Regular')}";
+
+it('audit_design_system should fail a brand font that only has a local() @font-face (the Selvaria case)', () => {
+  const { workspace, file } = fontWorkspace({ font_display: 'ES Face, sans-serif' }, ES_FACE_LOCAL);
+  const res = run('audit_design_system.cjs', [file], workspace);
+  assert.strictEqual(res.status, 1, res.stdout);
+  assert(/ES Face/.test(res.stdout) && /solo usa local\(\)/.test(res.stdout), res.stdout);
+});
+
+it('audit_design_system should fail a font whose @font-face points at a raw .cff extracted from a PDF', () => {
+  const { workspace, file } = fontWorkspace({ font_display: 'ES Face, sans-serif' },
+    "@font-face{font-family:'ES Face';src:url('assets/fonts/ESFace-Bold.cff')}", { 'assets/fonts/ESFace-Bold.cff': 'x' });
+  const res = run('audit_design_system.cjs', [file], workspace);
+  assert.strictEqual(res.status, 1, res.stdout);
+  assert(/no existe o que el navegador no puede cargar/.test(res.stdout) && /WOFF2/.test(res.stdout), res.stdout);
+});
+
+it('audit_design_system should accept a font loaded from an existing woff2 and keep Google Fonts families working', () => {
+  const { workspace, file } = fontWorkspace({ font_display: 'ES Face, sans-serif' },
+    "@font-face{font-family:'ES Face';src:url('assets/fonts/ESFace.woff2') format('woff2')}", { 'assets/fonts/ESFace.woff2': 'x' });
+  const res = run('audit_design_system.cjs', [file], workspace);
+  assert.strictEqual(res.status, 0, res.stdout);
+  assert(!/no se carga/.test(res.stdout), res.stdout);
+});
+
+it('audit_design_system should only warn when the missing font is declared as substituted in the state', () => {
+  const { workspace, file } = fontWorkspace({
+    font_display: 'ES Face, sans-serif',
+    font_substitutions: [{ family: 'ES Face', reason: 'El manual no incluye el archivo', substitute: 'Hind Madurai' }]
+  }, ES_FACE_LOCAL);
+  const res = run('audit_design_system.cjs', [file], workspace);
+  assert.strictEqual(res.status, 0, res.stdout);
+  assert(/ES Face/.test(res.stdout) && /sustituida/.test(res.stdout), res.stdout);
+});
+
+it('fidelity_report should not count a local()-only @font-face as loaded', () => {
+  const state = { ...FIDELITY_STATE };
+  const { report } = fidelityReport(state, { 'styles.css': (css) => css + "\n@font-face{font-family:'Bagoss';src:local('Bagoss')}" });
+  assert(report.items.some(i => /Bagoss/.test(i.title)), 'una fuente con solo local() sigue figurando como sustituida');
+});
+
+it('a light page should get a light --bg-sunken for code, tables and swatches, and a dark --rail-bg for the rail', () => {
+  const workspace = fs.mkdtempSync(path.join(tmp, 'ws-sunken-'));
+  const light = { ...STATE, palette: { primary: '#2E3D20', accent: '#CEF891', bg_base: '#F8F7D6', surface_card: '#FFFFFF', text_primary: '#222617' } };
+  fs.writeFileSync(path.join(workspace, 'design-system-state.json'), JSON.stringify(light));
+  assert.strictEqual(run('compile_design_system.cjs', ['design-system-state.json'], workspace).status, 0);
+  const file = path.join(workspace, 'AcmeLabs_Design_System.html');
+  const html = fs.readFileSync(file, 'utf-8');
+  const sunken = html.match(/--bg-sunken:\s*(#[0-9a-fA-F]{6})/)[1];
+  const railBg = html.match(/--rail-bg:\s*(#[0-9a-fA-F]{6})/)[1];
+  const { parseColor, contrastRatio } = require(script('contrast.cjs'));
+  assert(contrastRatio(parseColor('#222617'), parseColor(sunken)) >= 7, `--bg-sunken ${sunken} debe ser legible con el texto`);
+  assert(contrastRatio(parseColor('#FFFFFF'), parseColor(railBg)) >= 7, 'el rail sigue oscuro');
+
+  // El caso Selvaria: --bg-sunken oscuro en una página clara deja ilegibles código, tablas y muestras
+  fs.writeFileSync(file, html.replace(/(--bg-sunken:\s*)#[0-9a-fA-F]{6}/, '$1#1C2117'));
+  const bad = run('audit_design_system.cjs', [file], workspace);
+  assert.strictEqual(bad.status, 1, bad.stdout);
+  assert(/bloques de código, tablas y muestras/.test(bad.stdout), bad.stdout);
+});
+
+it('audit_design_system should fail a table whose rows have more cells than its header', () => {
+  const { workspace, file } = fontWorkspace({}, '');
+  const table = '<table class="demo-table"><thead><tr><th>A</th><th>B</th></tr></thead><tbody><tr><td>1</td><td>2</td><td>3</td></tr></tbody></table>';
+  fs.writeFileSync(file, fs.readFileSync(file, 'utf-8').replace('</body>', `${table}</body>`));
+  const res = run('audit_design_system.cjs', [file], workspace);
+  assert.strictEqual(res.status, 1, res.stdout);
+  assert(/desalineadas/.test(res.stdout) && /demo-table/.test(res.stdout), res.stdout);
+});
+
+console.log('\n[contraste] las razones y el anillo de foco declarados se comprueban contra el cálculo real:');
+
+const { findRatioMismatches } = require(script('contrast.cjs'));
+
+it('findRatioMismatches should flag a declared ratio that differs from the measured one and accept a correct one', () => {
+  const rows = [
+    '| Texto sobre Lino | var(--a) (#222617) | var(--b) (#F8F7D6) | 10.68:1 | PASS |',
+    '| Texto sobre Lino | var(--a) (#222617) | var(--b) (#F8F7D6) | 14.19:1 | PASS |',
+    '| Solo un color | (#222617) | 5.00:1 | PASS |'
+  ].join('\n');
+  const wrong = findRatioMismatches(rows);
+  assert.strictEqual(wrong.length, 1, 'solo la fila con la cifra errada');
+  assert.strictEqual(wrong[0].line, 1);
+  assert.strictEqual(wrong[0].claimed, 10.68);
+  assert.strictEqual(wrong[0].measured, 14.19);
+});
+
+it('audit_spec should fail an invented contrast table and a translucent focus ring that falls under 3:1', () => {
+  const workspace = fs.mkdtempSync(path.join(tmp, 'ws-ratio-'));
+  fs.writeFileSync(path.join(workspace, 'design-system-state.json'), JSON.stringify({ ...STATE, palette: { ...STATE.palette, bg_base: '#F8F7D6' } }));
+  const base = [
+    '# Acme', '## ÍNDICE', '## SECCIÓN 1', '## SECCIÓN 2', '## SECCIÓN 3', '## SECCIÓN 4', '## SECCIÓN 5',
+    '| Par | Foreground | Background | Contraste | Cumple |', '| :--- | :--- | :--- | :--- | :--- |'
+  ];
+  const write = (lines) => { fs.writeFileSync(path.join(workspace, 'Acme_Design_System.md'), lines.join('\n')); return run('audit_spec.cjs', ['Acme_Design_System.md', '--state', 'design-system-state.json'], workspace); };
+
+  const bad = write([...base, '| Texto | (#222617) | (#F8F7D6) | 10.68:1 | PASS |', '`--focus-ring: 0 0 0 3px rgba(46, 61, 32, 0.45)`']);
+  assert.strictEqual(bad.status, 1, bad.stdout);
+  assert(/razón\(es\) de contraste declaradas/.test(bad.stdout) && /14\.19:1/.test(bad.stdout), bad.stdout);
+  assert(/anillo de foco no llega a 3:1/.test(bad.stdout), bad.stdout);
+
+  const good = write([...base, '| Texto | (#222617) | (#F8F7D6) | 14.19:1 | PASS |', '`--focus-ring: 0 0 0 3px rgba(46, 61, 32, 0.75)`']);
+  assert(!/razón\(es\) de contraste/.test(good.stdout) && !/anillo de foco/.test(good.stdout), good.stdout);
+});
+
+it('audit_design_system should fail a Design System table with a made-up contrast ratio', () => {
+  const { workspace, file } = fontWorkspace({}, '');
+  const html = fs.readFileSync(file, 'utf-8').replace('</body>', '<table><tr><td><code>Texto (#222617)</code> sobre <code>Fondo (#F8F7D6)</code></td><td>10.68:1</td></tr></table></body>');
+  fs.writeFileSync(file, html);
+  const res = run('audit_design_system.cjs', [file], workspace);
+  assert.strictEqual(res.status, 1, res.stdout);
+  assert(/razón\(es\) de contraste declaradas/.test(res.stdout), res.stdout);
 });
 
 fs.rmSync(tmp, { recursive: true, force: true });

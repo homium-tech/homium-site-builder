@@ -55,7 +55,7 @@ async function runSuite() {
 
   console.log('[1] Herramientas de la app (APP_ROOT):');
   await it('APP_ROOT should point at the repository that holds scripts, templates and phase docs', () => {
-    for (const rel of ['scripts/extract_reference_dna.cjs', 'scripts/verify_fidelity.cjs', 'scripts/audit_showcase.cjs', 'scripts/audit_spec.cjs', 'scripts/audit_prototype.cjs', 'templates/design-system.html', 'references/phases/phase-4-validation.md']) {
+    for (const rel of ['scripts/extract_reference_dna.cjs', 'scripts/verify_fidelity.cjs', 'scripts/audit_design_system.cjs', 'scripts/audit_spec.cjs', 'scripts/audit_prototype.cjs', 'templates/design-system.html', 'references/phases/phase-4-validation.md']) {
       assert(fs.existsSync(path.join(rules.APP_ROOT, rel)), `${rel} debe existir bajo APP_ROOT`);
     }
   });
@@ -177,7 +177,7 @@ async function runSuite() {
     assert(/mensaje de cierre tras aprobar la compuerta 2 es breve/.test(d), 'el cierre final es breve');
   });
 
-  await it('should not contradict itself: no bracket templates, no emoji swatches, 14 showcase sections', () => {
+  await it('should not contradict itself: no bracket templates, no emoji swatches, 14 Design System sections', () => {
     const d = rules.SYSTEM_DIRECTIVES;
     assert(!/\[Nombre del Componente\]|\[descripción|\[valor|\[HEX\]|\[fuente\]/i.test(d), 'plantillas con corchetes contradicen la directiva 11');
     assert(d.includes('CERO EMOJIS (INTERFAZ Y CHAT)'));
@@ -191,11 +191,26 @@ async function runSuite() {
     assert(rules.FORMAT_INVARIANTS.indexOf('Blueprint') < rules.FORMAT_INVARIANTS.indexOf('línea ---'));
   });
 
+  await it('should treat an attached brand manual as decided, say what could not be extracted and only count fonts that load', () => {
+    const full = rules.SYSTEM_DIRECTIVES;
+    assert(full.includes('20. MANUAL DE MARCA'));
+    assert(rules.BRAND_MANUAL_RULE.includes('NO una hipótesis') && rules.BRAND_MANUAL_RULE.includes('No se pudo extraer'));
+    assert(rules.BRAND_MANUAL_RULE.includes('brand.manual') && rules.BRAND_MANUAL_RULE.includes('font_substitutions'));
+    assert(/solo con local\(\)/.test(rules.BRAND_MANUAL_RULE) && /\.cff/.test(rules.BRAND_MANUAL_RULE), 'una fuente solo con local() o un .cff no cuenta como cargada');
+    const turn = rules.buildTurnPrompt('hola', { workspaceDir: tmp });
+    assert(turn.includes('MANUAL DE MARCA') && turn.includes('No se pudo extraer') && turn.includes('font_substitutions'), 'viaja en cada turno');
+    assert(rules.STATE_CONTRACT.includes('brand.manual') && rules.STATE_CONTRACT.includes('typography.font_substitutions'));
+    const phase2 = fs.readFileSync(path.join(rules.APP_ROOT, 'references', 'phases', 'phase-2-foundations.md'), 'utf-8');
+    assert(phase2.includes('manda el manual, no las opciones'), 'la fase 2 no vuelve a preguntar lo que el manual define');
+    assert(phase2.includes('hipótesis, solo sin manual'), 'el manual ya no es solo la Opción 1 hipotética');
+    assert(rules.BRAND_MANUAL_RULE.includes('desde el primer mensaje') && rules.BRAND_MANUAL_RULE_SHORT.includes('Etapa 1.1'), 'el manual puede llegar con el nombre de la marca');
+  });
+
   await it('should keep the compact turn prompt well below the full activation prompt', () => {
     const turn = rules.buildTurnPrompt('hola', { workspaceDir: tmp });
     const activation = rules.buildActivationPrompt('hola', { workspaceDir: tmp });
     assert(turn.length < activation.length / 2);
-    assert(turn.length < 6000, `turno compacto: ${turn.length}`);
+    assert(turn.length < 7000, `turno compacto: ${turn.length}`);
   });
 
   await it('should ask for the URL or attachment alone after the user picks a reference type, before the fidelity question', () => {

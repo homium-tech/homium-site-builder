@@ -161,7 +161,7 @@ it('should escape attachment names and tracker file names', () => {
   app.run('pendingAttachments = __files; renderAttachmentsTray();');
   assert(!/<img\b/i.test(app.el('attachmentsTray').innerHTML));
 
-  app.context.__snapshot = { status: { stateExists: true, specExists: true, specFile: EVIL, showcaseExists: true, showcaseFile: EVIL } };
+  app.context.__snapshot = { status: { stateExists: true, specExists: true, specFile: EVIL, designSystemExists: true, designSystemFile: EVIL } };
   app.run('updateDeliverablesTracker(__snapshot)');
   const pills = app.el('trackerPills').innerHTML;
   assert(!/<img\b/i.test(pills));
@@ -301,7 +301,7 @@ console.log('\n[3d] Proyecto finalizado:');
 it('should show the finished-project card with the deliverables, never over a gate, and remove it when the state changes', () => {
   const app = loadApp();
   const container = app.el('approvalGateContainer');
-  app.context.__done = { status: 'PROYECTO_FINALIZADO', artifacts: { showcase_html: 'Acme_Design_System.html', prototype_screen_1: 'prototype/index.html', empty: null } };
+  app.context.__done = { status: 'PROYECTO_FINALIZADO', artifacts: { design_system_html: 'Acme_Design_System.html', prototype_screen_1: 'prototype/index.html', empty: null } };
   app.run('renderProjectFinished(__done)');
   assert(container.innerHTML.includes('Proyecto finalizado') && container.innerHTML.includes('Descargar proyecto'));
   assert(container.innerHTML.includes('Acme_Design_System.html') && container.innerHTML.includes('prototype/index.html'));
@@ -331,17 +331,17 @@ console.log('\n[4] Indicador En vivo / Pausado:');
 it('should show En vivo, pause on a manual tab choice and resume when the phase target changes', () => {
   const app = loadApp();
   const label = () => app.el('followLiveLabel').textContent;
-  app.run('followLiveTab({ phase: 1, showcaseExists: false, prototypeExists: false })');
+  app.run('followLiveTab({ phase: 1, designSystemExists: false, prototypeExists: false })');
   assert.strictEqual(label(), 'En vivo');
 
   app.run('followPaused = true; renderFollowIndicator()');
   assert.strictEqual(label(), 'Pausado');
   assert(/pausado/i.test(app.el('followIndicator').title));
 
-  // Misma fase: sigue pausado; al cambiar la pestaña objetivo (fase 4 = Showcase) se reanuda sola
-  app.run('followLiveTab({ phase: 2, showcaseExists: false, prototypeExists: false })');
+  // Misma fase: sigue pausado; al cambiar la pestaña objetivo (fase 4 = Design System) se reanuda sola
+  app.run('followLiveTab({ phase: 2, designSystemExists: false, prototypeExists: false })');
   assert.strictEqual(label(), 'Pausado');
-  app.run('followLiveTab({ phase: 4, showcaseExists: false, prototypeExists: false })');
+  app.run('followLiveTab({ phase: 4, designSystemExists: false, prototypeExists: false })');
   assert.strictEqual(label(), 'En vivo');
 });
 

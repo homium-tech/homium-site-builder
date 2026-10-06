@@ -75,7 +75,7 @@ async function runSuite() {
   });
 
   it('should detect Approval Gate 1 on validation sign-off prompts', () => {
-    const prompt = 'El Showcase está listo. ¿Apruebas el Design System para proceder con la Fase 5?';
+    const prompt = 'El Design System está listo. ¿Apruebas el Design System para proceder con la Fase 5?';
     const action = PhaseDescriptors.detectAction(prompt);
     assert(action !== null);
     assert.strictEqual(action.stepId, 'gate-1');

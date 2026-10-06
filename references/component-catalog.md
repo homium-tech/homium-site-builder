@@ -295,9 +295,9 @@ Cuando el cliente selecciona **Multi-página (MPA)**, los componentes se distrib
 
 ---
 
-## Sección 5: Variantes y props de demostración (Component Blocks del Showcase)
+## Sección 5: Variantes y props de demostración (Component Blocks del Design System)
 
-Fuente de verdad para el **contenido de cada Component Block vivo** del grupo §3 (Componentes) del Living HTML Showcase (ver `phases/phase-4-validation.md`). Cada bloque renderiza **todas** las variantes listadas como instancias `.dsc-*` con estados reales de CSS.
+Fuente de verdad para el **contenido de cada Component Block vivo** del grupo §3 (Componentes) del Living HTML Design System (ver `phases/phase-4-validation.md`). Cada bloque renderiza **todas** las variantes listadas como instancias `.dsc-*` con estados reales de CSS.
 
 ### Átomos universales
 

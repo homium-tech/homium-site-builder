@@ -60,9 +60,9 @@ it('should strictly maintain 5 canonical phases and refuse external phase 6 expa
 
 // 2. Server-side Action Detection & Sanitization
 console.log('\n[2] Detección de Compuertas:');
-it('should detect Gate 1 (Validación Showcase) and Gate 2 (Aprobación Prototipo)', () => {
+it('should detect Gate 1 (Validación Design System) and Gate 2 (Aprobación Prototipo)', () => {
   const pipeline = new Pipeline();
-  const gate1Text = 'He compilado el showcase. ¿Apruebas el design system para proceder con la fase 5?';
+  const gate1Text = 'He compilado el Design System. ¿Apruebas el design system para proceder con la fase 5?';
   const gate1 = pipeline.detectAction(gate1Text);
   assert(gate1 !== null);
   assert.strictEqual(gate1.stepId, 'gate-1');
@@ -79,7 +79,7 @@ it('should detect Gate 1 (Validación Showcase) and Gate 2 (Aprobación Prototip
 
 it('should detect the real gate wording from the phase docs and the mock engine', () => {
   const pipeline = new Pipeline();
-  const gate1 = pipeline.detectAction('Showcase compilado.\n\n---\n\n#### Compuerta 1\n\n¿Apruebas el Design System y los tokens cromáticos para proceder a la construcción del Prototipo interactivo en HTML/CSS/JS?');
+  const gate1 = pipeline.detectAction('Design System compilado.\n\n---\n\n#### Compuerta 1\n\n¿Apruebas el Design System y los tokens cromáticos para proceder a la construcción del Prototipo interactivo en HTML/CSS/JS?');
   assert.strictEqual(gate1.stepId, 'gate-1');
   const mock = pipeline.detectAction('Compuerta 1: ¿Apruebas el Design System y los tokens cromáticos para proceder a la construcción del Prototipo interactivo en HTML/CSS/JS?');
   assert.strictEqual(mock.stepId, 'gate-1');
@@ -103,7 +103,7 @@ it('should NOT open a gate from a closed gate, a progress message or a statement
     // Cierre tras aprobar la compuerta 2
     'Prototipo aprobado. El prototipo interactivo de 3 pantallas es el entregable final del proyecto.',
     // Avance de la Fase 4 sin pregunta
-    'Generando el showcase del Design System con las 14 secciones. El prototipo interactivo de 3 pantallas vendrá después.',
+    'Generando el Design System con las 14 secciones. El prototipo interactivo de 3 pantallas vendrá después.',
     'Entendido, analizando la estructura del proyecto y compilando dependencias...'
   ];
   for (const text of texts) {
@@ -115,11 +115,11 @@ it('should NOT open a gate from phase confirmations or other approval questions'
   const pipeline = new Pipeline();
   const texts = [
     '¿Está correcta la información de la Fase 1 para avanzar a la Fase 2 (Foundations Visuales), o deseas volver a ajustar algún paso anterior?',
-    '¿Confirmar la fase 3 para compilar el showcase y design system?',
+    '¿Confirmar la fase 3 para compilar el Design System?',
     // Caso real: transición a Fase 4 no debe disparar la compuerta 1
-    '¿Confirmas estos cimientos visuales de la Fase 3 para avanzar a la Fase 4: Validación Visual (Generación desacoplada: Spec Markdown Maestro + Showcase HTML), o deseas ajustar algún detalle?',
-    // Caso real (redacción de references/phases/phase-3-components.md): cierre de la Fase 3 que nombra el showcase como algo por construir
-    '¿Apruebas el catálogo consolidado para avanzar a la Fase 4 (Validación Visual), donde se construirán Devin_Design_System.md y el showcase vivo Devin_Design_System.html?',
+    '¿Confirmas estos cimientos visuales de la Fase 3 para avanzar a la Fase 4: Validación Visual (Generación desacoplada: Spec Markdown Maestro + Design System HTML), o deseas ajustar algún detalle?',
+    // Caso real (redacción de references/phases/phase-3-components.md): cierre de la Fase 3 que nombra el Design System como algo por construir
+    '¿Apruebas el catálogo consolidado para avanzar a la Fase 4 (Validación Visual), donde se construirán Devin_Design_System.md y el Design System vivo Devin_Design_System.html?',
     '¿Apruebas el catálogo para avanzar a la **Fase 4 (VALIDACIÓN VISUAL)** donde se generarán `Acme_Design_System.md` y `Acme_Design_System.html`?',
     '¿Apruebas esta paleta cromática para continuar con la tipografía?',
     '¿Cuál es el modelo de negocio de tu marca (B2C, B2B, SaaS)?',
@@ -195,10 +195,10 @@ it('should only consider a gate ready when its deliverable exists on disk', () =
   const pipeline = new Pipeline();
   const gate1 = pipeline.getGate('gate-1');
   const gate2 = pipeline.getGate('gate-2');
-  assert.strictEqual(pipeline.isGateReady(gate1, { showcaseExists: false, prototypeExists: false }), false);
-  assert.strictEqual(pipeline.isGateReady(gate1, { showcaseExists: true, prototypeExists: false }), true);
-  assert.strictEqual(pipeline.isGateReady(gate2, { showcaseExists: true, prototypeExists: false }), false);
-  assert.strictEqual(pipeline.isGateReady(gate2, { showcaseExists: true, prototypeExists: true }), true);
+  assert.strictEqual(pipeline.isGateReady(gate1, { designSystemExists: false, prototypeExists: false }), false);
+  assert.strictEqual(pipeline.isGateReady(gate1, { designSystemExists: true, prototypeExists: false }), true);
+  assert.strictEqual(pipeline.isGateReady(gate2, { designSystemExists: true, prototypeExists: false }), false);
+  assert.strictEqual(pipeline.isGateReady(gate2, { designSystemExists: true, prototypeExists: true }), true);
   assert.strictEqual(pipeline.isGateReady(gate1, undefined), false);
   assert.strictEqual(pipeline.isGateReady(null, {}), true, 'sin acción no hay nada que bloquear');
 });

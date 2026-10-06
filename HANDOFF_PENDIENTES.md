@@ -18,7 +18,7 @@ el arnés `test/helpers/server-harness.js` corre el servidor con PATH y HOME tem
 - **Entrega 3, flujo y prompts**: `detectAction` solo detecta las 2 compuertas (por la última pregunta de aprobación),
   estado de compuertas (`approved`/`adjusting`) en `chat_history.json`, prompt compacto con invariantes de formato,
   `APP_ROOT` absoluto para scripts/plantillas, digest del state, directivas 18 (revisiones) y 19 (contrato de estado),
-  `POST /api/project/new`, `extractProjectName` y `isFlowMessage` más estrictos, showcase de 14 secciones,
+  `POST /api/project/new`, `extractProjectName` y `isFlowMessage` más estrictos, Design System de 14 secciones,
   `verify_fidelity --check A --file`, guías de fase corregidas.
 - **Entrega 4 (parcial), frontend**: opciones numeradas del agente como botones dentro de la burbuja (sin bandeja),
   botón Detener, sin doble envío, recuperación tras corte de conexión y reanudación tras F5 (`busy` en `/api/chat/history?sessionId=`),
@@ -43,12 +43,12 @@ el arnés `test/helpers/server-harness.js` corre el servidor con PATH y HOME tem
    (lee `state.brand` del objeto envoltorio de `getState()`, que nunca lo tiene) y la página standalone no funcionaría con `app.js`
    completo: decidir si se arregla con un módulo de render reutilizable o se elimina la ruta.
 5. **Opcional (plan original)**: dividir `app.js` en módulos; `--` antes del mensaje en el adapter de opencode (no se pudo probar);
-   `compile_showcase.cjs` aún tiene contenido de muestra fijo (ecualizador, auditoría WCAG), por eso el prompt usa la plantilla.
+   `compile_design_system.cjs` aún tiene contenido de muestra fijo (ecualizador, auditoría WCAG), por eso el prompt usa la plantilla.
 
 ## Decisiones tomadas con el usuario
 
 - Servidor Linux en el puerto 8080 con túnel: no se cambia `HOST`, puerto ni `ALLOWED_ORIGINS`; todo lo nuevo de infraestructura es opt-in.
-- Showcase de 14 secciones; chips inline en la burbuja (bandeja eliminada); desconexión del cliente deja terminar el turno.
+- Design System de 14 secciones; chips inline en la burbuja (bandeja eliminada); desconexión del cliente deja terminar el turno.
 - Commits en inglés, concisos, **sin** `Co-Authored-By`.
 
 ## Cómo comprobar en la nueva sesión
@@ -62,4 +62,4 @@ pnpm start                     # probar a mano con el motor "Simulador Mock" del
 
 Puntos a revisar a mano con un motor real: que el agente responda con opciones numeradas y se vean como botones; Detener y
 reintento; cortar la conexión a mitad de turno y recargar; compuertas 1 y 2 (aprobar, pedir ajustes, F5); que los scripts
-(`extract_reference_dna`, `audit_showcase`, `verify_fidelity`) se ejecuten desde el workspace con la ruta absoluta de `APP_ROOT`.
+(`extract_reference_dna`, `audit_design_system`, `verify_fidelity`) se ejecuten desde el workspace con la ruta absoluta de `APP_ROOT`.

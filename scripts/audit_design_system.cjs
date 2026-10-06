@@ -285,12 +285,21 @@ function railToken(vars, own, fallback) {
 function auditTheme(label, vars) {
   const get = (name) => parseColor(resolveVar(vars, name) || '');
   const pairs = contrastPairs.slice();
+  // --bg-sunken también pinta código, filas de tabla, muestras y el probador tipográfico con texto --fg: no puede
+  // quedar oscuro en un tema claro solo para que el rail lo sea (para eso existe --rail-bg)
+  pairs.push(
+    ['--fg', '--bg-sunken', 4.5, 7, 'texto principal sobre bloques de código, tablas y muestras (--bg-sunken)'],
+    ['--fg-muted', '--bg-sunken', 4.5, 0, 'texto secundario sobre bloques de código, tablas y muestras (--bg-sunken)'],
+    ['--fg-subtle', '--bg-sunken', 4.5, 0, 'texto terciario sobre bloques de código, tablas y muestras (--bg-sunken)'],
+    ['--accent', '--bg-sunken', 4.5, 0, 'acento sobre bloques de código, tablas y muestras (--bg-sunken)']
+  );
+  const railBg = vars['--rail-bg'] !== undefined ? '--rail-bg' : '--bg-sunken';
   // El rail usa sus propios tokens; si la regla del rail no los aplica, hereda los globales (y se mide igual)
   pairs.push(
-    [railToken(vars, '--rail-fg', '--fg'), '--bg-sunken', 4.5, 7, 'texto del rail izquierdo sobre su fondo (--bg-sunken)'],
-    [railToken(vars, '--rail-fg-muted', '--fg-muted'), '--bg-sunken', 4.5, 0, 'texto secundario del rail'],
-    [railToken(vars, '--rail-fg-subtle', '--fg-subtle'), '--bg-sunken', 4.5, 0, 'etiquetas e ítems de navegación del rail'],
-    [railToken(vars, '--rail-accent', '--accent'), '--bg-sunken', 4.5, 0, 'acento del rail (ítem activo, grupo abierto)'],
+    [railToken(vars, '--rail-fg', '--fg'), railBg, 4.5, 7, 'texto del rail izquierdo sobre el fondo del rail'],
+    [railToken(vars, '--rail-fg-muted', '--fg-muted'), railBg, 4.5, 0, 'texto secundario del rail'],
+    [railToken(vars, '--rail-fg-subtle', '--fg-subtle'), railBg, 4.5, 0, 'etiquetas e ítems de navegación del rail'],
+    [railToken(vars, '--rail-accent', '--accent'), railBg, 4.5, 0, 'acento del rail (ítem activo, grupo abierto)'],
     [railToken(vars, '--rail-on-accent', '--fg-on-accent'), railToken(vars, '--rail-accent', '--accent'), 4.5, 0, 'texto del botón del rail sobre su acento']
   );
 
@@ -338,6 +347,40 @@ if (!rootVars['--bg'] || !rootVars['--fg']) {
   }
   if (unresolved.size > 0) {
     warnings.push(`Contraste no verificable (token ausente, no opaco o no hex/rgb): ${Array.from(unresolved).join(', ')}`);
+  }
+}
+
+// 7a. Tablas con filas de más celdas que el encabezado (una fila de 6 celdas bajo 4 encabezados deja columnas sin título y
+// desalinea toda la tabla). Las filas con menos celdas solo dejan huecos y no se marcan; colspan/rowspan se omiten.
+{
+  const broken = [];
+  for (const table of htmlNoComments.match(/<table\b[\s\S]*?<\/table>/gi) || []) {
+    const head = (table.match(/<thead\b[\s\S]*?<\/thead>/i) || [''])[0];
+    const headerCells = (head.match(/<th\b/gi) || []).length;
+    if (headerCells === 0) continue;
+    const body = table.replace(head, '');
+    for (const row of body.match(/<tr\b[\s\S]*?<\/tr>/gi) || []) {
+      if (/colspan|rowspan/i.test(row)) continue;
+      const cells = (row.match(/<t[dh]\b/gi) || []).length;
+      if (cells > headerCells) {
+        const name = (table.match(/<table\b[^>]*class="([^"]+)"/i) || [])[1] || 'sin clase';
+        broken.push(`${name}: ${headerCells} encabezado(s) y una fila de ${cells} celda(s)`);
+        break;
+      }
+    }
+  }
+  if (broken.length > 0) {
+    errors.push(`Tabla(s) desalineadas, con filas de más celdas que el encabezado (${broken.slice(0, 3).join('; ')}). Ajusta las celdas al encabezado de la plantilla.`);
+  }
+}
+
+// 7b. Razones de contraste declaradas en las tablas y muestras: deben coincidir con el cálculo real
+{
+  const { findRatioMismatches } = require('./contrast.cjs');
+  const wrong = findRatioMismatches(htmlNoComments);
+  if (wrong.length > 0) {
+    const sample = wrong.slice(0, 4).map(w => `${w.fg} sobre ${w.bg} declara ${w.claimed}:1 y mide ${w.measured}:1`).join(' · ');
+    errors.push(`${wrong.length} razón(es) de contraste declaradas que no coinciden con el cálculo real (${sample}${wrong.length > 4 ? ' …' : ''}). Calcula cada razón con scripts/contrast.cjs, no de memoria.`);
   }
 }
 

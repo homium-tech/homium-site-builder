@@ -147,6 +147,58 @@ async function runSuite() {
     await srv.stop();
   }
 
+  console.log('\n[3b] Manual de marca adjunto en el primer mensaje (antes de que exista el proyecto):');
+  srv = await startServer();
+  try {
+    const upload = async (name, content) => {
+      const form = new FormData();
+      form.append('files', new Blob([content]), name);
+      return srv.api('/api/upload', { method: 'POST', body: form });
+    };
+
+    await it('should accept an upload before the project exists and move it to uploads/ when the brand name arrives', async () => {
+      const res = await upload('Manual-de-marca.pdf', '%PDF-1.4 fake');
+      assert.strictEqual(res.status, 200);
+      const body = await res.json();
+      assert.strictEqual(body.staged, true, 'sin proyecto el archivo queda en espera');
+      const name = body.files[0].name;
+      assert(fs.existsSync(path.join(srv.workspaceDir, '.pending_uploads', name)));
+
+      // El cliente añade la nota de adjuntos al mensaje: no debe formar parte del nombre del proyecto
+      const chat = await srv.api('/api/chat', { method: 'POST', body: { message: `Selvaria\n\n[Archivos adjuntos en uploads/: ${name}]`, engine: 'mock', sessionId: 'session-manual-1' } });
+      assert.strictEqual(chat.status, 200);
+      await chat.text();
+
+      assert(fs.existsSync(path.join(srv.workspaceDir, 'selvaria', 'uploads', name)), 'el manual llega a uploads/ del proyecto');
+      assert(!fs.existsSync(path.join(srv.workspaceDir, '.pending_uploads')), 'la carpeta de espera se limpia');
+      const history = historyOf(srv.workspaceDir, 'selvaria');
+      assert(history.messages[0].content.includes(`[Archivos adjuntos en uploads/: ${name}]`));
+    });
+
+    await it('should tell the engine about files adopted from the waiting folder even if the message carries no note', async () => {
+      await srv.api('/api/project/new', { method: 'POST', body: {} });
+      const up = await (await upload('Guia.pdf', '%PDF-1.4')).json();
+      const name = up.files[0].name;
+      const chat = await srv.api('/api/chat', { method: 'POST', body: { message: 'Nimbus', engine: 'mock', sessionId: 'session-manual-2' } });
+      await chat.text();
+      assert(fs.existsSync(path.join(srv.workspaceDir, 'nimbus', 'uploads', name)));
+      assert(historyOf(srv.workspaceDir, 'nimbus').messages[0].content.includes(`[Archivos adjuntos en uploads/: ${name}]`));
+    });
+
+    await it('should keep the files waiting when the first message has no brand name', async () => {
+      await srv.api('/api/project/new', { method: 'POST', body: {} });
+      const up = await (await upload('Otro.pdf', '%PDF-1.4')).json();
+      const name = up.files[0].name;
+      const chat = await srv.api('/api/chat', { method: 'POST', body: { message: `He adjuntado archivos de referencia para el proyecto.\n\n[Archivos adjuntos en uploads/: ${name}]`, engine: 'mock', sessionId: 'session-manual-3' } });
+      await chat.text();
+      assert(fs.existsSync(path.join(srv.workspaceDir, '.pending_uploads', name)), 'siguen en espera hasta que haya proyecto');
+      const body = await (await srv.api('/api/chat/history')).json();
+      assert.strictEqual(body.hasProject, false);
+    });
+  } finally {
+    await srv.stop();
+  }
+
   console.log('\n[4] Registro de turnos:');
   srv = await startServer();
   try {

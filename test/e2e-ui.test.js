@@ -200,10 +200,10 @@ async function runSuite() {
     await it('should resolve an approval gate once and not offer it again after a reload', async () => {
       const projectDir = path.join(srv.workspaceDir, 'acme');
       fs.writeFileSync(path.join(projectDir, 'design-system-state.json'), JSON.stringify({ brand: { name: 'Acme' }, current_phase: 4 }));
-      fs.writeFileSync(path.join(projectDir, 'Acme_Design_System.html'), '<html><body>showcase</body></html>');
-      await waitFor(async () => (await page.evaluate(async () => (await fetch('/api/deliverables')).json())).status.showcaseExists, { timeoutMs: 8000 });
+      fs.writeFileSync(path.join(projectDir, 'Acme_Design_System.html'), '<html><body>design system</body></html>');
+      await waitFor(async () => (await page.evaluate(async () => (await fetch('/api/deliverables')).json())).status.designSystemExists, { timeoutMs: 8000 });
 
-      await send('muestra el showcase');
+      await send('muestra el Design System');
       await page.waitForSelector('.btn-gate-approve');
       await page.click('.btn-gate-approve');
       await waitIdle();

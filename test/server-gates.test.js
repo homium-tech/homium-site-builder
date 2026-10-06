@@ -51,11 +51,11 @@ async function runSuite() {
       assert.deepStrictEqual(body.gates, {});
     });
 
-    await it('should not offer a stored gate while the showcase does not exist yet', async () => {
+    await it('should not offer a stored gate while the Design System does not exist yet', async () => {
       const file = path.join(srv.workspaceDir, 'acme', 'chat_history.json');
       const original = fs.readFileSync(file, 'utf-8');
       const stored = JSON.parse(original);
-      stored.lastAction = GATE1; // falso positivo guardado antes de construir el showcase
+      stored.lastAction = GATE1; // falso positivo guardado antes de construir el Design System
       fs.writeFileSync(file, JSON.stringify(stored));
       try {
         assert.strictEqual((await history(srv)).pendingAction, null);
@@ -64,14 +64,14 @@ async function runSuite() {
       }
     });
 
-    // Fase 4: hay showcase en disco
+    // Fase 4: hay Design System en disco
     const projectDir = path.join(srv.workspaceDir, 'acme');
     fs.writeFileSync(path.join(projectDir, 'design-system-state.json'), JSON.stringify({ brand: { name: 'Acme' }, current_phase: 4 }));
-    fs.writeFileSync(path.join(projectDir, 'Acme_Design_System.html'), '<html><body>showcase</body></html>');
-    await waitFor(async () => (await (await srv.api('/api/deliverables')).json()).status.showcaseExists, { timeoutMs: 8000 });
+    fs.writeFileSync(path.join(projectDir, 'Acme_Design_System.html'), '<html><body>design system</body></html>');
+    await waitFor(async () => (await (await srv.api('/api/deliverables')).json()).status.designSystemExists, { timeoutMs: 8000 });
 
     await it('should attach gate 1 to the reply that asks the approval question', async () => {
-      const events = await chat(srv, 'muestra el showcase');
+      const events = await chat(srv, 'muestra el Design System');
       const done = events.find(e => e.name === 'done');
       assert(done.data.action, 'la respuesta debe abrir una compuerta');
       assert.strictEqual(done.data.action.stepId, 'gate-1');
@@ -79,14 +79,14 @@ async function runSuite() {
     });
 
     await it('should attach the real audit results to the gate, on the reply and after a reload', async () => {
-      const events = await chat(srv, 'muestra el showcase otra vez');
+      const events = await chat(srv, 'muestra el Design System otra vez');
       const audit = events.find(e => e.name === 'done').data.action.audit;
       assert(audit, 'la compuerta lleva el resultado de las auditorías');
       const byId = Object.fromEntries(audit.checks.map(c => [c.id, c]));
-      assert(byId.showcase && byId.spec && byId.palette, 'showcase, especificación y paleta');
+      assert(byId['design-system'] && byId.spec && byId.palette, 'Design System, especificación y paleta');
       assert.strictEqual(byId.spec.status, 'fail', 'no hay .md en el proyecto de prueba');
       assert(/No se encontró/.test(byId.spec.errors[0]));
-      assert.strictEqual(byId.showcase.status, 'fail', 'el showcase de prueba no tiene las 14 secciones');
+      assert.strictEqual(byId['design-system'].status, 'fail', 'el Design System de prueba no tiene las 14 secciones');
       assert(audit.summary.fail >= 2);
 
       const reloaded = (await history(srv)).pendingAction;
@@ -99,11 +99,11 @@ async function runSuite() {
       assert(!events.find(e => e.name === 'done').data.action, 'la respuesta a la aprobación no abre otra compuerta');
       const body = await history(srv);
       assert.strictEqual(body.gates['gate-1'].status, 'approved');
-      assert.strictEqual(body.pendingAction, null, 'showcase en disco sin prototipo no debe re-inferir la compuerta');
+      assert.strictEqual(body.pendingAction, null, 'Design System en disco sin prototipo no debe re-inferir la compuerta');
     });
 
     await it('should reopen the gate when the agent asks the question again', async () => {
-      await chat(srv, 'muestra el showcase otra vez');
+      await chat(srv, 'muestra el Design System otra vez');
       const body = await history(srv);
       assert.strictEqual(body.pendingAction.stepId, 'gate-1');
       assert.strictEqual(body.gates['gate-1'], undefined);
@@ -117,7 +117,7 @@ async function runSuite() {
     });
 
     await it('should restore the gate if the turn that resolved it is cancelled', async () => {
-      await chat(srv, 'muestra el showcase');
+      await chat(srv, 'muestra el Design System');
       assert.strictEqual((await history(srv)).pendingAction.stepId, 'gate-1');
 
       const slow = await startServer({ env: { MOCK_DELAY_MS: '400' }, beforeStart: (dir) => {
@@ -128,8 +128,8 @@ async function runSuite() {
         fs.writeFileSync(path.join(dir, '.active_project'), 'acme');
       } });
       try {
-        await waitFor(async () => (await (await slow.api('/api/deliverables')).json()).status.showcaseExists, { timeoutMs: 8000 });
-        const first = await chat(slow, 'muestra el showcase', 'session-slow-1');
+        await waitFor(async () => (await (await slow.api('/api/deliverables')).json()).status.designSystemExists, { timeoutMs: 8000 });
+        const first = await chat(slow, 'muestra el Design System', 'session-slow-1');
         assert(first.find(e => e.name === 'done').data.action);
 
         const pending = slow.api('/api/chat', { method: 'POST', body: { message: APPROVE, engine: 'mock', sessionId: 'session-slow-1' } });

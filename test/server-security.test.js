@@ -62,8 +62,8 @@ async function runSuite() {
     await it('should reject API calls whose Referer is a generated preview, but not the app or the blueprint page', async () => {
       const fromPrototype = await srv.api('/api/deliverables', { headers: { Referer: `${srv.base}/preview/prototype/index.html` } });
       assert.strictEqual(fromPrototype.status, 403);
-      const fromShowcase = await srv.api('/api/reset', { method: 'POST', body: {}, headers: { Referer: `${srv.base}/preview/showcase` } });
-      assert.strictEqual(fromShowcase.status, 403);
+      const fromDesignSystem = await srv.api('/api/reset', { method: 'POST', body: {}, headers: { Referer: `${srv.base}/preview/design-system` } });
+      assert.strictEqual(fromDesignSystem.status, 403);
 
       const fromApp = await srv.api('/api/deliverables', { headers: { Referer: `${srv.base}/` } });
       assert.strictEqual(fromApp.status, 200);
@@ -78,8 +78,33 @@ async function runSuite() {
       assert.strictEqual(index.status, 200);
       assert((await index.text()).includes('proto'));
       assert((index.headers.get('content-security-policy') || '').includes('sandbox'));
+      assert((index.headers.get('content-security-policy') || '').includes('allow-modals'), 'window.print() del botón Descargar PDF necesita allow-modals')
       const css = await srv.api('/preview/prototype/style.css');
       assert.strictEqual(css.status, 200);
+    });
+
+    await it('should serve the project assets/ (fonts, logo) to the Design System preview and nothing outside it', async () => {
+      const fontsDir = path.join(srv.workspaceDir, 'assets', 'fonts');
+      fs.mkdirSync(fontsDir, { recursive: true });
+      fs.writeFileSync(path.join(fontsDir, 'Brand-Regular.otf'), 'OTTO-fake');
+      fs.writeFileSync(path.join(srv.workspaceDir, 'secret.txt'), 'no debe salir');
+
+      const font = await srv.api('/preview/assets/fonts/Brand-Regular.otf');
+      assert.strictEqual(font.status, 200);
+      assert.strictEqual(await font.text(), 'OTTO-fake');
+      assert((font.headers.get('content-security-policy') || '').includes("font-src 'self'"), 'la CSP de las previews permite fuentes propias');
+
+      for (const escape of ['/preview/assets/../secret.txt', '/preview/assets/%2e%2e/secret.txt', '/preview/assets/..%2fsecret.txt']) {
+        const res = await srv.api(escape);
+        assert(res.status !== 200 || (await res.text()) !== 'no debe salir', `no debe salir de assets/: ${escape}`);
+      }
+    });
+
+    await it('should redirect the old /preview/showcase route to /preview/design-system keeping the query', async () => {
+      const res = await srv.api('/preview/showcase?v=3');
+      assert.strictEqual(res.status, 200);
+      assert.strictEqual(res.redirected, true);
+      assert.strictEqual(new URL(res.url).pathname + new URL(res.url).search, '/preview/design-system?v=3');
     });
 
     await it('should not expose files outside prototype/ through symlinks', async () => {

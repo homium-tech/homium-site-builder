@@ -43,11 +43,11 @@
   1. **Fase 1: Discovery** (Identidad, modelo comercial, ADN de marca, referencias visuales).
   2. **Fase 2: Foundations** (Tokens HCT, paleta armónica, escala tipográfica Rubik, radios, espaciados, dark mode).
   3. **Fase 3: Components** (Catálogo atómico de componentes interactivos y estados).
-  4. **Fase 4: Validation** (Generación de especificación técnica y Showcase HTML interactivo).
+  4. **Fase 4: Validation** (Generación de especificación técnica y Design System HTML interactivo).
   5. **Fase 5: Prototype** (Compilación en disco del prototipo navegable de 3 pantallas en Vanilla HTML/CSS/JS).
 - **Entregables Físicos en Disco:** Ubicados en `~/Downloads/homium_projects/<marca>/`:
   - `design-system-state.json` (Tokens y ADN en JSON).
-  - `[Brand]_Design_System.html` (Showcase interactivo de validación).
+  - `[Brand]_Design_System.html` (Design System interactivo de validación).
   - `[Brand]_Design_System.md` (Documento maestro de especificación).
   - `prototype/` (Carpeta con `index.html`, `styles.css`, `app.js` de las 3 pantallas).
 - **Suite de Pruebas Automatizadas:** 57/57 tests unitarios pasando al 100% (`pnpm test`).
@@ -188,7 +188,7 @@ frontend/
 │   │   ├── layout/
 │   │   │   ├── Header.astro        # Barra superior con logo, selector de motor y botón reset
 │   │   │   ├── ViewportBar.astro   # Controles Desktop (100%), Tablet (768px), Mobile (375px)
-│   │   │   └── TabNavigation.astro # Pestañas: Prototipo, Showcase, Blueprint, Consola
+│   │   │   └── TabNavigation.astro # Pestañas: Prototipo, Design System, Blueprint, Consola
 │   │   ├── chat/
 │   │   │   ├── ChatPanel.astro     # Contenedor de conversación con scroll automático
 │   │   │   ├── MessageBubble.astro # Mensajes de usuario y asistente con renderizado markdown
@@ -198,7 +198,7 @@ frontend/
 │   │   ├── preview/
 │   │   │   ├── BlueprintView.astro # Visualizador reactivo de tokens cromáticos, tipografía y radios
 │   │   │   ├── PrototypeFrame.astro# Iframe navegable de la Fase 5 con fallback de espera
-│   │   │   └── ShowcaseFrame.astro # Iframe del Showcase HTML de la Fase 4
+│   │   │   └── DesignSystemFrame.astro # Iframe del Design System HTML de la Fase 4
 │   │   └── telemetry/
 │   │       └── TelemetryPanel.astro# Métricas por turno: tokens in/out/thinking, duración y caché
 │   ├── scripts/                    # Lógica cliente modularizada en TypeScript
@@ -239,7 +239,7 @@ Para mantener la aplicación 100% instalable vía consola en cualquier equipo si
 | **Runtime y Backend** | **Node.js 22 LTS** | Soporte nativo de `node:sqlite`, APIs web estándar, fetch nativo y compatibilidad multiplataforma garantizada. |
 | **Servidor Local** | **Express o Fastify** | Manejo de APIs REST, canal SSE para streaming agéntico y servicio de la carpeta precompilada `dist/`. |
 | **CLI & Launcher** | **Commander.js + @clack/prompts** | Comandos de terminal interactivos y apertura automática de la UI en modo ventana (`--app`). |
-| **Especificación de Tokens** | **W3C Design Tokens (DTCG)** | La fuente de verdad reside en SQLite; el Showcase y el Prototipo son compilados determinísticos de salida. |
+| **Especificación de Tokens** | **W3C Design Tokens (DTCG)** | La fuente de verdad reside en SQLite; el Design System y el Prototipo son compilados determinísticos de salida. |
 
 ---
 
@@ -300,7 +300,7 @@ CREATE TABLE IF NOT EXISTS design_tokens (
 CREATE TABLE IF NOT EXISTS artifacts (
     id TEXT PRIMARY KEY,
     project_id TEXT NOT NULL,
-    type TEXT NOT NULL,            -- spec_markdown, showcase_html, prototype_bundle
+    type TEXT NOT NULL,            -- spec_markdown, design_system_html, prototype_bundle
     file_path TEXT NOT NULL,
     content_hash TEXT,
     version INTEGER DEFAULT 1,

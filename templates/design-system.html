@@ -14,18 +14,21 @@
        Debe ser SIEMPRE un fragmento válido (nunca vacío): si la mono real no está en
        GF, usar "Fira+Code:wght@400;500;600" (duplicado inofensivo) y documentar la
        aproximación en Vacíos Conocidos. -->
+  <!-- Fuente del cliente que NO es de Google Fonts: no va en el enlace de arriba. Declara en el <style> un @font-face con
+       src: url('assets/fonts/archivo.woff2') por peso (nunca solo local()); sin archivo utilizable, registra la sustituta en
+       typography.font_substitutions y en Vacíos Conocidos. audit_design_system.cjs falla si una fuente del estado no se carga. -->
   
   <!-- GSAP 3 for Interactive Motion Demonstrations -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 
   <style>
     /* ==========================================================================
-       DESIGN SYSTEM SHOWCASE — TEMA DINÁMICO DEL CLIENTE
+       DESIGN SYSTEM — TEMA DINÁMICO DEL CLIENTE
        Los {{PLACEHOLDERS}} se reemplazan con valores reales de palette.allowed_hexes
        al generar [Brand]_Design_System.html en la Fase 4.
        ========================================================================== */
     :root {
-      /* ========== SHOWCASE CHROME — PALETA DEL CLIENTE ========== */
+      /* ========== DESIGN SYSTEM CHROME — PALETA DEL CLIENTE ========== */
 
       /* Fondos y superficies */
       --bg:              {{BG_PRIMARY_HEX}};
@@ -65,8 +68,11 @@
       --border-accent:   {{PRIMARY_HEX}};
       --focus-ring:      {{PRIMARY_HEX}};
 
-      /* Rail izquierdo: su fondo (--bg-sunken) puede ser más oscuro o más claro que --bg, así que lleva su propio
-         texto, elegido por contraste contra --bg-sunken (>= 4.5:1; scripts/audit_showcase.cjs lo verifica) */
+      /* Rail izquierdo: por defecto va sobre --bg-sunken. --bg-sunken NO es solo del rail: también pinta bloques de
+         código, filas de tabla, muestras de color y el probador tipográfico, todos con texto --fg, así que debe tener
+         >= 4.5:1 con --fg. Si el rail debe ser más oscuro (o más claro) que eso, declara aquí --rail-bg con ese color
+         (NO oscurezcas --bg-sunken) y elige los --rail-* contra él (>= 4.5:1; scripts/audit_design_system.cjs lo verifica) */
+      --rail-bg:         {{RAIL_BG_HEX}};
       --rail-fg:         {{ON_SUNKEN_HEX}};
       --rail-fg-muted:   rgba({{ON_SUNKEN_RGB}}, 0.82);
       --rail-fg-subtle:  rgba({{ON_SUNKEN_RGB}}, 0.68);
@@ -74,7 +80,7 @@
       --rail-accent:     {{RAIL_ACCENT_HEX}};
       --rail-on-accent:  {{RAIL_ON_ACCENT_HEX}};
 
-      /* Radios del showcase (invariantes) */
+      /* Radios del Design System (invariantes) */
       --radius-xs:  4px;
       --radius-sm:  8px;
       --radius-md:  14px;
@@ -92,12 +98,12 @@
       --glow-primary:   0 0 24px rgba({{PRIMARY_RGB}}, 0.40);
       --glow-secondary: 0 0 24px rgba({{SECONDARY_RGB}}, 0.35);
 
-      /* Easing / Duration del showcase (invariante) */
+      /* Easing / Duration del Design System (invariante) */
       --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
       --dur-fast: 140ms;
       --dur-med:  260ms;
 
-      /* Typography del showcase — fuentes del cliente */
+      /* Typography del Design System — fuentes del cliente */
       --font-sans:    '{{FONT_UI}}', system-ui, -apple-system, sans-serif;
       --font-display: '{{FONT_DISPLAY}}', system-ui, sans-serif;
       --font-mono:    '{{FONT_MONO}}', 'Fira Code', ui-monospace, monospace;
@@ -153,7 +159,8 @@
       --border-strong:   rgba({{TEXT_DARK_RGB}}, 0.28);
       --border-accent:   {{PRIMARY_DARK_HEX}};
 
-      /* En tema claro --bg-sunken es claro: el rail usa el texto y el acento del tema */
+      /* En tema claro --bg-sunken es claro: el rail usa su mismo fondo y el texto y el acento del tema */
+      --rail-bg:         var(--bg-sunken);
       --rail-fg:         var(--fg);
       --rail-fg-muted:   var(--fg-muted);
       --rail-fg-subtle:  var(--fg-subtle);
@@ -250,8 +257,8 @@
       width: 260px;
       height: 100vh;
       height: 100dvh;
-      background: var(--bg-sunken);
-      /* Todo el texto del rail hereda estos tokens: contraste garantizado contra --bg-sunken, no contra --bg */
+      background: var(--rail-bg, var(--bg-sunken));
+      /* Todo el texto del rail hereda estos tokens: contraste garantizado contra el fondo del rail, no contra --bg */
       --fg: var(--rail-fg);
       --fg-muted: var(--rail-fg-muted);
       --fg-subtle: var(--rail-fg-subtle);
@@ -700,7 +707,7 @@
     .chip-neutral { background: var(--surface-overlay); color: var(--fg-muted); border: 1px solid var(--border-strong); }
     .chip-accent  { background: var(--dsc-accent-tint, transparent); color: var(--sample-accent); border: 1px solid var(--sample-accent); }
 
-    /* Typography Showcase Dedicated Styles */
+    /* Typography Dedicated Styles */
     .type-glyph-hero {
       font-size: 3.5rem;
       line-height: 1;
@@ -2195,7 +2202,7 @@
     <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 19V5m0 0l-7 7m7-7l7 7"/></svg>
   </button>
 
-  <!-- SHOWCASE LOGIC -->
+  <!-- DESIGN SYSTEM LOGIC -->
   <script>
     // Copy to clipboard helper (feedback vía toast, no alert)
     function copyToClipboard(text) {

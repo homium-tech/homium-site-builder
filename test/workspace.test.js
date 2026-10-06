@@ -217,7 +217,7 @@ async function runSuite() {
     const history = ws.getChatHistory();
     assert.strictEqual(history.brandName, 'SynthBrand');
     assert.strictEqual(history.currentPhase, 4);
-    assert(history.lastAssistantMessage.content.includes('Showcase del Design System'));
+    assert(history.lastAssistantMessage.content.includes('Design System'));
   });
 
   // Limpieza de directorio temporal

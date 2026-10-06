@@ -104,10 +104,11 @@ async function startServer({ env = {}, login = true, beforeStart = null } = {}) 
     cookie = loginRes.headers.getSetCookie().map(c => c.split(';')[0]).join('; ');
   }
 
+  // Un FormData (subida de archivos) viaja tal cual y fija su propio Content-Type con el límite multipart
   const api = (route, { method = 'GET', body, signal, headers = {} } = {}) => fetch(`${base}${route}`, {
     method,
-    headers: { 'Content-Type': 'application/json', ...(cookie ? { Cookie: cookie } : {}), ...headers },
-    body: body ? JSON.stringify(body) : undefined,
+    headers: { ...(body instanceof FormData ? {} : { 'Content-Type': 'application/json' }), ...(cookie ? { Cookie: cookie } : {}), ...headers },
+    body: body instanceof FormData ? body : (body ? JSON.stringify(body) : undefined),
     signal
   });
 

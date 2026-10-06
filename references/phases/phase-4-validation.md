@@ -14,7 +14,7 @@ Lead Design System Documentation Engineer & Visual Specification Writer. Redacci
        ↓
 [Etapa 4.1: [Brand]_Design_System.md]   → spec completo de 5 fases
        ↓
-[Etapa 4.2: [Brand]_Design_System.html] → showcase vivo con tema dinámico del cliente
+[Etapa 4.2: [Brand]_Design_System.html] → Design System vivo con tema dinámico del cliente
        ↓
 [Exportación de Código — al completar #sec-code]
        ↓
@@ -25,7 +25,7 @@ Lead Design System Documentation Engineer & Visual Specification Writer. Redacci
 
 ### Etapa 4.1 — Documento Maestro de Especificación (`[Brand]_Design_System.md`)
 
-1. **Lectura de Estado:** Lee `design-system-state.json` en disco como única fuente de verdad.
+1. **Lectura de Estado:** Lee `design-system-state.json` en disco como única fuente de verdad. Las razones de contraste de la tabla de accesibilidad (§ WCAG del `.md` y la sección 14 del HTML) se calculan con `node "<APP_ROOT>/scripts/contrast.cjs" "#TEXTO" "#FONDO"`, no de memoria: `audit_spec.cjs` y `audit_design_system.cjs` fallan si una cifra declarada no coincide con la medida o si el anillo de foco compuesto con el fondo queda bajo 3:1.
 2. **Lectura de Plantilla MD:** Lee `templates/design-system.md`.
 
 > [!CRITICAL_RULE]
@@ -58,17 +58,17 @@ Lead Design System Documentation Engineer & Visual Specification Writer. Redacci
      - **Personalizado:** el formato que pidió el usuario, con el mismo alcance (colores, tipografía, radios, elevación, movimiento).
 
      Expande los bucles de la plantilla (`{{#EACH ...}}`) con una línea por token y sustituye todos los `{{...}}`: `audit_spec.cjs` rechaza cualquier marcador sobrante y comprueba que el formato elegido tenga su bloque.
-   - El `#sec-code` del showcase muestra el `:root` completo y, debajo, un segundo `<pre>` con el mismo bloque de exportación elegido (con un `<h3>` que nombre el formato).
+   - El `#sec-code` del Design System muestra el `:root` completo y, debajo, un segundo `<pre>` con el mismo bloque de exportación elegido (con un `<h3>` que nombre el formato).
 
 5. **Nombre del archivo:** `[BrandSlug]_Design_System.md` donde `BrandSlug` es el valor de `state.brand.name` en snake_case sin acentos ni caracteres especiales (ej: `"Acme Corp"` → `Acme_Corp_Design_System.md`).
 
 ---
 
-### Etapa 4.2 — Showcase de Design System (`[Brand]_Design_System.html`)
+### Etapa 4.2 — Design System HTML (`[Brand]_Design_System.html`)
 
 #### Base estructural
 
-Lee `templates/design-system.html`. Es la base estructural y de código del showcase.
+Lee `templates/design-system.html`. Es la base estructural y de código del Design System.
 
 **MANTENER INTACTO (no modificar):**
 - Todo el CSS de layout y responsive: `.app-layout`, `.left-rail-sidebar`, `.main-viewport`, `.doc-section`, `.ds-block`, `.ds-stage`, `.ds-tokens`, `.dsc-*`, `.homium-card`, `.tech-table`, `.swatch-card`, `.type-scale-table`, `.modal-overlay`, `.to-top`, `@media print`, todos los `@media (max-width:...)`.
@@ -85,25 +85,29 @@ Lee `templates/design-system.html`. Es la base estructural y de código del show
 
 ---
 
-#### Adaptación de cromatismo del showcase (HOMIUM → Cliente)
+#### Fuentes del cliente (carga real)
 
-Reemplaza el bloque de variables HOMIUM de la plantilla con tokens derivados de `design-system-state.json`. El showcase usa los colores reales del cliente para su propio chrome (left rail, hovers, eyebrows, active states, dots del nav):
+**Archivo propio:** si `typography` incluye una fuente que no es de Google Fonts y existe su archivo en `assets/fonts/`, declara dentro del `<style>` un `@font-face` con `src: url('assets/fonts/archivo.woff2') format('woff2')` por cada peso (el HTML vive en la raíz del workspace, la ruta es relativa a él) y quita esa familia del enlace de Google Fonts. Nunca `src: local()` solo. Si no hay archivo utilizable, la familia debe estar en `typography.font_substitutions` y en "Vacíos Conocidos". `audit_design_system.cjs` da error si una fuente del estado no se carga y no está declarada como sustituta.
+
+#### Adaptación de cromatismo del Design System (HOMIUM → Cliente)
+
+Reemplaza el bloque de variables HOMIUM de la plantilla con tokens derivados de `design-system-state.json`. El Design System usa los colores reales del cliente para su propio chrome (left rail, hovers, eyebrows, active states, dots del nav):
 
 ```css
 :root {
-  /* ========== SHOWCASE CHROME — DERIVADO DE LA PALETA DEL CLIENTE ========== */
+  /* ========== DESIGN SYSTEM CHROME — DERIVADO DE LA PALETA DEL CLIENTE ========== */
   /* Reemplaza por completo el bloque --homium-* de la plantilla base.
      Todos los hexes literales DEBEN existir en palette.allowed_hexes.
      Los rgba() y color-mix() se computan en runtime — son permitidos. */
 
-  /* Fondo y superficies del showcase */
+  /* Fondo y superficies del Design System */
   --bg:              {{BG_PRIMARY_HEX}};         /* state.palette.bg_primary — fondo principal */
   --bg-elevated:     {{BG_ELEVATED_HEX}};        /* tono ligeramente más claro (dark) / más oscuro (light) que --bg */
-  --bg-sunken:       {{BG_SUNKEN_HEX}};          /* tono más profundo: left rail, inputs de código */
+  --bg-sunken:       {{BG_SUNKEN_HEX}};          /* tono más profundo: bloques de código, tablas, muestras y, por defecto, el left rail. Con >= 4.5:1 frente a --fg. Para un rail de otro tono declara --rail-bg, nunca oscurezcas --bg-sunken en un tema claro */
   --surface-card:    rgba(de bg-elevated, 0.65); /* derivado en runtime con rgba/color-mix */
   --surface-overlay: rgba(de client-primary, 0.04);
 
-  /* Foreground del showcase */
+  /* Foreground del Design System */
   --fg:         {{TEXT_PRIMARY_HEX}};            /* state.palette.text_primary */
   --fg-muted:   rgba(de fg, 0.82);               /* ~82% del texto primario */
   --fg-subtle:  rgba(de fg, 0.68);               /* ~68%: nunca menos — por debajo no alcanza 4.5:1 */
@@ -163,7 +167,7 @@ Reemplaza el bloque de variables HOMIUM de la plantilla con tokens derivados de 
   --dur-fast: 140ms;
   --dur-med:  260ms;
 
-  /* Typography del showcase — usar las familias del cliente para el chrome */
+  /* Typography del Design System — usar las familias del cliente para el chrome */
   --font-sans:    '{{FONT_UI}}', system-ui, sans-serif;
   --font-display: '{{FONT_DISPLAY}}', system-ui, sans-serif;
   --font-mono:    '{{FONT_MONO}}', 'Fira Code', ui-monospace, monospace;
@@ -198,7 +202,7 @@ Reemplaza el bloque de variables HOMIUM de la plantilla con tokens derivados de 
 > [!CRITICAL_RULE]
 > **ALLOWLIST CROMÁTICA:** TODOS los valores hex literales en `:root` y en el HTML DEBEN existir verbatim en `palette.allowed_hexes`. Los `rgba()` y `color-mix()` computados en runtime desde esos hexes son permitidos. Prohibido inventar tonos intermedios no presentes en la allowlist; la única excepción son los tonos de severidad (--sev-*) recalculados por contraste (mismo matiz, solo luminosidad), que se agregan a la allowlist antes de usarlos.
 
-#### Modo oscuro del showcase (`html[data-theme="light"]`)
+#### Modo oscuro del Design System (`html[data-theme="light"]`)
 
 El bloque de tema claro invierte los mismos roles con la versión invertida de la paleta del cliente:
 - **Cliente dark-first:** el light theme usa fondos claros de la paleta (tone-95/99), texto oscuro (tone-10/20).
@@ -349,7 +353,7 @@ Genera el bloque de exportación correspondiente al final de `#sec-code` en el H
 Tras guardar `[Brand]_Design_System.md` y `[Brand]_Design_System.html`, ejecuta:
 
 ```bash
-node "<APP_ROOT>/scripts/audit_showcase.cjs" "[Brand]_Design_System.html"
+node "<APP_ROOT>/scripts/audit_design_system.cjs" "[Brand]_Design_System.html"
 node "<APP_ROOT>/scripts/audit_spec.cjs" "[Brand]_Design_System.md" --state design-system-state.json
 ```
 
@@ -360,7 +364,7 @@ Si detecta:
 - Variables CSS requeridas ausentes en `:root` → agregar
 - Si definiste colores semánticos del cliente (Etapa 2.1.3), decláralos en `:root` como `--client-success`, `--client-warning`, `--client-error` y `--client-info` para que el audit los mida (mínimo 3:1 sobre `--bg` y `--bg-elevated`; por debajo de 4.5:1 se advierte).
 - `HTML mal anidado` → es un error crítico: una `<table>` o un `<div>` dentro de `<tbody>`/`<tr>`, o un cierre de más, hace que el navegador saque las secciones siguientes de `<main>` y las muestre bajo el rail izquierdo (cortadas a la izquierda, desde la sección donde está el error). En `{{ATOM_STATE_TABLES}}` y en cualquier otro bucle dentro de una tabla escribe SOLO filas `<tr>…</tr>`; la tabla, su `<thead>` y el `.table-wrap` ya están en la plantilla. Corrige la línea indicada y vuelve a ejecutar el audit.
-- `Contraste insuficiente` (texto sobre fondo < 4.5:1: `--fg-subtle`, rail izquierdo sobre `--bg-sunken`, texto sobre el acento…) → es un error crítico, no una advertencia: cambia el token por otro hex de la paleta (o `#FFFFFF`/`#000000`) hasta que el audit lo pase. Nunca presentes un showcase con texto ilegible.
+- `Contraste insuficiente` (texto sobre fondo < 4.5:1: `--fg-subtle`, rail izquierdo sobre `--bg-sunken`, texto sobre el acento…) → es un error crítico, no una advertencia: cambia el token por otro hex de la paleta (o `#FFFFFF`/`#000000`) hasta que el audit lo pase. Nunca presentes un Design System con texto ilegible.
 
 Adicionalmente:
 ```bash
@@ -386,7 +390,7 @@ Presenta ambos entregables al usuario:
 
 > *"He generado los entregables de Validación Visual:*
 > - *`[Brand]_Design_System.md` — Especificación completa del sistema (foundations, componentes, WCAG, tokens)*
-> - *`[Brand]_Design_System.html` — Showcase vivo del Design System con los colores, tipografía y componentes reales de la marca*
+> - *`[Brand]_Design_System.html` — Design System vivo con los colores, tipografía y componentes reales de la marca*
 >
 > ¿Apruebas el sistema de diseño para proceder a la **Fase 5 (PROTOTIPO INTERACTIVO)** donde se construirán las 3 pantallas en `prototype/`?"*
 

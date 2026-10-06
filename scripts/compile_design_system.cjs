@@ -100,14 +100,24 @@ function compileDesignSystem(statePath, outputPath) {
 
   const bgPrimaryHex = pick(palette.bg_base, palette.background, alabaster['950']) || '#101313';
   const bgElevatedHex = pick(palette.surface_card, palette.surface, alabaster['900']) || '#171b1c';
-  const bgSunkenHex = '#0c0f0f';
+  // El rail izquierdo es siempre oscuro (--rail-bg). --bg-sunken pinta además código, tablas y muestras con texto --fg,
+  // así que en una página clara debe ser un tono claro (el fondo ligeramente oscurecido), no el del rail.
+  const railBgHex = '#0c0f0f';
+  const bgSunkenHex = (() => {
+    const bg = parseColor(bgPrimaryHex);
+    const ink = parseColor(pick(palette.text_primary, palette.text) || '#101313');
+    const bgLum = bg ? (0.2126 * bg.r + 0.7152 * bg.g + 0.0722 * bg.b) / 255 : 0;
+    if (!bg || !ink || bgLum < 0.5) return railBgHex;
+    const mix = (a, b) => Math.round(a * 0.94 + b * 0.06).toString(16).padStart(2, '0');
+    return `#${mix(bg.r, ink.r)}${mix(bg.g, ink.g)}${mix(bg.b, ink.b)}`;
+  })();
 
   const textPrimaryHex = pick(palette.text_primary, palette.text, alabaster['50']) || '#f1f3f3';
   const textDarkHex = '#101313';
 
   // Contraste del chrome: el rail va sobre --bg-sunken, no sobre --bg, así que su texto/acento se eligen contra ese fondo
-  const onSunkenHex = pickReadable(bgSunkenHex, [textPrimaryHex, '#FFFFFF', '#000000'], 7);
-  const railAccentHex = pickReadable(bgSunkenHex, [primaryHex, primaryLighterHex, accentHex, accentLighterHex, onSunkenHex], 4.5);
+  const onSunkenHex = pickReadable(railBgHex, [textPrimaryHex, '#FFFFFF', '#000000'], 7);
+  const railAccentHex = pickReadable(railBgHex, [primaryHex, primaryLighterHex, accentHex, accentLighterHex, onSunkenHex], 4.5);
   const railOnAccentHex = pickReadable(railAccentHex, ['#FFFFFF', '#000000'], 4.5);
   const chromeAccentHex = pickReadable(bgPrimaryHex, [primaryHex, primaryLighterHex, accentHex, accentLighterHex, textPrimaryHex], 4.5);
   const onPrimaryHex = pickReadable(chromeAccentHex, ['#FFFFFF', '#000000'], 4.5);
@@ -383,6 +393,7 @@ function compileDesignSystem(statePath, outputPath) {
     'BG_ELEVATED_HEX': bgElevatedHex,
     'BG_ELEVATED_RGB': hexToRgb(bgElevatedHex),
     'BG_SUNKEN_HEX': bgSunkenHex,
+    'RAIL_BG_HEX': railBgHex,
     'SURFACE_CARD': bgElevatedHex,
     'TEXT_PRIMARY_HEX': textPrimaryHex,
     'TEXT_PRIMARY': textPrimaryHex,

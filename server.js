@@ -374,11 +374,13 @@ function renderWaitingPage({ phase, title, highlight, description, statusText })
 // Aislamiento CSP Sandbox para todas las vistas previas de entregables.
 // Se mantiene allow-same-origin: la cookie de sesión es SameSite=Strict, y sin ese permiso el iframe tendría
 // un origen opaco y sus subrecursos (CSS, JS, imágenes) llegarían sin cookie y serían rechazados por requireAuth.
+// allow-modals: el botón "Descargar PDF" del Design System es window.print(); sin ese permiso Chromium lo ignora en silencio
+// ("Ignored call to 'print()'. The document is sandboxed"). Solo habilita print/alert/confirm, no navegación ni popups.
 // El riesgo de que el HTML generado invoque la API con la sesión se mitiga en requireSameOrigin (Referer /preview/*).
 app.use('/preview', (req, res, next) => {
   res.setHeader(
     'Content-Security-Policy',
-    "default-src 'self' 'unsafe-inline' data: https://fonts.googleapis.com https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; frame-ancestors 'self'; sandbox allow-scripts allow-forms allow-same-origin;"
+    "default-src 'self' 'unsafe-inline' data: https://fonts.googleapis.com https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; frame-ancestors 'self'; sandbox allow-scripts allow-forms allow-same-origin allow-modals;"
   );
   next();
 });
@@ -422,27 +424,49 @@ app.use('/preview/prototype', (req, res, next) => {
   express.static(workspace.getPrototypeDir())(req, res, next);
 });
 
-// 4. Servir el Showcase dinámico ([Brand]_Design_System.html)
+// El Design System vive en la raíz del proyecto y referencia sus recursos con rutas relativas (assets/fonts/*.otf,
+// assets/logo.svg): servido en /preview/design-system se resuelven a /preview/assets/..., así que se sirve esa carpeta.
+app.use('/preview/assets', (req, res, next) => {
+  const assetsDir = path.join(workspace.getDir(), 'assets');
+  let requested;
+  try {
+    requested = decodeURIComponent(req.path);
+  } catch (e) {
+    return res.status(400).send('Ruta inválida');
+  }
+  if (!withinDir(assetsDir, requested)) {
+    return res.status(403).send('Acceso denegado');
+  }
+  express.static(assetsDir)(req, res, next);
+});
+
+// Ruta anterior (se llamaba "showcase"): se conserva para enlaces guardados en chats ya escritos
 app.get('/preview/showcase', (req, res) => {
+  const query = req.originalUrl.includes('?') ? req.originalUrl.slice(req.originalUrl.indexOf('?')) : '';
+  res.redirect(301, '/preview/design-system' + query);
+});
+
+// 4. Servir el Design System dinámico ([Brand]_Design_System.html)
+app.get('/preview/design-system', (req, res) => {
   try {
     const currentDir = workspace.getDir();
     const files = fs.existsSync(currentDir) ? fs.readdirSync(currentDir) : [];
-    const showcaseFile = files.find(f => f.endsWith('_Design_System.html'));
+    const designSystemFile = files.find(f => f.endsWith('_Design_System.html'));
 
-    if (showcaseFile) {
-      return res.sendFile(showcaseFile, { root: currentDir });
+    if (designSystemFile) {
+      return res.sendFile(designSystemFile, { root: currentDir });
     }
 
     // Si aún no existe, mostramos la pantalla de espera estandarizada
     res.send(renderWaitingPage({
       phase: 'Fase 4 Pendiente',
-      title: 'Showcase',
+      title: 'Design System',
       highlight: 'en espera.',
-      description: 'El Showcase interactivo del sistema de diseño se compilará en disco automáticamente al completar la <strong>Fase 4 (Validación Visual)</strong> en el chat.',
+      description: 'El Design System interactivo se compilará en disco automáticamente al completar la <strong>Fase 4 (Validación Visual)</strong> en el chat.',
       statusText: 'Esperando confirmación en el chat…'
     }));
   } catch (err) {
-    res.status(500).send('Error al buscar el showcase: ' + escapeHtml(err.message));
+    res.status(500).send('Error al buscar el Design System: ' + escapeHtml(err.message));
   }
 });
 
@@ -550,9 +574,41 @@ const ALLOWED_UPLOAD_EXTENSIONS = new Set([
   '.png', '.jpg', '.jpeg', '.webp', '.svg', '.gif', '.avif'
 ]);
 
+// Un manual de marca puede adjuntarse en el primer mensaje, cuando aún no existe el proyecto (se pide su nombre).
+// Hasta entonces los archivos esperan en .pending_uploads/ y pasan a uploads/ del proyecto en cuanto se crea.
+const PENDING_UPLOADS_DIR = '.pending_uploads';
+const ATTACHMENT_NOTE_PATTERN = /\n*\[Archivos adjuntos en uploads\/: ([^\]]*)\]\s*$/;
+
+function pendingUploadsPath() {
+  return path.join(workspace.getBaseDir(), PENDING_UPLOADS_DIR);
+}
+
+function clearPendingUploads() {
+  try { fs.rmSync(pendingUploadsPath(), { recursive: true, force: true }); } catch (e) { /* se ignora */ }
+}
+
+/** Mueve los archivos en espera a uploads/ del proyecto activo; devuelve sus nombres. */
+function adoptPendingUploads() {
+  const pendingDir = pendingUploadsPath();
+  let names = [];
+  try { names = fs.readdirSync(pendingDir); } catch (e) { return []; }
+  if (names.length === 0) return [];
+  const uploadsDir = path.join(workspace.getDir(), 'uploads');
+  fs.mkdirSync(uploadsDir, { recursive: true });
+  const moved = [];
+  for (const name of names) {
+    try {
+      fs.renameSync(path.join(pendingDir, name), path.join(uploadsDir, name));
+      moved.push(name);
+    } catch (e) { /* un archivo que no se pudo mover no bloquea el turno */ }
+  }
+  clearPendingUploads();
+  return moved;
+}
+
 const uploadStorage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const uploadsDir = path.join(workspace.getDir(), 'uploads');
+    const uploadsDir = workspace.hasProject() ? path.join(workspace.getDir(), 'uploads') : pendingUploadsPath();
     fs.mkdirSync(uploadsDir, { recursive: true });
     cb(null, uploadsDir);
   },
@@ -572,7 +628,7 @@ const upload = multer({
   fileFilter: (req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();
     if (!ALLOWED_UPLOAD_EXTENSIONS.has(ext)) {
-      return cb(new Error(`Tipo de archivo no permitido: ${ext || '(sin extensión)'}`));
+      return cb(new Error(`Tipo de archivo no permitido: ${ext || '(sin extensión)'}. Formatos aceptados: ${[...ALLOWED_UPLOAD_EXTENSIONS].join(', ')} (las fuentes deben ser TTF, OTF, WOFF o WOFF2).`));
     }
     cb(null, true);
   }
@@ -580,9 +636,9 @@ const upload = multer({
 
 // Adjuntos de referencia (fuentes, documentos de marca, hojas de datos) para que el motor
 // de IA los lea desde uploads/ dentro del workspace activo.
-app.post('/api/upload', requireActiveProject, upload.array('files', 6), (req, res) => {
+app.post('/api/upload', upload.array('files', 6), (req, res) => {
   const files = (req.files || []).map((f) => ({ name: f.filename, size: f.size }));
-  res.json({ ok: true, files });
+  res.json({ ok: true, files, staged: !workspace.hasProject() });
 });
 
 app.use('/api/upload', (err, req, res, next) => {
@@ -609,6 +665,7 @@ app.post('/api/reset', (req, res) => {
 
   // Resetear el proyecto activo para volver a la raíz base homium_projects
   workspace.resetProject();
+  clearPendingUploads();
 
   // Refrescar inmediatamente el store para notificar a los suscriptores SSE
   deliverableStore.refresh();
@@ -629,6 +686,7 @@ app.post('/api/project/new', (req, res) => {
   }
 
   workspace.resetProject();
+  clearPendingUploads();
   deliverableStore.refresh();
 
   res.json({
@@ -640,8 +698,8 @@ app.post('/api/project/new', (req, res) => {
   });
 });
 
-// Una compuerta solo es válida si ya existe en disco el entregable que pide revisar (showcase / prototipo).
-// Evita que una pregunta de cierre de fase redactada como aprobación abra la compuerta 1 antes de construir el showcase.
+// Una compuerta solo es válida si ya existe en disco el entregable que pide revisar (Design System / prototipo).
+// Evita que una pregunta de cierre de fase redactada como aprobación abra la compuerta 1 antes de construir el Design System.
 // `dir`: carpeta del proyecto al que pertenece la acción; si ya no es el activo no hay con qué comprobarla.
 function gateHasDeliverable(action, dir = null) {
   if (!action || action.type !== 'gate') return true;
@@ -697,7 +755,7 @@ app.get('/api/chat/history', (req, res) => {
 
   // Si no hay acción pendiente registrada explícita pero los entregables indican compuerta sin resolver:
   if (!pendingAction) {
-    if (snapshot.status?.showcaseExists && currentPhase >= 4 && !snapshot.status?.prototypeExists && !gates['gate-1']) {
+    if (snapshot.status?.designSystemExists && currentPhase >= 4 && !snapshot.status?.prototypeExists && !gates['gate-1']) {
       pendingAction = pipeline.getGate('gate-1');
     } else if (snapshot.status?.prototypeExists && currentPhase >= 5 && !gates['gate-2']) {
       pendingAction = pipeline.getGate('gate-2');
@@ -706,6 +764,9 @@ app.get('/api/chat/history', (req, res) => {
 
   // Tras recargar, la compuerta vuelve con el resultado de las auditorías (se recalcula: los archivos pudieron cambiar)
   if (pendingAction && pendingAction.type === 'gate') {
+    // El texto de la tarjeta se toma del código actual, no de la copia guardada (que puede traer redacciones anteriores)
+    const canonical = pipeline.getGate(pendingAction.stepId);
+    if (canonical) pendingAction = { ...pendingAction, title: canonical.title, description: canonical.description };
     pendingAction = withGateAudit(pendingAction, workspace.dir);
   }
 
@@ -735,7 +796,8 @@ const SESSION_ID_PATTERN = /^[A-Za-z0-9_-]{8,64}$/;
 const activeTurns = new Map();
 
 app.post('/api/chat', (req, res) => {
-  const { message, sessionId, engine: requestedEngine } = req.body || {};
+  const { sessionId, engine: requestedEngine } = req.body || {};
+  let message = (req.body || {}).message;
 
   if (typeof message !== 'string' || !message.trim()) {
     return res.status(400).json({ error: 'Mensaje requerido' });
@@ -753,7 +815,8 @@ app.post('/api/chat', (req, res) => {
 
   // Si aún no se ha establecido la subcarpeta de proyecto (primer turno):
   if (!workspace.hasProject()) {
-    const detectedName = Workspace.extractProjectName(message);
+    // La nota de adjuntos que añade el cliente no es parte del nombre de la marca
+    const detectedName = Workspace.extractProjectName(message.replace(ATTACHMENT_NOTE_PATTERN, '').trim());
     if (detectedName) {
       try {
         workspace.setProject(detectedName);
@@ -762,6 +825,20 @@ app.post('/api/chat', (req, res) => {
       }
     }
   }
+
+  // Adjuntos subidos antes de que existiera el proyecto (p. ej. el manual de marca junto al nombre): ya están en
+  // uploads/ del proyecto y el motor debe saberlo. Si aún no hay proyecto, se le dice por qué no puede leerlos todavía.
+  let attachmentNote = '';
+  if (workspace.hasProject()) {
+    const adopted = adoptPendingUploads();
+    if (adopted.length > 0 && !ATTACHMENT_NOTE_PATTERN.test(message)) {
+      attachmentNote = `\n\n[Archivos adjuntos en uploads/: ${adopted.join(', ')}]`;
+    }
+  } else if (ATTACHMENT_NOTE_PATTERN.test(message)) {
+    message = message.replace(ATTACHMENT_NOTE_PATTERN, '').trim() +
+      '\n\n[El usuario adjuntó archivos, pero aún no existe el proyecto: se guardarán en uploads/ en cuanto indique el nombre de la marca. Pídeselo y léelos en el turno siguiente.]';
+  }
+  if (attachmentNote) message += attachmentNote;
 
   // Proyecto al que pertenece este turno: la respuesta se guarda ahí aunque mientras tanto cambie el activo
   const target = workspace.hasProject() ? workspace.snapshot() : null;

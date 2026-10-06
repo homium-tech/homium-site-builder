@@ -47,7 +47,7 @@ async function runSuite() {
 
     const snapshot = store.getSnapshot();
     assert.strictEqual(snapshot.status.stateExists, false);
-    assert.strictEqual(snapshot.status.showcaseExists, false);
+    assert.strictEqual(snapshot.status.designSystemExists, false);
     assert.strictEqual(snapshot.status.prototypeExists, false);
     assert.strictEqual(snapshot.state, null);
 
@@ -174,8 +174,8 @@ async function runSuite() {
     store.close();
   });
 
-  console.log('\n[5] Detección de Showcase y Prototipo HTML:');
-  await it('should detect showcase and prototype file additions', async () => {
+  console.log('\n[5] Detección de Design System y Prototipo HTML:');
+  await it('should detect Design System and prototype file additions', async () => {
     const store = new DeliverableStore({
       rootDir: testTmpDir,
       prototypeDir: testProtoDir,
@@ -183,9 +183,9 @@ async function runSuite() {
       autoStartWatcher: true
     });
 
-    // 1. Crear Showcase
-    const showcasePath = path.join(testTmpDir, 'Acme_Design_System.html');
-    fs.writeFileSync(showcasePath, '<html>Showcase</html>');
+    // 1. Crear Design System
+    const designSystemPath = path.join(testTmpDir, 'Acme_Design_System.html');
+    fs.writeFileSync(designSystemPath, '<html>Design System</html>');
 
     // 2. Crear Prototype
     fs.mkdirSync(testProtoDir, { recursive: true });
@@ -195,14 +195,14 @@ async function runSuite() {
     await new Promise(r => setTimeout(r, 120));
 
     const status = store.getStatus();
-    assert.strictEqual(status.showcaseExists, true);
-    assert.strictEqual(status.showcaseFile, 'Acme_Design_System.html');
+    assert.strictEqual(status.designSystemExists, true);
+    assert.strictEqual(status.designSystemFile, 'Acme_Design_System.html');
     assert.strictEqual(status.prototypeExists, true);
 
     store.close();
   });
 
-  await it('should emit change and new version when an existing showcase/prototype file is rewritten', async () => {
+  await it('should emit change and new version when an existing Design System/prototype file is rewritten', async () => {
     const store = new DeliverableStore({
       rootDir: testTmpDir,
       prototypeDir: testProtoDir,
@@ -211,16 +211,16 @@ async function runSuite() {
     });
 
     const before = store.getStatus();
-    assert(before.showcaseVersion, 'showcaseVersion debe existir');
+    assert(before.designSystemVersion, 'designSystemVersion debe existir');
     assert(before.prototypeVersion, 'prototypeVersion debe existir');
 
     const changes = [];
     store.on('change', (snap) => changes.push(snap));
 
-    fs.writeFileSync(path.join(testTmpDir, 'Acme_Design_System.html'), '<html>Showcase regenerado con mas contenido</html>');
+    fs.writeFileSync(path.join(testTmpDir, 'Acme_Design_System.html'), '<html>Design System regenerado con mas contenido</html>');
     await new Promise(r => setTimeout(r, 200));
-    assert(changes.length >= 1, 'reescribir el showcase debe emitir change');
-    assert.notStrictEqual(store.getStatus().showcaseVersion, before.showcaseVersion);
+    assert(changes.length >= 1, 'reescribir el Design System debe emitir change');
+    assert.notStrictEqual(store.getStatus().designSystemVersion, before.designSystemVersion);
 
     const beforeProto = store.getStatus().prototypeVersion;
     fs.writeFileSync(path.join(testProtoDir, 'index.html'), '<html>Prototype v2 con mas contenido</html>');

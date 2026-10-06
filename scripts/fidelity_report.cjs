@@ -17,6 +17,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { parseFontFaces } = require('./font-loading.cjs');
 
 function flag(name, fallback) {
   const i = process.argv.indexOf(name);
@@ -74,7 +75,8 @@ function latestMtime(dir) {
 function loadedFamilies(css, html) {
   const loaded = new Set();
   const add = (name) => { if (name) loaded.add(String(name).trim().replace(/^['"]|['"]$/g, '').toLowerCase()); };
-  for (const m of css.matchAll(/@font-face\s*\{[^}]*?font-family\s*:\s*([^;}]+)/gi)) add(m[1]);
+  // Un @font-face que solo usa local('X') no carga nada: depende de que la fuente esté instalada en el equipo del visitante
+  for (const f of parseFontFaces(css)) if (f.srcs.some(s => s.kind === 'url')) add(f.family);
   const text = css + '\n' + html;
   for (const m of text.matchAll(/[?&]family=([^&"')\s]+)/gi)) {
     let name;
@@ -152,8 +154,9 @@ if (protoExists) {
     seen.add(key);
     if (loaded.has(key)) return;
     const sh = selfHostedByName.get(key);
-    const sub = substituteFor(family, fallback, css, loaded);
-    const reason = sh
+    const declared = (Array.isArray(typo.font_substitutions) ? typo.font_substitutions : []).find(d => d && d.family && String(d.family).trim().toLowerCase() === key);
+    const sub = (declared && declared.substitute) || substituteFor(family, fallback, css, loaded);
+    const reason = declared && declared.reason ? str(declared.reason, 220) : sh
       ? `Es una fuente autoalojada por la referencia${sh.woff2_src ? ` (${str(sh.woff2_src, 120)})` : ''}, propietaria o sin licencia de uso, y no hay archivo disponible para incluirla.`
       : 'No se carga en el prototipo (sin @font-face ni enlace de fuentes), por lo que el navegador usa la siguiente de la pila.';
     push('sustituido', `No se usó la fuente ${family}${label ? ` (${label})` : ''}`, reason, sub || undefined);

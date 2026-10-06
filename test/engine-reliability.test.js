@@ -85,7 +85,7 @@ async function runSuite() {
   });
 
   await it('should classify a chunk made only of tool lines as tool_activity', () => {
-    const parsed = StreamParser.parse('node scripts/compile_showcase.cjs\nWriting state to x.json\n', 'stdout');
+    const parsed = StreamParser.parse('node scripts/compile_design_system.cjs\nWriting state to x.json\n', 'stdout');
     assert.strictEqual(parsed.type, 'tool_activity');
   });
 

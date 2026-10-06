@@ -133,6 +133,33 @@ if (state) {
   }
 }
 
+// Razones de contraste declaradas: se comparan con el cálculo real (los agentes las escriben de memoria y suelen errar)
+{
+  const { findRatioMismatches } = require('./contrast.cjs');
+  const wrong = findRatioMismatches(markdown);
+  if (wrong.length > 0) {
+    const sample = wrong.slice(0, 4).map(w => `línea ${w.line}: ${w.fg} sobre ${w.bg} declara ${w.claimed}:1 y mide ${w.measured}:1`).join(' · ');
+    errors.push(`${wrong.length} razón(es) de contraste declaradas que no coinciden con el cálculo real (${sample}${wrong.length > 4 ? ' …' : ''}). Calcula cada razón con scripts/contrast.cjs, no de memoria.`);
+  }
+}
+
+// Anillo de foco: un rgba translúcido pierde contraste al componerse con el fondo (WCAG 1.4.11 / 2.4.13 piden >= 3:1)
+{
+  const { parseColor, flatten, contrastRatio } = require('./contrast.cjs');
+  const bgHex = (state && state.palette && (state.palette.bg_base || state.palette.background)) || '#FFFFFF';
+  const bg = parseColor(String(bgHex)) || parseColor('#FFFFFF');
+  const weak = new Set();
+  for (const m of markdown.matchAll(/focus-ring[^\n]*?0 0 0 \d+px\s+(rgba?\([^)]*\))/gi)) {
+    const ring = parseColor(m[1]);
+    if (!ring) continue;
+    const ratio = contrastRatio(flatten(ring, bg), bg);
+    if (ratio < 3) weak.add(`${m[1]} compuesto sobre ${bgHex} = ${ratio.toFixed(2)}:1`);
+  }
+  if (weak.size > 0) {
+    errors.push(`El anillo de foco no llega a 3:1 una vez compuesto con el fondo (${Array.from(weak).join('; ')}). Sube su opacidad o usa un color sólido.`);
+  }
+}
+
 // Reporte
 console.log('========================================');
 console.log(`AUDITORÍA DE LA ESPECIFICACIÓN: ${path.basename(filePath)}`);

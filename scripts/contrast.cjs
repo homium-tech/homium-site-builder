@@ -1,5 +1,5 @@
 /**
- * Utilidades de contraste WCAG compartidas por compile_showcase.cjs y audit_showcase.cjs.
+ * Utilidades de contraste WCAG compartidas por compile_design_system.cjs y audit_design_system.cjs.
  * Solo funciones puras: sin lectura de archivos ni efectos secundarios.
  */
 
@@ -79,4 +79,48 @@ function pickReadable(bgHex, candidates, min = 7) {
   return scored.sort((a, b) => b.ratio - a.ratio)[0].hex;
 }
 
-module.exports = { parseColor, flatten, relativeLuminance, contrastRatio, toHex, pickReadable };
+/**
+ * Razones de contraste que un documento declara ("#222617 ... #F8F7D6 ... 14.19:1") frente a las medidas.
+ * Una línea cuenta como par cuando tiene exactamente dos colores HEX distintos seguidos de "N:1" (fila de tabla
+ * markdown o <tr> en una sola línea): el primero es el texto/elemento y el segundo el fondo. Los agentes escriben
+ * estas cifras de memoria y suelen errar, así que se comprueban contra el cálculo real.
+ * @returns {Array<{ line: number, fg: string, bg: string, claimed: number, measured: number }>} diferencias > tolerance
+ */
+function findRatioMismatches(text, tolerance = 0.15) {
+  const out = [];
+  String(text).split('\n').forEach((line, i) => {
+    const hexes = line.match(/#[0-9a-fA-F]{6}\b/g) || [];
+    const distinct = [...new Set(hexes.map(h => h.toUpperCase()))];
+    if (distinct.length !== 2) return;
+    const ratioMatch = line.match(/(\d{1,2}(?:\.\d{1,2})?):1(?![0-9])/);
+    if (!ratioMatch) return;
+    const lastHexEnd = line.lastIndexOf(hexes[hexes.length - 1]) + 7;
+    if (ratioMatch.index < lastHexEnd) return; // el ratio debe venir después de ambos colores
+    const fg = parseColor(hexes[0]);
+    const bg = parseColor(hexes[hexes.length - 1]);
+    if (!fg || !bg) return;
+    const measured = contrastRatio(fg, bg);
+    const claimed = parseFloat(ratioMatch[1]);
+    if (Math.abs(measured - claimed) > tolerance) {
+      out.push({ line: i + 1, fg: hexes[0].toUpperCase(), bg: hexes[hexes.length - 1].toUpperCase(), claimed, measured: Math.round(measured * 100) / 100 });
+    }
+  });
+  return out;
+}
+
+module.exports = { parseColor, flatten, relativeLuminance, contrastRatio, toHex, pickReadable, findRatioMismatches };
+
+// CLI: node contrast.cjs "#222617" "#F8F7D6" [...pares] -> imprime la razón medida de cada par (texto, fondo)
+if (require.main === module) {
+  const args = process.argv.slice(2);
+  if (args.length < 2 || args.length % 2 !== 0) {
+    console.error('Uso: node contrast.cjs <color-texto> <color-fondo> [<color-texto> <color-fondo> ...]');
+    process.exit(1);
+  }
+  for (let i = 0; i < args.length; i += 2) {
+    const fg = parseColor(args[i]);
+    const bg = parseColor(args[i + 1]);
+    if (!fg || !bg) { console.error(`Color no válido: ${args[i]} / ${args[i + 1]}`); process.exit(1); }
+    console.log(`${args[i]} sobre ${args[i + 1]} = ${contrastRatio(flatten(fg, bg), bg).toFixed(2)}:1`);
+  }
+}

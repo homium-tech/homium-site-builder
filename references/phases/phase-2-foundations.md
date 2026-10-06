@@ -24,6 +24,8 @@ Lead Visual Foundations Architect. Define todos los cimientos del sistema de dis
 > - `Acento Primario (Sunset Amber): #FF5500`
 > - `Texto Principal: #FFFFFF (ratio 19.8:1, WCAG AAA)`
 
+> **Razones de contraste medidas, no recordadas:** cada ratio que muestres en el chat (paletas, semánticos, resumen de la etapa) se calcula con `node "<APP_ROOT>/scripts/contrast.cjs" "#TEXTO" "#FONDO"` y se copia tal cual. Un semántico (éxito, advertencia, error, información) que se use como texto debe llegar a 4.5:1 sobre el fondo y la superficie blanca; si el tono propuesto no llega, corrígelo antes de presentarlo. Los bordes de campos, casillas y botones secundarios necesitan 3:1 contra el fondo, y el anillo de foco translúcido (rgba) se mide compuesto con el fondo: sube su opacidad hasta 3:1 o usa un color sólido.
+
 > **Rampas Tonales HCT (Material Design 3) & Heurística de Contraste AAA:**
 > El motor calcula internamente la rampa tonal HCT de 13 pasos (Tone 0 a 100):
 > - **Texto Normal AAA (≥ 7:1):** ΔTone ≥ 60 entre texto y fondo.
@@ -32,7 +34,9 @@ Lead Visual Foundations Architect. Define todos los cimientos del sistema de dis
 
 > **Personalidad ya definida (Etapa 1.6):** el Ecualizador de Marca se resolvió al cerrar la Fase 1. Su perfil (vibrante vs. sobria, audaz vs. discreta) condiciona las opciones de paleta que propones aquí, y `density_mode` / `modular_scale` ya vienen derivados. No lo vuelvas a preguntar.
 
-> **Color y tipografía de marca (hipótesis):** si en la Etapa 1.4 hay logo o manual de marca, el color dominante y la tipografía extraídos (`brand` en el estado) son la **Opción 1** de las Etapas 2.1.1 y 2.2.1, presentados como hipótesis a confirmar. No inventes un color de marca que el cliente no aportó.
+> **Color y tipografía de marca (hipótesis, solo sin manual):** si hay un logo pero NO un manual de marca, el color dominante y la tipografía inferidos (`brand` en el estado) son la **Opción 1** de las Etapas 2.1.1 y 2.2.1, presentados como hipótesis a confirmar. No inventes un color de marca que el cliente no aportó. Si hay manual, aplica el bloque siguiente.
+
+> **Si hay manual de marca (`brand.manual` en el estado), manda el manual, no las opciones:** lo que el manual especifica (colores, tipografías con sus pesos y tamaños, escala, radios, sombras, iconografía) YA ESTÁ DECIDIDO. Esa etapa no ofrece alternativas ajenas al manual ni vuelve a preguntar el dato: presenta lo extraído como "Tomado del manual (pág. N)", deriva lo que falta (neutros, semánticos, modo oscuro, elevación si el manual no la fija) a partir de los valores del manual y pide UNA sola confirmación para la etapa. Si el manual cubre todo lo que la etapa pide, la etapa es solo esa confirmación. Lo que el manual no define se pregunta como siempre. Lo que no pudiste leer se declara ("No se pudo extraer: DATO, motivo") y se pide solo ese dato. El guardrail de fidelidad vs. accesibilidad de más abajo sigue vigente si un color del manual no cumple AAA.
 
 > **Reconocimiento de Paleta de Referencia (Modo INSPIRATION):**
 > Si en la Fase 1 se seleccionó `Inspiración Conceptual`, la **Opción 1 (Recomendada)** DEBE ser la paleta inspirada medida proveniente de `visual_dna.inspiration_seeds.palette_candidates` (mostrando muestra Unicode, HEX y cobertura). Las opciones restantes se adaptan al tipo de negocio.
@@ -92,6 +96,8 @@ El Tono HCT y los neutrales se incluyen como filas adicionales en la misma tabla
 - Sugiere 4 alternativas de alta personalidad (evitando clichés y tipografías genéricas como `Inter` o `Roboto`) + opción escrita.
 
 > **Recordatorio de Adjuntos:** Si la marca ya tiene su propia fuente (archivo TTF, OTF, WOFF o WOFF2), recuérdale al cliente que puede adjuntarla con el botón de adjuntar del chat en vez de elegir una de las Google Fonts sugeridas.
+
+> **Una fuente solo cuenta si se carga (NON-BYPASSABLE):** cuando el cliente (o su manual) fija una tipografía de marca, verifica qué tienes realmente: (1) archivo TTF, OTF, WOFF o WOFF2 en `uploads/` -> se copia a `assets/fonts/` y cada entregable lo declara con `@font-face { font-family: 'Nombre'; src: url('assets/fonts/archivo.woff2') format('woff2'); font-weight: 400; font-display: swap; }` (un `src: local('Nombre')` NO carga nada); (2) la fuente existe en Google Fonts -> se enlaza; (3) ninguna de las dos (el manual solo la nombra, o solo hay datos incrustados en el PDF) -> díselo al cliente, pídele el archivo (TTF, OTF, WOFF o WOFF2) con el botón de adjuntar, y mientras tanto usa una sustituta cercana registrada en `typography.font_substitutions` (`[{ family, reason, substitute }]`) y en `fidelity_notes`. La confirmación de la etapa debe decir qué fuente se carga de verdad y cuál es sustituta; jamás "usando ES Face" si se verá la de respaldo. Si el cliente dice que acaba de adjuntar un archivo y el mensaje no trae la nota de adjuntos, revisa `uploads/`: si no está, díselo y pídele que lo adjunte de nuevo. `audit_design_system.cjs` y `audit_prototype.cjs` fallan o advierten cuando una fuente del estado no se carga.
 
 ### Etapa 2.2.2 (Condicional) — Tipografía de Acento Serif Italic
 
