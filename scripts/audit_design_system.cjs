@@ -1,9 +1,9 @@
 /**
- * Showcase & Living Spec Auditor
- * Verifies generated HTML showcases for unresolved placeholders, token completeness,
+ * Design System & Living Spec Auditor
+ * Verifies generated Design System HTML files for unresolved placeholders, token completeness,
  * and WCAG contract compliance.
  *
- * Usage: node audit_showcase.cjs <path-to-showcase.html>
+ * Usage: node audit_design_system.cjs <path-to-design-system.html>
  */
 
 'use strict';
@@ -14,7 +14,7 @@ const path = require('path');
 const targetFile = process.argv[2];
 
 if (!targetFile) {
-  console.error('Uso: node audit_showcase.cjs <path-to-showcase.html>');
+  console.error('Uso: node audit_design_system.cjs <path-to-design-system.html>');
   process.exit(1);
 }
 
@@ -88,7 +88,7 @@ const requiredSectionIds = [
 
 requiredSectionIds.forEach(id => {
   if (!htmlContent.includes(`id="${id}"`)) {
-    errors.push(`Sección requerida del Showcase ausente: #${id}`);
+    errors.push(`Sección requerida del Design System ausente: #${id}`);
   } else {
     // Verify section has non-trivial content (not just an empty container)
     const sectionMatch = htmlContent.match(new RegExp(`id="${id}"[^>]*>([\\s\\S]*?)</section>`, 'i'));
@@ -120,7 +120,7 @@ if (/Capacidad 0\d/.test(htmlNoComments)) {
 // 5b. Los estados deben ser reales de CSS, no solo inline
 ['.dsc-btn:hover', ':focus-visible'].forEach(token => {
   if (!htmlContent.includes(token)) {
-    errors.push(`Falta el estado real de CSS "${token}" en el showcase — los 6 estados no pueden demostrarse solo con estilos inline.`);
+    errors.push(`Falta el estado real de CSS "${token}" en el Design System — los 6 estados no pueden demostrarse solo con estilos inline.`);
   }
 });
 
@@ -218,7 +218,7 @@ if (structureProblems.length) {
 
 // 6j. Responsive / móvil
 if (!/@media\s*\(max-width:\s*767px\)/.test(cssOnly)) {
-  errors.push('Sin breakpoint móvil (@media max-width: 767px) — el showcase debe tener modo móvil, no solo ocultar el rail.');
+  errors.push('Sin breakpoint móvil (@media max-width: 767px) — el Design System debe tener modo móvil, no solo ocultar el rail.');
 }
 if (!/class="mobile-nav"/.test(htmlNoComments) || !/id="mobile-jump"/.test(htmlNoComments)) {
   errors.push('Falta la navegación móvil (.mobile-nav / #mobile-jump) — sin ella no hay forma de navegar las secciones cuando el rail está oculto.');
@@ -233,10 +233,10 @@ if (bareTables > wrappedCtx && !jsWrapsTables) {
 // 6f. Chip de itálica sin respaldo: "Accent Serif Italic" no debe aparecer si no hay itálica real
 if (/Accent Serif Italic|Display &amp; Accent Italic/.test(htmlNoComments) &&
     !/class="accent-italic"/.test(htmlNoComments)) {
-  warnings.push('El showcase menciona "Accent (Serif) Italic" pero no hay ninguna muestra .accent-italic — verificar typography.reference_uses_italic (o quitar la etiqueta).');
+  warnings.push('El Design System menciona "Accent (Serif) Italic" pero no hay ninguna muestra .accent-italic — verificar typography.reference_uses_italic (o quitar la etiqueta).');
 }
 
-// 7. Contraste del chrome del showcase (WCAG): texto vs. el fondo sobre el que realmente se pinta
+// 7. Contraste del chrome del Design System (WCAG): texto vs. el fondo sobre el que realmente se pinta
 // El rail izquierdo va sobre --bg-sunken (no sobre --bg): una marca clara con rail oscuro dejaba el texto ilegible.
 const { parseColor, contrastRatio } = require('./contrast.cjs');
 
@@ -341,13 +341,45 @@ if (!rootVars['--bg'] || !rootVars['--fg']) {
   }
 }
 
+// 8. Las fuentes que el estado declara deben cargarse de verdad
+// Un @font-face con solo local('X') o con un archivo inexistente deja el Design System en la fuente de respaldo
+// sin que se note: lo que se muestra no es la fuente que el cliente eligió. Si no hay archivo utilizable, el estado
+// debe declarar la sustitución (typography.font_substitutions) para que quede como advertencia explícita.
+{
+  const { firstFamily, fontLoader } = require('./font-loading.cjs');
+  const stateCandidates = [path.join(path.dirname(filePath), 'design-system-state.json'), path.join(process.cwd(), 'design-system-state.json')];
+  let state = null;
+  for (const candidate of stateCandidates) {
+    try { state = JSON.parse(fs.readFileSync(candidate, 'utf8').replace(/^﻿/, '')); break; } catch (e) { /* siguiente */ }
+  }
+  const typo = state && state.typography && typeof state.typography === 'object' ? state.typography : null;
+  if (typo) {
+    const loader = fontLoader(cssOnly, htmlNoComments, path.dirname(filePath));
+    const declared = Array.isArray(typo.font_substitutions) ? typo.font_substitutions : [];
+    const substituted = new Set(declared.filter(s => s && s.family).map(s => String(s.family).trim().toLowerCase()));
+    const roles = [['font_display', 'titulares'], ['font_ui', 'interfaz y texto'], ['font_accent_italic', 'acento']];
+    const seen = new Set();
+    for (const [key, label] of roles) {
+      const family = firstFamily(typo[key]);
+      if (!family || seen.has(family.toLowerCase())) continue;
+      seen.add(family.toLowerCase());
+      if (loader.has(family)) continue;
+      if (substituted.has(family.toLowerCase())) {
+        warnings.push(`La fuente ${family} (${label}) no se carga y está declarada como sustituida en typography.font_substitutions: el Design System se ve con la fuente de respaldo.`);
+      } else {
+        errors.push(`La fuente ${family} (${label}) está en el estado pero no se carga: ${loader.why(family)}. Adjunta su archivo (TTF, OTF, WOFF o WOFF2) a uploads/, cópialo a assets/fonts/ y declara @font-face con url(); si el cliente no puede aportarlo, declara la sustitución en typography.font_substitutions ({ family, reason, substitute }) y avísale.`);
+      }
+    }
+  }
+}
+
 // Report results
 console.log('========================================');
-console.log(`AUDITORÍA TÉCNICA DEL SHOWCASE: ${path.basename(filePath)}`);
+console.log(`AUDITORÍA TÉCNICA DEL DESIGN SYSTEM: ${path.basename(filePath)}`);
 console.log('========================================');
 
 if (errors.length === 0 && warnings.length === 0) {
-  console.log('✅ ESTADO: 100% PASS — Showcase validado con éxito. Sin placeholders huérfanos.');
+  console.log('✅ ESTADO: 100% PASS — Design System validado con éxito. Sin placeholders huérfanos.');
   process.exit(0);
 } else {
   if (warnings.length > 0) {

@@ -1,15 +1,15 @@
 /**
- * compile_showcase.cjs — Compilador canónico del Living Design System Showcase
+ * compile_design_system.cjs — Compilador canónico del Living Design System
  *
  * Lee 'design-system-state.json' y compila 'templates/design-system.html'
  * inyectando la totalidad de tokens cromáticos, tipográficos, componentes vivos,
  * estados canónicos y auditoría WCAG para la marca activa.
  *
- * Uso: node scripts/compile_showcase.cjs <ruta-al-state.json> [ruta-al-showcase.html]
+ * Uso: node scripts/compile_design_system.cjs <ruta-al-state.json> [ruta-al-design-system.html]
  *      (sin la segunda ruta escribe <Marca>_Design_System.html junto al state.json)
  *
  * Nota: parte del contenido de muestra (ecualizador de ejes, auditoría WCAG de ejemplo) sigue siendo fijo y no se
- * calcula desde el state. Por eso el prompt de los agentes construye el showcase sobre templates/design-system.html
+ * calcula desde el state. Por eso el prompt de los agentes construye el Design System sobre templates/design-system.html
  * en lugar de invocar este compilador.
  */
 
@@ -29,10 +29,10 @@ function hexToRgb(hex) {
   return `${(num >> 16) & 255}, ${(num >> 8) & 255}, ${num & 255}`;
 }
 
-function compileShowcase(statePath, outputPath) {
+function compileDesignSystem(statePath, outputPath) {
   // Sin ruta explícita no se adivina ningún proyecto (antes caía en uno concreto de ejemplo y compilaba su marca)
   if (!statePath) {
-    throw new Error('Uso: node compile_showcase.cjs <ruta-al-state.json> [ruta-de-salida.html]');
+    throw new Error('Uso: node compile_design_system.cjs <ruta-al-state.json> [ruta-de-salida.html]');
   }
   statePath = path.resolve(process.cwd(), statePath);
 
@@ -469,7 +469,7 @@ function compileShowcase(statePath, outputPath) {
   outputPath = path.resolve(process.cwd(), outputPath);
 
   fs.writeFileSync(outputPath, html, 'utf8');
-  console.log(`✓ Showcase compilado exitosamente en: ${outputPath}`);
+  console.log(`✓ Design System compilado exitosamente en: ${outputPath}`);
   return outputPath;
 }
 
@@ -477,12 +477,12 @@ if (require.main === module) {
   const stateArg = process.argv[2];
   const outArg = process.argv[3];
   try {
-    const res = compileShowcase(stateArg, outArg);
+    const res = compileDesignSystem(stateArg, outArg);
     console.log('Compilación finalizada:', res);
   } catch (err) {
-    console.error('Error al compilar showcase:', err.message);
+    console.error('Error al compilar el Design System:', err.message);
     process.exit(1);
   }
 }
 
-module.exports = { compileShowcase };
+module.exports = { compileDesignSystem };
