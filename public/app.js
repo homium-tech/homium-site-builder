@@ -310,12 +310,12 @@ const WELCOME_MESSAGE_HTML = `
           <path d="M12 16v-4"></path>
           <path d="M12 8h.01"></path>
         </svg>
-        <span class="sender-name">Lead Engineer</span>
+        <span class="sender-name">Homium</span>
         <span class="message-time">Ahora</span>
       </div>
       <div class="message-body">
-        <p>Hola, soy tu <strong>Lead Design Systems Engineer</strong>. Vamos a construir tu sistema de diseño paso a paso.</p>
-        <p>Para comenzar: <em>¿cuál es el nombre de tu marca o empresa, o tienes una URL de referencia para extraer su DNA visual forense?</em></p>
+        <p>Bienvenido. Vamos a construir el sistema de diseño de tu marca paso a paso.</p>
+        <p>Para comenzar necesito dos cosas: <em>¿cuál es el <strong>nombre del proyecto</strong>?</em> y, si lo tienes, <em>adjunta el <strong>manual de marca</strong></em> (PDF o imágenes) para tomar de ahí colores, tipografías y logo. Si no tienes manual, también puedes darme una URL de referencia.</p>
         <div class="welcome-suggestions">
           <button type="button" class="quick-chip" data-prompt="Quiero crear el sistema de diseño para una marca llamada Lumina, un SaaS de finanzas">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
@@ -341,7 +341,7 @@ const BLUEPRINT_EMPTY_HTML = `
       <div class="waiting-card">
         <span class="category-eyebrow">Fase 1 Pendiente</span>
         <h2>Blueprint <em>en espera.</em></h2>
-        <p>La paleta de colores, tipografía y blueprint estructural se compilarán en disco automáticamente a medida que el Lead Engineer avance en el chat.</p>
+        <p>La paleta de colores, tipografía y blueprint estructural se compilarán en disco automáticamente a medida que Homium avance en el chat.</p>
         <div class="status-pill">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="10"></circle>
@@ -1158,7 +1158,7 @@ async function sendMessage(text = null) {
   agentDiv.className = 'message agent-message';
   agentDiv.innerHTML = `
     <div class="message-meta">
-      <span class="sender-name">Lead Engineer</span>
+      <span class="sender-name">Homium</span>
       <span class="message-time">Generando…</span>
     </div>
     <div class="agent-activity-pill" style="display: none;">
@@ -3072,7 +3072,7 @@ function renderResumedChatState(data, fromCache = false) {
 
     priorMessages.forEach(msg => {
       const isUser = msg.role === 'user';
-      const senderName = isUser ? 'Tú' : 'Lead Engineer';
+      const senderName = isUser ? 'Tú' : 'Homium';
       const msgText = msg.content || msg.text || '';
       const timeStr = msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
       chatHtml += `
@@ -3099,7 +3099,7 @@ function renderResumedChatState(data, fromCache = false) {
           <path d="M12 16v-4"></path>
           <path d="M12 8h.01"></path>
         </svg>
-        <span class="sender-name">Lead Engineer</span>
+        <span class="sender-name">Homium</span>
         <span class="message-time">Estado restaurado</span>
       </div>
       <div class="message-body">
@@ -3193,7 +3193,7 @@ function resumeRunningTurn(trailingUserMessages) {
   const agentDiv = document.createElement('div');
   agentDiv.className = 'message agent-message';
   agentDiv.innerHTML = `
-    <div class="message-meta"><span class="sender-name">Lead Engineer</span><span class="message-time">Generando…</span></div>
+    <div class="message-meta"><span class="sender-name">Homium</span><span class="message-time">Generando…</span></div>
     <div class="message-body"><p class="turn-recovering">El agente sigue trabajando en tu mensaje anterior. Cuando termine verás aquí su respuesta.</p></div>
   `;
   chatMessages.appendChild(agentDiv);

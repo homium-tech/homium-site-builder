@@ -1,7 +1,7 @@
 # Design System Documentación Maestra: {{BRAND_NAME}}
 
 **Versión:** 1.0.0  
-**Arquitecto / Lead Engineer:** Lead Design Systems Engineer & UI Architect  
+**Generado por:** Homium Site Builder  
 **Estándar de Accesibilidad:** WCAG 2.2 AAA (Triple AAA)  
 **Plataforma Objetivo:** {{PLATFORM}}  
 
